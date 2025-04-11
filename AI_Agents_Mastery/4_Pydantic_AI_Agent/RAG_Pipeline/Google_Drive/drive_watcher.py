@@ -302,27 +302,13 @@ class GoogleDriveWatcher:
             return
         
         # Extract text from the file
-        text = extract_text_from_file(file_content, mime_type, self.config)
+        text = extract_text_from_file(file_content, mime_type, file_name, self.config)
         if not text:
             print(f"No text could be extracted from file '{file_name}' (ID: {file_id})")
             return
         
-        # Get text processing settings from config
-        text_processing = self.config.get('text_processing', {})
-        chunk_size = text_processing.get('default_chunk_size', 400)
-        chunk_overlap = text_processing.get('default_chunk_overlap', 0)
-        
-        # Chunk the text
-        chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
-        if not chunks:
-            print(f"No chunks were created for file '{file_name}' (ID: {file_id})")
-            return
-        
-        # Create embeddings for the chunks
-        embeddings = create_embeddings(chunks)
-        
         # Process the file for RAG
-        process_file_for_rag(file_content, text, file_id, web_view_link, file_name, embeddings, mime_type, self.config)
+        process_file_for_rag(file_content, text, file_id, web_view_link, file_name, mime_type, self.config)
         
         # Update the known files dictionary
         self.known_files[file_id] = file.get('modifiedTime')

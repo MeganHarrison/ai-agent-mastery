@@ -5,10 +5,11 @@ import json
 from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client, Client
+import base64
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from text_processor import chunk_text, is_tabular_file, extract_schema_from_csv, extract_rows_from_csv
+from text_processor import chunk_text, create_embeddings, is_tabular_file, extract_schema_from_csv, extract_rows_from_csv
 
 # Load environment variables
 load_dotenv()
@@ -47,8 +48,8 @@ def delete_document_by_file_id(file_id: str) -> None:
     except Exception as e:
         print(f"Error deleting documents: {e}")
 
-def insert_document_chunks(chunks: List[str], embeddings: List[List[float]], 
-                          file_id: str, file_url: str, file_title: str) -> None:
+def insert_document_chunks(chunks: List[str], embeddings: List[List[float]], file_id: str, 
+                        file_url: str, file_title: str, mime_type: str, file_contents: bytes | None = None) -> None:
     """
     Insert document chunks with their embeddings into the Supabase database.
     
@@ -58,28 +59,36 @@ def insert_document_chunks(chunks: List[str], embeddings: List[List[float]],
         file_id: The Google Drive file ID
         file_url: The URL to access the file
         file_title: The title of the file
+        mime_type: The mime type of the file
+        file_contents: Optional binary of the file to store as metadata
     """
-    # Ensure we have the same number of chunks and embeddings
-    if len(chunks) != len(embeddings):
-        raise ValueError("Number of chunks and embeddings must match")
-    
-    # Prepare the data for insertion
-    data = []
-    for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-        data.append({
-            "content": chunk,
-            "metadata": {
-                "file_id": file_id,
-                "file_url": file_url,
-                "file_title": file_title,
-                "chunk_index": i
-            },
-            "embedding": embedding
-        })
-    
-    # Insert the data into the documents table
-    for item in data:
-        supabase.table("documents").insert(item).execute()
+    try:
+        # Ensure we have the same number of chunks and embeddings
+        if len(chunks) != len(embeddings):
+            raise ValueError("Number of chunks and embeddings must match")
+        
+        # Prepare the data for insertion
+        data = []
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            file_bytes_str = base64.b64encode(file_contents).decode('utf-8') if file_contents else None
+            data.append({
+                "content": chunk,
+                "metadata": {
+                    "file_id": file_id,
+                    "file_url": file_url,
+                    "file_title": file_title,
+                    "mime_type": mime_type,
+                    "chunk_index": i,
+                    **({"file_contents": file_bytes_str} if file_bytes_str else {})
+                },
+                "embedding": embedding
+            })
+        
+        # Insert the data into the documents table
+        for item in data:
+            supabase.table("documents").insert(item).execute()
+    except Exception as e:
+        print(f"Error inserting/updating document chunks: {e}")
 
 def insert_or_update_document_metadata(file_id: str, file_title: str, file_url: str, schema: Optional[List[str]] = None) -> None:
     """
@@ -140,47 +149,65 @@ def insert_document_rows(file_id: str, rows: List[Dict[str, Any]]) -> None:
     except Exception as e:
         print(f"Error inserting document rows: {e}")
 
-def process_file_for_rag(file_content: bytes, content: str, file_id: str, file_url: str, 
-                        file_title: str, embeddings: List[List[float]], mime_type: str = None,
-                        config: Dict[str, Any] = None) -> None:
+def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url: str, 
+                        file_title: str, mime_type: str = None, config: Dict[str, Any] = None) -> None:
     """
     Process a file for the RAG pipeline - delete existing records and insert new ones.
     
     Args:
         file_content: The binary content of the file
-        content: The text content extracted from the file
+        text: The text content extracted from the file
         file_id: The Google Drive file ID
         file_url: The URL to access the file
         file_title: The title of the file
-        embeddings: List of embedding vectors for the chunks
+        mime_type: Mime type of the file
+        config: Configuration for things like the chunk size and overlap
     """
-    # First, delete any existing records for this file
-    delete_document_by_file_id(file_id)
-    
-    # Check if this is a tabular file
-    is_tabular = False
-    schema = None
-    
-    if mime_type:
-        is_tabular = is_tabular_file(mime_type, config)
+    try:
+        # First, delete any existing records for this file
+        delete_document_by_file_id(file_id)
         
-    if is_tabular:
-        # Extract schema (column names) from CSV
-        schema = extract_schema_from_csv(file_content)
-    
-    # First, insert or update document metadata (needed for foreign key constraint)
-    insert_or_update_document_metadata(file_id, file_title, file_url, schema)
-    
-    # Then, if it's a tabular file, insert the rows
-    if is_tabular:
-        # Extract and insert rows for tabular files
-        rows = extract_rows_from_csv(file_content)
-        if rows:
-            insert_document_rows(file_id, rows)
-    
-    # Then insert the new chunks with embeddings
-    # Chunk the text (400 characters per chunk, no overlap)
-    chunks = chunk_text(content, chunk_size=400, overlap=0)
-    
-    # Insert the chunks with their embeddings
-    insert_document_chunks(chunks, embeddings, file_id, file_url, file_title)
+        # Check if this is a tabular file
+        is_tabular = False
+        schema = None
+        
+        if mime_type:
+            is_tabular = is_tabular_file(mime_type, config)
+            
+        if is_tabular:
+            # Extract schema (column names) from CSV
+            schema = extract_schema_from_csv(file_content)
+        
+        # First, insert or update document metadata (needed for foreign key constraint)
+        insert_or_update_document_metadata(file_id, file_title, file_url, schema)
+        
+        # Then, if it's a tabular file, insert the rows
+        if is_tabular:
+            # Extract and insert rows for tabular files
+            rows = extract_rows_from_csv(file_content)
+            if rows:
+                insert_document_rows(file_id, rows)
+
+        # Get text processing settings from config
+        text_processing = config.get('text_processing', {})
+        chunk_size = text_processing.get('default_chunk_size', 400)
+        chunk_overlap = text_processing.get('default_chunk_overlap', 0)
+
+        # Chunk the text
+        chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
+        if not chunks:
+            print(f"No chunks were created for file '{file_name}' (Path: {file_path})")
+            return
+        
+        # Create embeddings for the chunks
+        embeddings = create_embeddings(chunks)  
+
+        # For images, don't chunk the image, just store the title for RAG and include the binary in the metadata
+        if mime_type.startswith("image"):
+            insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type, file_content)
+            return
+        
+        # Insert the chunks with their embeddings
+        insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type)
+    except Exception as e:
+        print(f"Error processing file for RAG: {e}")        

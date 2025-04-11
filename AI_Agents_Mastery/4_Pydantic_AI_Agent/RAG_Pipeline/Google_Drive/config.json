@@ -8,7 +8,11 @@
     "application/vnd.google-apps.document",
     "application/vnd.google-apps.spreadsheet",
     "application/vnd.google-apps.presentation",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "image/png",
+    "image/jpg",
+    "image/jpeg",
+    "image/svg"
   ],
   "export_mime_types": {
     "application/vnd.google-apps.document": "text/plain",

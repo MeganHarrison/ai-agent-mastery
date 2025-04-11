@@ -73,7 +73,7 @@ def extract_text_from_pdf(file_content: bytes) -> str:
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
-def extract_text_from_file(file_content: bytes, mime_type: str, config: Dict[str, Any] = None) -> str:
+def extract_text_from_file(file_content: bytes, mime_type: str, file_name: str, config: Dict[str, Any] = None) -> str:
     """
     Extract text from a file based on its MIME type.
     
@@ -91,6 +91,8 @@ def extract_text_from_file(file_content: bytes, mime_type: str, config: Dict[str
     
     if 'application/pdf' in mime_type:
         return extract_text_from_pdf(file_content)
+    elif mime_type.startswith('image'):
+        return file_name
     elif config and any(mime_type.startswith(t) for t in supported_mime_types):
         return file_content.decode('utf-8', errors='replace')
     else:

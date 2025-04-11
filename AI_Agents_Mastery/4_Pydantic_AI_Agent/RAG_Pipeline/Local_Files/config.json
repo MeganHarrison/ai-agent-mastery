@@ -6,7 +6,11 @@
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/png",
+    "image/jpg",
+    "image/jpeg",
+    "image/svg"
   ],
   "tabular_mime_types": [
     "text/csv",
@@ -17,6 +21,6 @@
     "default_chunk_size": 400,
     "default_chunk_overlap": 0
   },
-  "last_check_time": "2025-04-09T10:33:10.455231Z",
+  "last_check_time": "2025-04-10T19:29:12.132095Z",
   "watch_directory": "C:\\Users\\colem\\OneDrive\\Documents\\ExampleProject\\DataDir"
 }
