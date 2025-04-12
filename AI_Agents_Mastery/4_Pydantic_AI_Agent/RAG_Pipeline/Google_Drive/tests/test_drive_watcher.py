@@ -10,9 +10,27 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import time
 
-# Add the parent directory to sys.path to import the modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from Google_Drive.drive_watcher import GoogleDriveWatcher, SCOPES
+# Mock environment variables before importing modules that use them
+with patch.dict(os.environ, {
+    'SUPABASE_URL': 'https://test-supabase-url.com',
+    'SUPABASE_SERVICE_KEY': 'test-supabase-key',
+    'EMBEDDING_PROVIDER': 'openai',
+    'EMBEDDING_BASE_URL': 'https://api.openai.com/v1',
+    'EMBEDDING_API_KEY': 'test-embedding-key',
+    'EMBEDDING_MODEL_CHOICE': 'text-embedding-3-small',
+    'LLM_PROVIDER': 'openai',
+    'LLM_BASE_URL': 'https://api.openai.com/v1',
+    'LLM_API_KEY': 'test-llm-key',
+    'VISION_LLM_CHOICE': 'gpt-4-vision-preview'
+}):
+    # Mock the Supabase client
+    with patch('supabase.create_client') as mock_create_client:
+        mock_supabase = MagicMock()
+        mock_create_client.return_value = mock_supabase
+        
+        # Add the parent directory to sys.path to import the modules
+        sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+        from Google_Drive.drive_watcher import GoogleDriveWatcher, SCOPES
 
 class TestGoogleDriveWatcher:
     @pytest.fixture
