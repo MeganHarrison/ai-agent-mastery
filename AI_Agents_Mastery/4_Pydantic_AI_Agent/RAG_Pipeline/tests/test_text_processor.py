@@ -8,17 +8,30 @@ import json
 import tempfile
 from typing import List, Dict, Any
 
-# Add the parent directory to sys.path to import the modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from common.text_processor import (
-    chunk_text, 
-    extract_text_from_pdf, 
-    extract_text_from_file, 
-    create_embeddings, 
-    is_tabular_file, 
-    extract_schema_from_csv, 
-    extract_rows_from_csv
-)
+# Mock environment variables before importing modules that use them
+with patch.dict(os.environ, {
+    'EMBEDDING_PROVIDER': 'openai',
+    'EMBEDDING_BASE_URL': 'https://api.openai.com/v1',
+    'EMBEDDING_API_KEY': 'test-api-key',
+    'EMBEDDING_MODEL_CHOICE': 'text-embedding-3-small'
+}):
+    # Mock the AsyncOpenAI client before it's used in text_processor
+    with patch('openai.AsyncOpenAI') as mock_openai_client:
+        # Configure the mock to return a MagicMock
+        mock_client = MagicMock()
+        mock_openai_client.return_value = mock_client
+        
+        # Add the parent directory to sys.path to import the modules
+        sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+        from common.text_processor import (
+            chunk_text, 
+            extract_text_from_pdf, 
+            extract_text_from_file, 
+            create_embeddings, 
+            is_tabular_file, 
+            extract_schema_from_csv, 
+            extract_rows_from_csv
+        )
 
 class TestChunkText:
     def test_empty_text(self):
@@ -96,7 +109,7 @@ class TestExtractTextFromFile:
         """Test extracting text from PDF file"""
         mock_extract_pdf.return_value = "PDF content"
         
-        result = extract_text_from_file(b'fake pdf content', 'application/pdf')
+        result = extract_text_from_file(b'fake pdf content', 'application/pdf', 'test.pdf')
         
         mock_extract_pdf.assert_called_once_with(b'fake pdf content')
         assert result == "PDF content"
@@ -105,9 +118,10 @@ class TestExtractTextFromFile:
         """Test extracting text from text file"""
         content = b'Text file content'
         mime_type = 'text/plain'
+        file_name = 'test.txt'
         config = {'supported_mime_types': ['text/plain']}
         
-        result = extract_text_from_file(content, mime_type, config)
+        result = extract_text_from_file(content, mime_type, file_name, config)
         
         assert result == "Text file content"
     
@@ -115,10 +129,14 @@ class TestExtractTextFromFile:
         """Test extracting text from unsupported file type"""
         content = b'Some content'
         mime_type = 'application/octet-stream'
+        file_name = 'test.bin'
         
-        result = extract_text_from_file(content, mime_type)
+        result = extract_text_from_file(content, mime_type, file_name)
         
         assert result == "Some content"
+
+# Global reference to the mocked OpenAI client
+openai_client_mock = mock_client
 
 class TestCreateEmbeddings:
     def test_empty_list(self):
@@ -126,28 +144,33 @@ class TestCreateEmbeddings:
         result = create_embeddings([])
         assert result == []
     
-    @patch('common.text_processor.openai_client')
-    def test_with_text(self, mock_client):
+    @pytest.fixture
+    def openai_client_mock(self):
+        return MagicMock()
+    
+    def test_with_text(self, openai_client_mock):
         """Test creating embeddings"""
-        # Setup mock response
-        mock_response = MagicMock()
-        mock_item1 = MagicMock()
-        mock_item1.embedding = [0.1, 0.2, 0.3]
-        mock_item2 = MagicMock()
-        mock_item2.embedding = [0.4, 0.5, 0.6]
-        mock_response.data = [mock_item1, mock_item2]
+        # Patch the openai_client in text_processor
+        with patch('common.text_processor.openai_client', openai_client_mock):
+            # Setup mock response
+            mock_response = MagicMock()
+            mock_item1 = MagicMock()
+            mock_item1.embedding = [0.1, 0.2, 0.3]
+            mock_item2 = MagicMock()
+            mock_item2.embedding = [0.4, 0.5, 0.6]
+            mock_response.data = [mock_item1, mock_item2]
+            
+            openai_client_mock.embeddings.create.return_value = mock_response
         
-        mock_client.embeddings.create.return_value = mock_response
-        
-        # Call the function
-        result = create_embeddings(["Text 1", "Text 2"])
-        
-        # Assertions
-        mock_client.embeddings.create.assert_called_once_with(
-            model="text-embedding-3-small",
-            input=["Text 1", "Text 2"]
-        )
-        assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+            # Call the function
+            result = create_embeddings(["Text 1", "Text 2"])
+            
+            # Assertions
+            openai_client_mock.embeddings.create.assert_called_once_with(
+                model=None,  # This matches the actual call when EMBEDDING_MODEL_CHOICE is not set
+                input=["Text 1", "Text 2"]
+            )
+            assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
 
 class TestIsTabularFile:
     @pytest.mark.parametrize("mime_type,expected", [

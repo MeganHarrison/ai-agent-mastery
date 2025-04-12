@@ -324,11 +324,8 @@ class TestGoogleDriveWatcher:
     
     @patch.object(GoogleDriveWatcher, 'download_file')
     @patch('Google_Drive.drive_watcher.extract_text_from_file')
-    @patch('Google_Drive.drive_watcher.chunk_text')
-    @patch('Google_Drive.drive_watcher.create_embeddings')
     @patch('Google_Drive.drive_watcher.process_file_for_rag')
-    def test_process_file_success(self, mock_process_rag, mock_create_embeddings, 
-                                mock_chunk_text, mock_extract_text, mock_download, watcher):
+    def test_process_file_success(self, mock_process_rag, mock_extract_text, mock_download, watcher):
         """Test successfully processing a file"""
         # Setup mocks
         file_data = {
@@ -340,20 +337,16 @@ class TestGoogleDriveWatcher:
         }
         mock_download.return_value = b'file content'
         mock_extract_text.return_value = 'extracted text'
-        mock_chunk_text.return_value = ['chunk1', 'chunk2']
-        mock_create_embeddings.return_value = [[0.1, 0.2], [0.3, 0.4]]
         
         # Call the method
         watcher.process_file(file_data)
         
         # Verify all steps were called correctly
         mock_download.assert_called_once_with('file1', 'text/plain')
-        mock_extract_text.assert_called_once_with(b'file content', 'text/plain', watcher.config)
-        mock_chunk_text.assert_called_once()
-        mock_create_embeddings.assert_called_once_with(['chunk1', 'chunk2'])
+        mock_extract_text.assert_called_once_with(b'file content', 'text/plain', 'test.txt', watcher.config)
         mock_process_rag.assert_called_once_with(
             b'file content', 'extracted text', 'file1', 'https://example.com/file1', 
-            'test.txt', [[0.1, 0.2], [0.3, 0.4]], 'text/plain', watcher.config
+            'test.txt', 'text/plain', watcher.config
         )
         
         # Verify known files was updated

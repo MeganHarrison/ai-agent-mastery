@@ -5,15 +5,31 @@ import sys
 import json
 from io import BytesIO
 
-# Add the parent directory to sys.path to import the modules
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from common.db_handler import (
-    delete_document_by_file_id,
-    insert_document_chunks,
-    insert_or_update_document_metadata,
-    insert_document_rows,
-    process_file_for_rag
-)
+# Mock environment variables before importing modules that use them
+with patch.dict(os.environ, {
+    'SUPABASE_URL': 'https://test-supabase-url.com',
+    'SUPABASE_SERVICE_KEY': 'test-supabase-key'
+}):
+    # Mock the create_client function before it's used in db_handler
+    with patch('supabase.create_client') as mock_create_client:
+        # Configure the mock to return a MagicMock
+        mock_supabase = MagicMock()
+        mock_create_client.return_value = mock_supabase
+        
+        # Add the parent directory to sys.path to import the modules
+        sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+        from common.db_handler import (
+            delete_document_by_file_id,
+            insert_document_chunks,
+            insert_or_update_document_metadata,
+            insert_document_rows,
+            process_file_for_rag
+        )
+
+# Create a mock for supabase client
+@pytest.fixture
+def mock_supabase():
+    return MagicMock()
 
 class TestDeleteDocumentByFileId:
     @patch('common.db_handler.supabase')
@@ -86,7 +102,7 @@ class TestInsertDocumentChunks:
         mock_supabase.table.return_value = mock_table
         
         # Call the function
-        insert_document_chunks(chunks, embeddings, file_id, file_url, file_title)
+        insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, "text/plain")
         
         # Assertions
         mock_supabase.table.assert_called_with("documents")
@@ -107,15 +123,23 @@ class TestInsertDocumentChunks:
         assert second_call_args["embedding"] == [0.3, 0.4]
         assert second_call_args["metadata"]["chunk_index"] == 1
     
-    def test_mismatch_error(self):
+    def test_mismatch_error(self, capfd):
         """Test error when chunks and embeddings counts don't match"""
         chunks = ["Chunk 1", "Chunk 2"]
         embeddings = [[0.1, 0.2]]  # Only one embedding
-        
-        with pytest.raises(ValueError) as excinfo:
-            insert_document_chunks(chunks, embeddings, "file123", "https://example.com", "Test File")
-        
-        assert "Number of chunks and embeddings must match" in str(excinfo.value)
+        file_id = "file123"
+        file_url = "https://example.com/file123"
+        file_title = "Test File"
+        mime_type = "text/plain"
+
+        # Mock the supabase client to avoid actual API calls
+        with patch('common.db_handler.supabase'):
+            # The function catches the ValueError and prints an error message
+            insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type)
+            
+            # Capture the printed output
+            captured = capfd.readouterr()
+            assert "Error inserting/updating document chunks: Number of chunks and embeddings must match" in captured.out
 
 class TestInsertOrUpdateDocumentMetadata:
     @patch('common.db_handler.supabase')
@@ -261,7 +285,8 @@ class TestProcessFileForRag:
              patch('common.db_handler.is_tabular_file') as mock_is_tabular, \
              patch('common.db_handler.extract_schema_from_csv') as mock_extract_schema, \
              patch('common.db_handler.extract_rows_from_csv') as mock_extract_rows, \
-             patch('common.db_handler.chunk_text') as mock_chunk_text:
+             patch('common.db_handler.chunk_text') as mock_chunk_text, \
+             patch('common.db_handler.create_embeddings') as mock_create_embeddings:
             
             yield {
                 'delete_document': mock_delete_document,
@@ -271,7 +296,8 @@ class TestProcessFileForRag:
                 'is_tabular': mock_is_tabular,
                 'extract_schema': mock_extract_schema,
                 'extract_rows': mock_extract_rows,
-                'chunk_text': mock_chunk_text
+                'chunk_text': mock_chunk_text,
+                'create_embeddings': mock_create_embeddings
             }
     
     def test_non_tabular_file(self, setup_mocks):
@@ -281,6 +307,7 @@ class TestProcessFileForRag:
         # Setup mocks
         mocks['is_tabular'].return_value = False
         mocks['chunk_text'].return_value = ["Chunk 1", "Chunk 2"]
+        mocks['create_embeddings'].return_value = [[0.1, 0.2], [0.3, 0.4]]
         
         # Test data
         file_content = b'file content'
@@ -288,24 +315,25 @@ class TestProcessFileForRag:
         file_id = "file123"
         file_url = "https://example.com/file123"
         file_title = "Test File"
-        embeddings = [[0.1, 0.2], [0.3, 0.4]]
         mime_type = "text/plain"
         
         # Call the function
         process_file_for_rag(
-            file_content, content, file_id, file_url, file_title, 
-            embeddings, mime_type
+            file_content, content, file_id, file_url, file_title,
+            mime_type, config={'text_processing': {'default_chunk_size': 400, 'default_chunk_overlap': 0}}
         )
         
         # Assertions
         mocks['delete_document'].assert_called_once_with(file_id)
-        mocks['is_tabular'].assert_called_once_with(mime_type, None)
+        mocks['is_tabular'].assert_called_once_with(mime_type, {'text_processing': {'default_chunk_size': 400, 'default_chunk_overlap': 0}})
         mocks['insert_metadata'].assert_called_once_with(file_id, file_title, file_url, None)
         mocks['extract_rows'].assert_not_called()
         mocks['insert_rows'].assert_not_called()
         mocks['chunk_text'].assert_called_once_with(content, chunk_size=400, overlap=0)
+        mocks['create_embeddings'].assert_called_once_with(["Chunk 1", "Chunk 2"])
         mocks['insert_chunks'].assert_called_once_with(
-            ["Chunk 1", "Chunk 2"], embeddings, file_id, file_url, file_title
+            ["Chunk 1", "Chunk 2"], [[0.1, 0.2], [0.3, 0.4]], 
+            file_id, file_url, file_title, mime_type
         )
     
     def test_tabular_file(self, setup_mocks):
@@ -317,6 +345,7 @@ class TestProcessFileForRag:
         mocks['extract_schema'].return_value = ["col1", "col2"]
         mocks['extract_rows'].return_value = [{"col1": "val1", "col2": "val2"}]
         mocks['chunk_text'].return_value = ["Chunk 1", "Chunk 2"]
+        mocks['create_embeddings'].return_value = [[0.1, 0.2], [0.3, 0.4]]
         
         # Test data
         file_content = b'col1,col2\nval1,val2'
@@ -324,23 +353,24 @@ class TestProcessFileForRag:
         file_id = "file123"
         file_url = "https://example.com/file123"
         file_title = "Test File.csv"
-        embeddings = [[0.1, 0.2], [0.3, 0.4]]
         mime_type = "text/csv"
         
         # Call the function
         process_file_for_rag(
-            file_content, content, file_id, file_url, file_title, 
-            embeddings, mime_type
+            file_content, content, file_id, file_url, file_title,
+            mime_type, config={'text_processing': {'default_chunk_size': 400, 'default_chunk_overlap': 0}}
         )
         
         # Assertions
         mocks['delete_document'].assert_called_once_with(file_id)
-        mocks['is_tabular'].assert_called_once_with(mime_type, None)
+        mocks['is_tabular'].assert_called_once_with(mime_type, {'text_processing': {'default_chunk_size': 400, 'default_chunk_overlap': 0}})
         mocks['extract_schema'].assert_called_once_with(file_content)
         mocks['insert_metadata'].assert_called_once_with(file_id, file_title, file_url, ["col1", "col2"])
         mocks['extract_rows'].assert_called_once_with(file_content)
         mocks['insert_rows'].assert_called_once_with(file_id, [{"col1": "val1", "col2": "val2"}])
         mocks['chunk_text'].assert_called_once_with(content, chunk_size=400, overlap=0)
+        mocks['create_embeddings'].assert_called_once_with(["Chunk 1", "Chunk 2"])
         mocks['insert_chunks'].assert_called_once_with(
-            ["Chunk 1", "Chunk 2"], embeddings, file_id, file_url, file_title
+            ["Chunk 1", "Chunk 2"], [[0.1, 0.2], [0.3, 0.4]], 
+            file_id, file_url, file_title, mime_type
         )

@@ -5,19 +5,46 @@ import json
 import base64
 from unittest.mock import patch, MagicMock, AsyncMock, call
 
-# Add parent directory to path to import the tools module
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from tools import (
-    brave_web_search,
-    searxng_web_search,
-    web_search_tool,
-    get_embedding,
-    retrieve_relevant_documents_tool,
-    list_documents_tool,
-    get_document_content_tool,
-    image_analysis_tool,
-    execute_safe_code_tool
-)
+# Mock environment variables before importing modules that use them
+with patch.dict(os.environ, {
+    'LLM_PROVIDER': 'openai',
+    'LLM_BASE_URL': 'https://api.openai.com/v1',
+    'LLM_API_KEY': 'test-api-key',
+    'LLM_CHOICE': 'gpt-4o-mini',
+    'VISION_LLM_CHOICE': 'gpt-4o-mini',
+    'EMBEDDING_PROVIDER': 'openai',
+    'EMBEDDING_BASE_URL': 'https://api.openai.com/v1',
+    'EMBEDDING_API_KEY': 'test-api-key',
+    'EMBEDDING_MODEL_CHOICE': 'text-embedding-3-small',
+    'SUPABASE_URL': 'https://test-supabase-url.com',
+    'SUPABASE_SERVICE_KEY': 'test-supabase-key',
+    'BRAVE_API_KEY': 'test-brave-key',
+    'SEARXNG_BASE_URL': 'http://test-searxng-url.com'
+}):
+    # Mock the AsyncOpenAI client before it's used in tools
+    with patch('openai.AsyncOpenAI') as mock_openai_client:
+        # Configure the mock to return a MagicMock
+        mock_client = MagicMock()
+        mock_openai_client.return_value = mock_client
+        
+        # Mock the Supabase client
+        with patch('supabase.create_client') as mock_create_client:
+            mock_supabase = MagicMock()
+            mock_create_client.return_value = mock_supabase
+            
+            # Add parent directory to path to import the tools module
+            sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from tools import (
+                brave_web_search,
+                searxng_web_search,
+                web_search_tool,
+                get_embedding,
+                retrieve_relevant_documents_tool,
+                list_documents_tool,
+                get_document_content_tool,
+                image_analysis_tool,
+                execute_safe_code_tool
+            )
 
 
 class TestWebSearchTools:
@@ -203,6 +230,9 @@ class TestWebSearchTools:
         # Verify exception was handled
         assert "Test exception" in result
 
+
+# Global reference to the mocked OpenAI client
+openai_client_mock = mock_client
 
 class TestEmbeddingTools:
     @pytest.mark.asyncio
