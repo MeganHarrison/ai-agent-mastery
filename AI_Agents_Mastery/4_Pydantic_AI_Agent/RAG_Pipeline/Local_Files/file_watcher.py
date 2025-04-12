@@ -13,10 +13,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.text_processor import extract_text_from_file, chunk_text, create_embeddings
 from common.db_handler import process_file_for_rag, delete_document_by_file_id
 
-# Load environment variables
-from dotenv import load_dotenv
-load_dotenv()
-
 class LocalFileWatcher:
     def __init__(self, watch_directory: str = None, config_path: str = None):
         """
@@ -265,12 +261,15 @@ class LocalFileWatcher:
             return
         
         # Process the file for RAG
-        process_file_for_rag(file_content, text, file_path, web_view_link, file_name, mime_type, self.config)
+        success = process_file_for_rag(file_content, text, file_path, web_view_link, file_name, mime_type, self.config)
         
         # Update the known files dictionary
         self.known_files[file_path] = file.get('modifiedTime')
         
-        print(f"Successfully processed file '{file_name}' (Path: {file_path})")
+        if success:
+            print(f"Successfully processed file '{file_name}' (Path: {file_path})")
+        else:
+            print(f"Failed to process file '{file_name}' (Path: {file_path})")
     
     def watch_for_changes(self, interval_seconds: int = 60) -> None:
         """

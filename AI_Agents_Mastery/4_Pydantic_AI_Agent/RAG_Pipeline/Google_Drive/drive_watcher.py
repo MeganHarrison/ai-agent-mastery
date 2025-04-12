@@ -6,7 +6,6 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.auth.exceptions import RefreshError
-from dotenv import load_dotenv
 import random
 import time
 import json
@@ -18,9 +17,6 @@ from pathlib import Path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.text_processor import extract_text_from_file, chunk_text, create_embeddings
 from common.db_handler import process_file_for_rag, delete_document_by_file_id
-
-# Load environment variables
-load_dotenv()
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly',
@@ -308,12 +304,15 @@ class GoogleDriveWatcher:
             return
         
         # Process the file for RAG
-        process_file_for_rag(file_content, text, file_id, web_view_link, file_name, mime_type, self.config)
+        success = process_file_for_rag(file_content, text, file_id, web_view_link, file_name, mime_type, self.config)
         
         # Update the known files dictionary
         self.known_files[file_id] = file.get('modifiedTime')
         
-        print(f"Successfully processed file '{file_name}' (ID: {file_id})")
+        if success:
+            print(f"Successfully processed file '{file_name}' (ID: {file_id})")
+        else:
+            print(f"Failed to process file '{file_name}' (ID: {file_id})")
     
     def check_for_deleted_files(self) -> List[str]:
         """

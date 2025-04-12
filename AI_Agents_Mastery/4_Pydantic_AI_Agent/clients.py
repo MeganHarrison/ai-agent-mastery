@@ -63,7 +63,7 @@ def get_mem0_client():
         # Set base URL for Ollama if provided
         llm_base_url = os.getenv('LLM_BASE_URL')
         if llm_base_url:
-            config["llm"]["config"]["ollama_base_url"] = llm_base_url
+            config["llm"]["config"]["ollama_base_url"] = llm_base_url.replace("/v1", "")
     
     # Configure embedder based on provider
     if embedding_provider == 'openai':
@@ -91,7 +91,7 @@ def get_mem0_client():
         # Set base URL for Ollama if provided
         embedding_base_url = os.getenv('EMBEDDING_BASE_URL')
         if embedding_base_url:
-            config["embedder"]["config"]["ollama_base_url"] = embedding_base_url
+            config["embedder"]["config"]["ollama_base_url"] = embedding_base_url.replace("/v1", "")
     
     # Configure Supabase vector store
     config["vector_store"] = {

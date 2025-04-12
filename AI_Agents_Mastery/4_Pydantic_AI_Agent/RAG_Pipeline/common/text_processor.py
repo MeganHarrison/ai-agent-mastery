@@ -6,12 +6,19 @@ from typing import List, Dict, Any
 import pypdf
 from openai import OpenAI
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from the project root .env file
+# Get the path to the project root (4_Pydantic_AI_Agent directory)
+project_root = Path(__file__).resolve().parent.parent.parent
+dotenv_path = project_root / '.env'
+
+# Force override of existing environment variables
+load_dotenv(dotenv_path, override=True)
 
 # Initialize OpenAI client
-openai_client = OpenAI(api_key=os.getenv("EMBEDDING_API_KEY"), base_url=os.getenv("EMBEDDING_BASE_URL"))
+api_key = os.getenv("EMBEDDING_API_KEY", "") or "ollama"
+openai_client = OpenAI(api_key=api_key, base_url=os.getenv("EMBEDDING_BASE_URL"))
 
 def chunk_text(text: str, chunk_size: int = 400, overlap: int = 0) -> List[str]:
     """

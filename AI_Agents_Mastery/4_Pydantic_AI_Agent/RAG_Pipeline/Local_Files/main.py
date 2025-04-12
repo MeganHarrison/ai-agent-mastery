@@ -2,12 +2,8 @@ import os
 import argparse
 import sys
 from pathlib import Path
-from dotenv import load_dotenv
 
 from file_watcher import LocalFileWatcher
-
-# Load environment variables
-load_dotenv()
 
 def main():
     """

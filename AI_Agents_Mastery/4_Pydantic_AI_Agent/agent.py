@@ -20,13 +20,13 @@ from tools import (
     execute_safe_code_tool
 ) 
 
-load_dotenv()
+load_dotenv(override=True)
 
 # ========== Helper function to get model configuration ==========
 def get_model():
-    llm = os.getenv('LLM_CHOICE', 'gpt-4o-mini')
-    base_url = os.getenv('LLM_BASE_URL', 'https://api.openai.com/v1')
-    api_key = os.getenv('LLM_API_KEY', 'no-api-key-provided')
+    llm = os.getenv('LLM_CHOICE') or 'gpt-4o-mini'
+    base_url = os.getenv('LLM_BASE_URL') or 'https://api.openai.com/v1'
+    api_key = os.getenv('LLM_API_KEY') or 'ollama'
 
     return OpenAIModel(llm, provider=OpenAIProvider(base_url=base_url, api_key=api_key))
 
@@ -44,7 +44,7 @@ class AgentDeps:
 # deno run -N -R=node_modules -W=node_modules --node-modules-dir=auto jsr:@pydantic/mcp-run-python sse
 # Instructions for installing Deno here: https://github.com/denoland/deno/
 # Pydantic AI docs for this MCP server: https://ai.pydantic.dev/mcp/run-python/
-# code_execution_server = MCPServerHTTP(url='http://localhost:3001/sse')  
+code_execution_server = MCPServerHTTP(url='http://localhost:3001/sse')  
 
 agent = Agent(
     get_model(),
@@ -72,6 +72,7 @@ async def web_search(ctx: RunContext[AgentDeps], query: str) -> str:
         For Brave, this is a single paragraph.
         For SearXNG, this is a list of the top search results including the most relevant snippet from the page.
     """
+    print("Calling web_search tool")
     return await web_search_tool(query, ctx.deps.http_client, ctx.deps.brave_api_key, ctx.deps.searxng_base_url)    
 
 @agent.tool
@@ -86,6 +87,7 @@ async def retrieve_relevant_documents(ctx: RunContext[AgentDeps], user_query: st
     Returns:
         A formatted string containing the top 4 most relevant documents chunks
     """
+    print("Calling retrieve_relevant_documents tool")
     return await retrieve_relevant_documents_tool(ctx.deps.supabase, ctx.deps.embedding_client, user_query)
 
 @agent.tool
@@ -96,6 +98,7 @@ async def list_documents(ctx: RunContext[AgentDeps]) -> List[str]:
     Returns:
         List[str]: List of documents including their metadata (URL/path, schema if applicable, etc.)
     """
+    print("Calling list_documents tool")
     return await list_documents_tool(ctx.deps.supabase)
 
 @agent.tool
@@ -110,6 +113,7 @@ async def get_document_content(ctx: RunContext[AgentDeps], document_id: str) -> 
     Returns:
         str: The full content of the document with all chunks combined in order
     """
+    print("Calling get_document_content tool")
     return await get_document_content_tool(ctx.deps.supabase, document_id)
 
 @agent.tool
@@ -129,9 +133,12 @@ async def image_analysis(ctx: RunContext[AgentDeps], document_id: str, query: st
     Returns:
         str: An analysis of the image based on the query
     """
+    print("Calling image_analysis tool")
     return await image_analysis_tool(ctx.deps.supabase, document_id, query)    
 
-@agent.tool
+# Using the MCP server instead for code execution, but you can use this simple version
+# if you don't want to use MCP for whatever reason! Just uncomment the line below:
+# @agent.tool
 async def execute_code(ctx: RunContext[AgentDeps], code: str) -> str:
     """
     Executes a given Python code string in a protected environment.

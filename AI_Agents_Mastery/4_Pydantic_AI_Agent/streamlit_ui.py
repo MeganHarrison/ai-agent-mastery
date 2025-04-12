@@ -29,11 +29,11 @@ def display_message_part(part):
     tool calls, tool returns, etc.
     """
     # User messages
-    if part.part_kind == 'user-prompt':
+    if part.part_kind == 'user-prompt' and part.content:
         with st.chat_message("user"):
             st.markdown(part.content)
     # AI messages
-    elif part.part_kind == 'text':
+    elif part.part_kind == 'text' and part.content:
         with st.chat_message("assistant"):
             st.markdown(part.content)             
 
@@ -56,20 +56,21 @@ async def run_agent_with_streaming(user_input):
             memories=memories_str
         )   
 
-        async with agent.iter(user_input, deps=agent_deps, message_history=st.session_state.messages) as run:
-            async for node in run:
-                ai_response = ""
-                if Agent.is_model_request_node(node):
-                    # A model request node => We can stream tokens from the model's request
-                    async with node.stream(run.ctx) as request_stream:
-                        async for event in request_stream:
-                            if isinstance(event, PartStartEvent) and event.part.part_kind == 'text':
-                                    ai_response = event.part.content
-                                    yield ai_response
-                            elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
-                                    delta = event.delta.content_delta
-                                    ai_response += delta
-                                    yield delta         
+        async with agent.run_mcp_servers():
+            async with agent.iter(user_input, deps=agent_deps, message_history=st.session_state.messages) as run:
+                async for node in run:
+                    ai_response = ""
+                    if Agent.is_model_request_node(node):
+                        # A model request node => We can stream tokens from the model's request
+                        async with node.stream(run.ctx) as request_stream:
+                            async for event in request_stream:
+                                if isinstance(event, PartStartEvent) and event.part.part_kind == 'text':
+                                        ai_response = event.part.content
+                                        yield ai_response
+                                elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
+                                        delta = event.delta.content_delta
+                                        ai_response += delta
+                                        yield delta         
 
     # Add the new messages to the chat history (including tool calls and responses)
     st.session_state.messages.extend(run.result.new_messages())
@@ -77,7 +78,8 @@ async def run_agent_with_streaming(user_input):
     # Update memories based on the last user message and agent response
     memory_messages = [
         {"role": "user", "content": user_input},
-        {"role": "assistant", "content": run.result.data}
+        # Include the AI response as well if you wish but that generally leads to a lot of useless memories
+        # {"role": "assistant", "content": run.result.data}
     ]
     memory.add(memory_messages, user_id="streamlit_user")         
 

@@ -2,17 +2,24 @@ from typing import List, Dict, Any, Optional
 import os
 import io
 import json
+import traceback
 from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import base64
 import sys
+from pathlib import Path
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from text_processor import chunk_text, create_embeddings, is_tabular_file, extract_schema_from_csv, extract_rows_from_csv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from the project root .env file
+# Get the path to the project root (4_Pydantic_AI_Agent directory)
+project_root = Path(__file__).resolve().parent.parent.parent
+dotenv_path = project_root / '.env'
+
+# Force override of existing environment variables
+load_dotenv(dotenv_path, override=True)
 
 # Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
@@ -209,5 +216,9 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
         
         # Insert the chunks with their embeddings
         insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type)
+
+        return True
     except Exception as e:
-        print(f"Error processing file for RAG: {e}")        
+        traceback.print_exc()
+        print(f"Error processing file for RAG: {e}")
+        return False

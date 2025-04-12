@@ -39,42 +39,34 @@ This document outlines the specific implementation tasks for building the MVP of
 - [X] Add support for optional local models
 - [X] Create environment variable configuration
 - [X] Implement conversation history
-- [ ] Write unit tests
-
-### Agent Tool Integration
-- [ ] Create tool registry
-- [ ] Implement tool selection logic
-- [ ] Set up tool execution framework
-- [ ] Add error handling for tools
-- [ ] Write unit tests
+- [ ] Write unit tests (in later module)
 
 ## Phase 3: Memory System
 
 ### Memory Implementation
-- [ ] Create session management
-- [ ] Implement memory extraction from conversations
-- [ ] Create memory vector storage
-- [ ] Implement memory retrieval system
-- [ ] Add memory deduplication mechanism
-- [ ] Write unit tests for memory system
+- [X] Create session management
+- [X] Implement memory extraction from conversations
+- [X] Create memory vector storage
+- [X] Implement memory retrieval system
+- [X] Add memory deduplication mechanism
+- [X] Write unit tests for memory system
 
 ## Phase 4: Agent Tools
 
 ### Document Tools
-- [ ] Implement document listing tool
-- [ ] Create document content retrieval tool
-- [ ] Implement SQL query tool for tabular data
+- [X] Implement document listing tool
+- [X] Create document content retrieval tool
+- [X] Implement SQL query tool for tabular data
 
 ### Web Tools
-- [ ] Implement web search with Brave API
-- [ ] Create web content summarizer
-- [ ] Implement image analysis with OpenAI
+- [X] Implement web search with Brave API
+- [X] Create web content summarizer
+- [X] Implement image analysis with OpenAI
 
 ### Utility Tools
-- [ ] Implement image analysis tool
-- [ ] Implement code execution tool
-- [ ] Add all tools to `tools.py`
-- [ ] Write tests for each tool
+- [X] Implement image analysis tool
+- [X] Implement code execution tool
+- [X] Write tests for each tool
 
 ## Phase 5: Streamlit UI
 
@@ -103,8 +95,8 @@ This document outlines the specific implementation tasks for building the MVP of
 ### Testing
 - [X] Set up pytest configuration
 - [X] Create test fixtures
-- [ ] Implement integration tests
-- [ ] Create end-to-end tests
+- [ ] Implement integration tests (in later module)
+- [ ] Create end-to-end tests (in later module)
 
 ## Future Enhancements (For Later Phases)
 
