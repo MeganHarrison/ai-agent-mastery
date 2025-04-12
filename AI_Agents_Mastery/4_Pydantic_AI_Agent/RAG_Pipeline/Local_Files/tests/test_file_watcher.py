@@ -90,14 +90,17 @@ class TestLocalFileWatcher:
         # Verify last_check_time was parsed correctly
         assert watcher.last_check_time == datetime.strptime('2023-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
     
-    @patch('builtins.open')
-    def test_load_config_file_not_found(self, mock_open, capfd):
+    def test_load_config_file_not_found(self, capfd):
         """Test loading configuration when file not found"""
-        # Setup mock to raise FileNotFoundError
-        mock_open.side_effect = FileNotFoundError("File not found")
+        # Instead of patching all open calls, we'll use a non-existent path
+        # and let the actual FileNotFoundError be raised and caught by the class
+        
+        # Create a temporary unique path that definitely doesn't exist
+        import uuid
+        non_existent_path = f'non_existent_config_{uuid.uuid4()}.json'
         
         # Create watcher with non-existent config
-        watcher = LocalFileWatcher(config_path='non_existent_config.json')
+        watcher = LocalFileWatcher(config_path=non_existent_path)
         
         # Verify default config was used
         assert 'supported_mime_types' in watcher.config
