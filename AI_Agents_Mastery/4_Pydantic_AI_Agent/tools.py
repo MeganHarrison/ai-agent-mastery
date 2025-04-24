@@ -11,6 +11,7 @@ import base64
 import json
 import sys
 import os
+import re
 
 embedding_model = os.getenv('EMBEDDING_MODEL') or 'text-embedding-3-small'
 
@@ -144,8 +145,9 @@ async def retrieve_relevant_documents_tool(supabase: Client, embedding_client: A
         formatted_chunks = []
         for doc in result.data:
             chunk_text = f"""
-# Document ID: {doc['metadata']['file_id']}      
-# Document Tilte: {doc['metadata']['file_title']}
+# Document ID: {doc['metadata'].get('file_id', 'unknown')}      
+# Document Tilte: {doc['metadata'].get('file_title', 'unknown')}
+# Document URL: {doc['metadata'].get('file_url', 'unknown')}
 
 {doc['content']}
 """
@@ -210,7 +212,65 @@ async def get_document_content_tool(supabase: Client, document_id: str) -> str:
         
     except Exception as e:
         print(f"Error retrieving document content: {e}")
-        return f"Error retrieving document content: {str(e)}"
+        return f"Error retrieving document content: {str(e)}"     
+
+async def execute_sql_query_tool(supabase: Client, sql_query: str) -> str:
+    """
+    Run a SQL query - use this to query from the document_rows table once you know the file ID you are querying. 
+    dataset_id is the file_id and you are always using the row_data for filtering, which is a jsonb field that has 
+    all the keys from the file schema given in the document_metadata table.
+
+    Example query:
+
+    SELECT AVG((row_data->>'revenue')::numeric)
+    FROM document_rows
+    WHERE dataset_id = '123';
+
+    Example query 2:
+
+    SELECT 
+        row_data->>'category' as category,
+        SUM((row_data->>'sales')::numeric) as total_sales
+    FROM dataset_rows
+    WHERE dataset_id = '123'
+    GROUP BY row_data->>'category';
+    
+    Args:
+        supabase: The Supabase client
+        sql_query: The SQL query to execute (must be read-only)
+        
+    Returns:
+        str: The results of the SQL query in JSON format
+    """
+    try:
+        # Validate that the query is read-only by checking for write operations
+        sql_query = sql_query.strip()
+        write_operations = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE', 'ALTER', 'TRUNCATE', 'GRANT', 'REVOKE']
+        
+        # Convert query to uppercase for case-insensitive comparison
+        upper_query = sql_query.upper()
+        
+        # Check if any write operations are in the query
+        for op in write_operations:
+            pattern = r'\b' + op + r'\b'
+            if re.search(pattern, upper_query):
+                return f"Error: Write operation '{op}' detected. Only read-only queries are allowed."
+        
+        # Execute the query using the RPC function
+        result = supabase.rpc(
+            'execute_custom_sql',
+            {"sql_query": sql_query}
+        ).execute()
+        
+        # Check for errors in the response
+        if result.data and 'error' in result.data:
+            return f"SQL Error: {result.data['error']}"
+        
+        # Format the results nicely
+        return json.dumps(result.data, indent=2)
+        
+    except Exception as e:
+        return f"Error executing SQL query: {str(e)}"
 
 async def image_analysis_tool(supabase: Client, document_id: str, query: str) -> str:
     try:
@@ -252,7 +312,7 @@ async def image_analysis_tool(supabase: Client, document_id: str, query: str) ->
 
     except Exception as e:
         print(f"Error analyzing image: {e}")
-        return f"Error analyzing image: {str(e)}"        
+        return f"Error analyzing image: {str(e)}"           
 
 def execute_safe_code_tool(code: str) -> str:
     # Set up allowed modules

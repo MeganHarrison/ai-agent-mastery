@@ -399,9 +399,12 @@ class GoogleDriveWatcher:
                 
                 # Check for deleted files (every 5 cycles to reduce API calls)
                 deleted_file_ids = []
-                if random.random() < 0.2:  # ~20% chance each cycle, or about once every 5 cycles
-                    print("Checking for deleted files...")
-                    deleted_file_ids = self.check_for_deleted_files()
+
+                # Uncomment this code and delete the line below it if you want to check for deleted files less often (for performance gains with many files)
+                # if random.random() < 0.2:  # ~20% chance each cycle, or about once every 5 cycles
+                #    print("Checking for deleted files...")
+                #     deleted_file_ids = self.check_for_deleted_files()
+                deleted_file_ids = self.check_for_deleted_files()
                 
                 # Process changed files
                 if changed_files:

@@ -198,6 +198,9 @@ SEARXNG_BASE_URL=
      - `sql/documents.sql`: Creates the documents table with vector embeddings
      - `sql/document_metadata.sql`: Creates the document metadata table
      - `sql/document_rows.sql`: Creates the table for tabular data
+     - `sql/execute_sql_rpc.sql`: Creates the RPC function for executing SQL queries
+
+   **Note:** You must execute the `execute_sql_rpc.sql` script even if you followed along with the prototype. This creates a secure RPC function that allows the agent to execute read-only SQL queries against your document data.
 
    > **Note:** If you already created these tables for the n8n prototype, you can skip this step. The tables are exactly the same!
 

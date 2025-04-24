@@ -17,6 +17,7 @@ from tools import (
     retrieve_relevant_documents_tool,
     list_documents_tool,
     get_document_content_tool,
+    execute_sql_query_tool,
     execute_safe_code_tool
 ) 
 
@@ -40,11 +41,13 @@ class AgentDeps:
     searxng_base_url: str | None
     memories: str
 
+# To use the code execution MCP server:
+# First uncomment the line below that defines 'code_execution_server', then also uncomment 'mcp_servers=[code_execution_server]'
 # Start this in a separate terminal with this command after installing Deno:
 # deno run -N -R=node_modules -W=node_modules --node-modules-dir=auto jsr:@pydantic/mcp-run-python sse
 # Instructions for installing Deno here: https://github.com/denoland/deno/
 # Pydantic AI docs for this MCP server: https://ai.pydantic.dev/mcp/run-python/
-code_execution_server = MCPServerHTTP(url='http://localhost:3001/sse')  
+# code_execution_server = MCPServerHTTP(url='http://localhost:3001/sse')  
 
 agent = Agent(
     get_model(),
@@ -117,6 +120,40 @@ async def get_document_content(ctx: RunContext[AgentDeps], document_id: str) -> 
     return await get_document_content_tool(ctx.deps.supabase, document_id)
 
 @agent.tool
+async def execute_sql_query(ctx: RunContext[AgentDeps], sql_query: str) -> str:
+    """
+    Run a SQL query - use this to query from the document_rows table once you know the file ID you are querying. 
+    dataset_id is the file_id and you are always using the row_data for filtering, which is a jsonb field that has 
+    all the keys from the file schema given in the document_metadata table.
+
+    Never use a placeholder file ID. Always use the list_documents tool first to get the file ID.
+
+    Example query:
+
+    SELECT AVG((row_data->>'revenue')::numeric)
+    FROM document_rows
+    WHERE dataset_id = '123';
+
+    Example query 2:
+
+    SELECT 
+        row_data->>'category' as category,
+        SUM((row_data->>'sales')::numeric) as total_sales
+    FROM document_rows
+    WHERE dataset_id = '123'
+    GROUP BY row_data->>'category';
+    
+    Args:
+        ctx: The context including the Supabase client
+        sql_query: The SQL query to execute (must be read-only)
+        
+    Returns:
+        str: The results of the SQL query in JSON format
+    """
+    print(f"Calling execute_sql_query tool with SQL: {sql_query }")
+    return await execute_sql_query_tool(ctx.deps.supabase, sql_query)    
+
+@agent.tool
 async def image_analysis(ctx: RunContext[AgentDeps], document_id: str, query: str) -> str:
     """
     Analyzes an image based on the document ID of the image provided.
@@ -138,7 +175,7 @@ async def image_analysis(ctx: RunContext[AgentDeps], document_id: str, query: st
 
 # Using the MCP server instead for code execution, but you can use this simple version
 # if you don't want to use MCP for whatever reason! Just uncomment the line below:
-# @agent.tool
+@agent.tool
 async def execute_code(ctx: RunContext[AgentDeps], code: str) -> str:
     """
     Executes a given Python code string in a protected environment.
