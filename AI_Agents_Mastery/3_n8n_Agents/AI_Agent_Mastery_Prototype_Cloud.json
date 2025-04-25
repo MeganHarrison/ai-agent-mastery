@@ -562,7 +562,7 @@
           ]
         },
         "options": {
-          "fallbackOutput": 3
+          "fallbackOutput": "extra"
         }
       },
       "id": "5aaadf70-4280-4421-a369-9b2018ed2e66",
@@ -2241,6 +2241,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Extract Document Text",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -2699,7 +2706,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "789d0701-afd4-40b2-afa0-420bb8304f42",
+  "versionId": "341c6957-25c2-42ff-a383-2171c41820f6",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f65a08c0adc90a3cde2c633d24c6daecde3817033b75588ee10a781b0b7aa3f5"

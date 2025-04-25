@@ -377,33 +377,11 @@
                 ],
                 "combinator": "and"
               }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 1
-                },
-                "conditions": [
-                  {
-                    "id": "af17cffe-1b55-485a-bb09-cf7a8aa30b83",
-                    "leftValue": "={{ $('Set File ID').item.json.file_type }}",
-                    "rightValue": "^(jpe?g|png|gif|bmp|webp|tiff?|svg|avif|heic|ico)$",
-                    "operator": {
-                      "type": "string",
-                      "operation": "regex"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
             }
           ]
         },
         "options": {
-          "fallbackOutput": 3
+          "fallbackOutput": "extra"
         }
       },
       "id": "1cd5daa2-ebfd-4521-9554-722a81d3a870",
@@ -2124,7 +2102,13 @@
             "index": 0
           }
         ],
-        []
+        [
+          {
+            "node": "Extract Document Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Extract from Excel": {
@@ -2690,7 +2674,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "2b6fabf2-1d1c-401f-a247-02d00e74e2b5",
+  "versionId": "0748e7c2-7904-41d9-bc6c-ef9a54fbe138",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "73cb7a3e883df514bb47e8d1b34526d30e2abb8f56cd99f10d5948a1e11b25aa"
