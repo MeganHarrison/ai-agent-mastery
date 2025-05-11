@@ -169,7 +169,7 @@ async def list_documents_tool(supabase: Client) -> List[str]:
         List[str]: List of documents including their metadata (URL/path, schema if applicable, etc.)
     """
     try:
-        # Query Supabase for unique URLs where source is pydantic_ai_docs
+        # Query Supabase for unique documents
         result = supabase.from_('document_metadata') \
             .select('id, title, schema, url') \
             .execute()
