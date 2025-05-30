@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from httpx import AsyncClient
 from supabase import Client
+from pathlib import Path
 from typing import List
 import os
 
@@ -21,7 +22,10 @@ from tools import (
     execute_safe_code_tool
 ) 
 
-load_dotenv(override=True)
+# Load environment variables from what we have set for our agent
+project_root = Path(__file__).resolve().parent
+dotenv_path = project_root / '.env'
+load_dotenv(dotenv_path, override=True)
 
 # ========== Helper function to get model configuration ==========
 def get_model():

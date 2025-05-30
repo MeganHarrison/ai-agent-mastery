@@ -1,6 +1,6 @@
+from mem0 import Memory, AsyncMemory
 from openai import AsyncOpenAI
 from supabase import Client
-from mem0 import Memory
 import os
 
 def get_agent_clients():
@@ -17,7 +17,7 @@ def get_agent_clients():
 
     return embedding_client, supabase
 
-def get_mem0_client():
+def get_mem0_config():
     # Get LLM provider and configuration
     llm_provider = os.getenv('LLM_PROVIDER')
     llm_api_key = os.getenv('LLM_API_KEY')
@@ -102,6 +102,15 @@ def get_mem0_client():
             "embedding_model_dims": 1536 if embedding_provider == "openai" else 768
         }
     }
+
+    return config
     
+def get_mem0_client():
     # Create and return the Memory client
+    config = get_mem0_config()
     return Memory.from_config(config)
+
+async def get_mem0_client_async():
+    # Create and return the Memory client
+    config = get_mem0_config()    
+    return await AsyncMemory.from_config(config)
