@@ -43,7 +43,7 @@ def get_mem0_config():
         }
         
         # Set API key in environment if not already set
-        if llm_provider == 'openai' and llm_api_key and not os.environ.get("OPENAI_API_KEY"):
+        if llm_provider == 'openai' and llm_api_key:
             os.environ["OPENAI_API_KEY"] = llm_api_key
             
         # For OpenRouter, set the specific API key
@@ -76,7 +76,7 @@ def get_mem0_config():
         }
         
         # Set API key in environment if not already set
-        if embedding_api_key and not os.environ.get("OPENAI_API_KEY"):
+        if embedding_api_key:
             os.environ["OPENAI_API_KEY"] = embedding_api_key
     
     elif embedding_provider == 'ollama':
