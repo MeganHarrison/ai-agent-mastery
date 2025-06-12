@@ -17,7 +17,7 @@ This RAG (Retrieval Augmented Generation) pipeline processes files from either G
 
 - Python 3.11+
 - Supabase account with a PGVector-enabled database.
-- Tables created from the `sql/` files (alongside the `RAG_Pipeline` folder)
+- Tables created from the `sql/` files (alongside the `backend_rag_pipeline` folder)
 - OpenAI API key.
 - **For Google Drive Pipeline:** Google Drive API credentials.
 
@@ -27,7 +27,7 @@ This RAG (Retrieval Augmented Generation) pipeline processes files from either G
 
 2.  **Navigate to the RAG Pipeline directory:**
     ```bash
-    cd RAG_Pipeline
+    cd 6_Agent_Development/backend_rag_pipeline
     ```
 
 3.  **Create and activate a virtual environment:**
@@ -50,9 +50,9 @@ This RAG (Retrieval Augmented Generation) pipeline processes files from either G
     ```
 
 5.  **Set up environment variables:**
-    Create a `.env` file in the **project root directory** (i.e., one level above the `RAG_Pipeline` directory, so `../.env` from your current location if you are inside `RAG_Pipeline`). The scripts are configured to look for it there.
+    Create a `.env` file in this directory (`backend_rag_pipeline`). The scripts are configured to look for it there.
     ```env
-    # ../.env
+    ENVIRONMENT=development-or-production
     EMBEDDING_MODEL_NAME=your_embedding_model_choice
     EMBEDDING_BASE_URL=your_provider_base_url
     EMBEDDING_API_KEY=your_provider_api_key
@@ -65,12 +65,12 @@ This RAG (Retrieval Augmented Generation) pipeline processes files from either G
     - Create a new project or select an existing one.
     - Enable the Google Drive API.
     - Create OAuth 2.0 credentials (Desktop application).
-    - Download the credentials JSON file. By default, the pipeline expects this file to be named `credentials.json` and located in the `Google_Drive/` directory (relative to `RAG_Pipeline`, i.e., `RAG_Pipeline/Google_Drive/credentials.json`). You can specify a different path using the `--credentials` argument.
+    - Download the credentials JSON file. By default, the pipeline expects this file to be named `credentials.json` and located in the `Google_Drive/` directory (relative to `backend_rag_pipeline`, i.e., `backend_rag_pipeline/Google_Drive/credentials.json`). You can specify a different path using the `--credentials` argument.
     - The first time you run the Google Drive pipeline, it will prompt you to authorize access via a web browser. A `token.json` file will be created in the `Google_Drive/` directory (or the path specified by `--token`) to store your authorization.
 
 ## Usage
 
-Ensure your virtual environment is activated and you are in the `RAG_Pipeline` directory.
+Ensure your virtual environment is activated and you are in the `backend_rag_pipeline` directory.
 
 The pipeline can be run in two modes: for Google Drive or for Local Files.
 
@@ -78,7 +78,7 @@ The pipeline can be run in two modes: for Google Drive or for Local Files.
 
 This mode watches a Google Drive folder (or your entire Drive) for changes.
 
-**Command (run from the `RAG_Pipeline` directory):**
+**Command (run from the `backend_rag_pipeline` directory):**
 ```bash
 python Google_Drive/main.py [OPTIONS]
 ```
@@ -95,7 +95,7 @@ python Google_Drive/main.py [OPTIONS]
 -   `--folder-id FOLDER_ID`: ID of the specific Google Drive folder to watch (and its subfolders). If not provided, it watches the entire Drive.
     (Default: None)
 
-**Examples (run from the `RAG_Pipeline` directory):**
+**Examples (run from the `backend_rag_pipeline` directory):**
 ```bash
 # Watch all of Google Drive with 30-second intervals, using default paths
 python Google_Drive/main.py --interval 30
@@ -111,7 +111,7 @@ python Google_Drive/main.py --credentials "./custom_creds/gdrive_creds.json" --c
 
 This mode watches a specified local directory for changes.
 
-**Command (run from the `RAG_Pipeline` directory):**
+**Command (run from the `backend_rag_pipeline` directory):**
 ```bash
 python Local_Files/main.py [OPTIONS]
 ```
@@ -119,26 +119,26 @@ python Local_Files/main.py [OPTIONS]
 **Arguments:**
 -   `--config FILE_PATH`: Path to the configuration JSON file for the Local Files pipeline.
     (Default: `Local_Files/config.json`)
--   `--directory DIR_PATH`: Path to the local directory to watch for files. This path can be absolute or relative to the `RAG_Pipeline` directory.
+-   `--directory DIR_PATH`: Path to the local directory to watch for files. This path can be absolute or relative to the `backend_rag_pipeline` directory.
     (Default: None - **This argument is required**)
 -   `--interval SECONDS`: Interval in seconds between checks for changes.
     (Default: 60)
 
-**Examples (run from the `RAG_Pipeline` directory):**
+**Examples (run from the `backend_rag_pipeline` directory):**
 ```bash
-# Watch the 'data/my_documents' directory (relative to RAG_Pipeline, e.g., RAG_Pipeline/data/my_documents)
+# Watch the 'data/my_documents' directory (relative to backend_rag_pipeline, e.g., backend_rag_pipeline/data/my_documents)
 python Local_Files/main.py --directory "data/my_documents"
 
 # Watch a specific absolute local directory with a 120-second interval
 python Local_Files/main.py --directory "/mnt/shared_data/project_files" --interval 120
 
-# Use a custom config file (path relative to RAG_Pipeline)
+# Use a custom config file (path relative to backend_rag_pipeline)
 python Local_Files/main.py --directory "./docs_to_process" --config "./configs/local_settings.json"
 ```
 
 ## Configuration Files (`config.json`)
 
-Each pipeline (`Google_Drive` and `Local_Files`) has its own `config.json` file located within its respective subdirectory inside `RAG_Pipeline` (e.g., `RAG_Pipeline/Google_Drive/config.json`, `RAG_Pipeline/Local_Files/config.json`). When running scripts from within `RAG_Pipeline`, these paths become `Google_Drive/config.json` and `Local_Files/config.json` respectively. These files allow you to customize:
+Each pipeline (`Google_Drive` and `Local_Files`) has its own `config.json` file located within its respective subdirectory inside `backend_rag_pipeline` (e.g., `backend_rag_pipeline/Google_Drive/config.json`, `backend_rag_pipeline/Local_Files/config.json`). When running scripts from within `backend_rag_pipeline`, these paths become `Google_Drive/config.json` and `Local_Files/config.json` respectively. These files allow you to customize:
 -   `supported_mime_types`: A list of MIME types the pipeline will attempt to process.
 -   `text_processing`:
     -   `default_chunk_size`: The target size for text chunks.
@@ -174,7 +174,7 @@ The pipeline uses a `documents` table in your Supabase database with the followi
 
 ## Supported File Types
 
-The pipeline supports a variety of file types. The exact list can be found and configured in the `supported_mime_types` section of the respective `config.json` files (e.g., `Google_Drive/config.json`, `Local_Files/config.json` when viewed from within the `RAG_Pipeline` directory).
+The pipeline supports a variety of file types. The exact list can be found and configured in the `supported_mime_types` section of the respective `config.json` files (e.g., `Google_Drive/config.json`, `Local_Files/config.json` when viewed from within the `backend_rag_pipeline` directory).
 
 Commonly supported types include:
 -   PDF (`application/pdf`)
