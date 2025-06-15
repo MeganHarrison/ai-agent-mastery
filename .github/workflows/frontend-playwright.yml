@@ -1,0 +1,147 @@
+name: Frontend E2E Tests (Playwright)
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        default: '18'
+        type: string
+  push:
+    branches: [ main, module-6-prep ]
+  pull_request:
+    branches: [ main, module-6-prep ]
+  workflow_dispatch:
+
+env:
+  # Mock environment variables for E2E testing
+  VITE_SUPABASE_URL: https://mock-project.supabase.co
+  VITE_SUPABASE_ANON_KEY: mock-anon-key-for-testing
+  VITE_AGENT_ENDPOINT: http://localhost:8001/api/pydantic-agent
+  VITE_ENABLE_STREAMING: true
+
+jobs:
+  playwright-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js ${{ inputs.node-version || '18' }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version || '18' }}
+        cache: 'npm'
+        cache-dependency-path: '6_Agent_Deployment/frontend/package-lock.json'
+        
+    - name: Install dependencies
+      run: |
+        cd 6_Agent_Deployment/frontend
+        npm ci
+        
+    - name: Install Playwright browsers
+      run: |
+        cd 6_Agent_Deployment/frontend
+        npx playwright install --with-deps
+        
+    - name: Create test environment file
+      run: |
+        cd 6_Agent_Deployment/frontend
+        cat > .env.test << EOF
+        VITE_SUPABASE_URL=${{ env.VITE_SUPABASE_URL }}
+        VITE_SUPABASE_ANON_KEY=${{ env.VITE_SUPABASE_ANON_KEY }}
+        VITE_AGENT_ENDPOINT=${{ env.VITE_AGENT_ENDPOINT }}
+        VITE_ENABLE_STREAMING=${{ env.VITE_ENABLE_STREAMING }}
+        EOF
+        
+    - name: Build frontend for testing
+      run: |
+        cd 6_Agent_Deployment/frontend
+        npm run build
+        
+    - name: Start frontend server for E2E tests
+      run: |
+        cd 6_Agent_Deployment/frontend
+        npm run preview &
+        sleep 10
+        
+    - name: Run Playwright tests
+      run: |
+        cd 6_Agent_Deployment/frontend
+        npx playwright test
+        
+    - name: Upload Playwright report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report
+        path: 6_Agent_Deployment/frontend/playwright-report/
+        retention-days: 30
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-test-results
+        path: 6_Agent_Deployment/frontend/test-results/
+        retention-days: 30
+
+  playwright-tests-with-backend:
+    runs-on: ubuntu-latest
+    if: false  # Disabled by default - enable when backend integration is needed
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js ${{ inputs.node-version || '18' }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version || '18' }}
+        cache: 'npm'
+        cache-dependency-path: '6_Agent_Deployment/frontend/package-lock.json'
+        
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        
+    - name: Start mock backend services
+      run: |
+        # Start a mock agent API server for E2E testing
+        cd 6_Agent_Deployment/backend_agent_api
+        pip install -r requirements.txt
+        
+        # Create mock environment
+        cat > .env << EOF
+        LLM_PROVIDER=openai
+        LLM_API_KEY=mock-key-for-testing
+        SUPABASE_URL=https://mock-project.supabase.co
+        SUPABASE_SERVICE_KEY=mock-service-key
+        EOF
+        
+        # Start agent API in background (would need mock implementation)
+        # python -m uvicorn agent_api:app --host 0.0.0.0 --port 8001 &
+        echo "Mock backend setup would go here"
+        
+    - name: Install frontend dependencies and Playwright
+      run: |
+        cd 6_Agent_Deployment/frontend
+        npm ci
+        npx playwright install --with-deps
+        
+    - name: Run full-stack E2E tests
+      run: |
+        cd 6_Agent_Deployment/frontend
+        # Run tests that require backend integration
+        npx playwright test --grep="@fullstack"
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: fullstack-playwright-report
+        path: 6_Agent_Deployment/frontend/playwright-report/
+        retention-days: 30

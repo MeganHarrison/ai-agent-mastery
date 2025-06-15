@@ -67,6 +67,7 @@ The database is the foundation for all components. Set it up first:
    6-document_metadata.sql           # Document metadata
    7-document_rows.sql               # Tabular document data
    8-execute_sql_rpc.sql             # SQL query execution function
+   9-rag_pipeline_state.sql          # RAG pipeline state management
    ```
 
 ### Local Supabase
@@ -145,22 +146,44 @@ cd backend_rag_pipeline
    cp .env.example .env
    ```
    
-   Use the same database and embedding settings as the agent API.
+   Edit `.env` with your configuration:
+   ```env
+   # Database and embedding settings (same as agent API)
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_SERVICE_KEY=your_service_key
+   EMBEDDING_API_KEY=your_api_key
+   EMBEDDING_MODEL_CHOICE=text-embedding-3-small
+   
+   # Pipeline configuration
+   RAG_PIPELINE_TYPE=local  # or google_drive
+   RUN_MODE=continuous      # or single
+   RAG_PIPELINE_ID=dev-pipeline
+   
+   # For Google Drive (optional)
+   # If you don't specify the credentials for the service account, it'll default to looking for a credentials.json
+   GOOGLE_DRIVE_CREDENTIALS_JSON=your_service_account_json
+   RAG_WATCH_FOLDER_ID=your_folder_id
+   
+   # For local files (optional)
+   RAG_WATCH_DIRECTORY=/app/Local_Files/data
+   ```
 
-4. **Configure your pipeline:**
-   - For local files: Edit `Local_Files/config.json`
-   - For Google Drive: Edit `Google_Drive/config.json` and add credentials
+4. **Configure your pipeline (optional):**
+   - For local files: Edit `Local_Files/config.json` if needed
+   - For Google Drive: Edit `Google_Drive/config.json` if not using environment variables
 
 5. **Run the pipeline:**
    ```bash
-   # For local files
-   python Local_Files/main.py
+   # Unified entrypoint (recommended)
+   python docker_entrypoint.py --pipeline local --mode continuous
+   python docker_entrypoint.py --pipeline google_drive --mode continuous
    
-   # For Google Drive
+   # Or run individual pipelines directly
+   python Local_Files/main.py
    python Google_Drive/main.py
    ```
 
-The pipeline will continuously monitor and process documents.
+The pipeline will continuously monitor and process documents, with state managed in the database.
 
 ## 4. Frontend Setup
 
@@ -200,11 +223,64 @@ cd frontend
 
 The frontend will be available at http://localhost:8081
 
-## Docker Compose Deployment (Recommended)
+## Deployment Methods
 
-The easiest way to run the entire stack is with Docker Compose:
+### Method 1: Smart Deployment Script (Recommended)
 
-### 1. Configure Environment Variables
+The easiest way to deploy the stack is using the included Python deployment script, which automatically handles both local and cloud deployment scenarios:
+
+#### Cloud Deployment (Standalone with Caddy)
+Deploy as a self-contained stack with built-in reverse proxy:
+
+```bash
+# Configure environment variables first
+cp .env.example .env
+# Edit .env with your settings (see configuration section below)
+
+# Deploy to cloud (includes Caddy reverse proxy)
+python deploy.py --type cloud
+
+# Stop cloud deployment
+python deploy.py --down --type cloud
+```
+
+#### Local Deployment (Integrate with the Local AI Package)
+Deploy to work alongside your existing Local AI Package with shared Caddy:
+
+```bash
+# Configure environment variables first  
+cp .env.example .env
+# Edit .env with your settings (see configuration section below)
+
+# Deploy alongside the Local AI Package (uses existing Caddy)
+python deploy.py --type local --project localai
+
+# Stop local deployment
+python deploy.py --down --type local --project localai
+```
+
+**To enable reverse proxy routes in your Local AI Package**:
+
+1. **Copy and configure** the addon file:
+   ```bash
+   # Copy caddy-addon.conf to your Local AI Package's caddy-addon folder
+   cp caddy-addon.conf /path/to/local-ai-package/caddy-addon/
+   
+   # Edit lines 2 and 21 to set your desired subdomains:
+   # Line 2: subdomain.yourdomain.com (for agent API)
+   # Line 21: subdomain2.yourdomain.com (for frontend)
+   ```
+
+2. **Restart Caddy in the Local AI Package** to load the new configuration:
+   ```bash
+   docker compose -p localai restart caddy
+   ```
+
+### Method 2: Direct Docker Compose (Advanced Users)
+
+For advanced users who prefer direct Docker Compose control:
+
+#### 1. Configure Environment Variables
 
 ```bash
 # Copy the example environment file
@@ -218,6 +294,10 @@ LLM_PROVIDER=openai
 LLM_API_KEY=your_openai_api_key_here
 LLM_CHOICE=gpt-4o-mini
 
+# Embedding Configuration
+EMBEDDING_API_KEY=your_openai_api_key_here
+EMBEDDING_MODEL_CHOICE=text-embedding-3-small
+
 # Database Configuration
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your_supabase_service_key_here
@@ -228,15 +308,53 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 VITE_AGENT_ENDPOINT=http://localhost:8001/api/pydantic-agent
 
 # RAG Pipeline Configuration
-PIPELINE_TYPE=local  # or google_drive
-RUN_MODE=continuous  # or single for scheduled runs
+RAG_PIPELINE_TYPE=local  # or google_drive
+RUN_MODE=continuous      # or single for scheduled runs
+RAG_PIPELINE_ID=dev-local-pipeline  # Required for single-run mode
+
+# Optional: Google Drive Configuration
+GOOGLE_DRIVE_CREDENTIALS_JSON=  # Service account JSON for Google Drive
+RAG_WATCH_FOLDER_ID=           # Specific Google Drive folder ID
+
+# Optional: Local Files Configuration  
+RAG_WATCH_DIRECTORY=           # Override container path (default: /app/Local_Files/data)
+
+# Hostnames for Caddy reverse proxy routes
+# Leave these commented if you aren't deploying to production
+AGENT_API_HOSTNAME=agent.yourdomain.com
+FRONTEND_HOSTNAME=chat.yourdomain.com
 ```
 
-### 2. Start All Services
+#### 2. Start All Services
 
+**Cloud Deployment (with Caddy):**
 ```bash
-# Build and start all services
-docker compose up -d
+# Build and start all services including Caddy
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build
+
+# Restart services without rebuilding
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+
+# Stop all services
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml down
+```
+
+**Local Deployment (for AI stack integration):**
+```bash
+# Build and start services with local overrides
+docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai up -d --build
+
+# Restart services without rebuilding
+docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai up -d
+
+# Stop all services
+docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai down
+```
+
+**Base Services Only (no reverse proxy):**
+```bash
+# Build and start base services only
+docker compose up -d --build
 
 # View logs
 docker compose logs -f
@@ -245,13 +363,19 @@ docker compose logs -f
 docker compose down
 ```
 
-### 3. Access the Application
+#### 3. Access the Application
 
+**Cloud Deployment Access:**
+- **Frontend**: https://your-frontend-hostname (configured in .env)
+- **Agent API**: https://your-agent-api-hostname (configured in .env)  
+- **Health Check**: https://your-agent-api-hostname/health
+
+**Local/Base Deployment Access:**
 - **Frontend**: http://localhost:8082
 - **Agent API**: http://localhost:8001
 - **Health Check**: http://localhost:8001/health
 
-### 4. Add Documents to RAG Pipeline
+#### 4. Add Documents to RAG Pipeline
 
 For local files:
 ```bash
@@ -261,16 +385,45 @@ cp your-documents/* ./rag-documents/
 
 For Google Drive:
 ```bash
-# Place your Google Drive credentials
+# Place your Google Drive credentials (if using OAuth and not a service account)
 cp credentials.json ./google-credentials/
 ```
 
-### Docker Compose Commands
+#### Docker Compose Management Commands
 
+**For Cloud Deployment:**
 ```bash
-# Start services
-docker compose up -d
+# View logs for specific service
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml logs -f agent-api
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml logs -f rag-pipeline
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml logs -f frontend
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml logs -f caddy
 
+# Rebuild specific service
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml build agent-api
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d agent-api
+
+# Check service health
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml ps
+```
+
+**For Local Deployment:**
+```bash
+# View logs for specific service  
+docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai logs -f agent-api
+docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai logs -f rag-pipeline
+docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai logs -f frontend
+
+# Rebuild specific service
+docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai build agent-api
+docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai up -d agent-api
+
+# Check service health
+docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai ps
+```
+
+**For Base Services Only:**
+```bash
 # View logs for specific service
 docker compose logs -f agent-api
 docker compose logs -f rag-pipeline
@@ -305,7 +458,7 @@ You'll need 3-4 terminal windows:
    ```bash
    cd backend_rag_pipeline
    venv\Scripts\activate  # or source venv/bin/activate
-   python Local_Files/main.py
+   python docker_entrypoint.py --pipeline local --mode continuous
    ```
 
 3. **Terminal 3 - Frontend:**
@@ -368,6 +521,7 @@ LLM_PROVIDER=openai
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_API_KEY=your_api_key
 LLM_CHOICE=gpt-4o-mini
+VISION_LLM_CHOICE=gpt-4o-mini
 
 # Embedding Configuration  
 EMBEDDING_PROVIDER=openai
@@ -383,6 +537,18 @@ SUPABASE_SERVICE_KEY=your_service_key
 # Web Search
 BRAVE_API_KEY=your_brave_key
 SEARXNG_BASE_URL=http://localhost:8080
+
+# RAG Pipeline Configuration
+RAG_PIPELINE_TYPE=local          # local or google_drive
+RUN_MODE=continuous              # continuous or single
+RAG_PIPELINE_ID=my-pipeline      # Required for single-run mode
+
+# Google Drive (for RAG Pipeline)
+GOOGLE_DRIVE_CREDENTIALS_JSON=   # Service account JSON string
+RAG_WATCH_FOLDER_ID=            # Specific folder ID to watch
+
+# Local Files (for RAG Pipeline)
+RAG_WATCH_DIRECTORY=            # Container path override
 ```
 
 ### Frontend
@@ -391,6 +557,10 @@ VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_anon_key
 VITE_AGENT_ENDPOINT=http://localhost:8001/api/pydantic-agent
 VITE_ENABLE_STREAMING=true
+
+# Reverse Proxy Configuration (for Caddy deployments)
+AGENT_API_HOSTNAME=agent.yourdomain.com
+FRONTEND_HOSTNAME=chat.yourdomain.com
 ```
 
 ## Troubleshooting
@@ -421,12 +591,6 @@ VITE_ENABLE_STREAMING=true
    
    # Check environment in container
    docker compose exec agent-api env | grep LLM_
-   ```
-
-4. **Volume permission issues**:
-   ```bash
-   # Fix permissions for document volumes
-   sudo chown -R $USER:$USER ./rag-documents
    ```
 
 ### Common Issues
@@ -460,16 +624,6 @@ curl http://localhost:8001/health
 # Test frontend
 curl http://localhost:8082/health
 ```
-
-## Next Steps
-
-Once everything is running locally:
-
-1. **Test the full flow**: Upload documents → Process with RAG → Query through frontend
-2. **Monitor performance**: Check response times and resource usage
-3. **Plan deployment**: Choose platforms for each component
-4. **Set up CI/CD**: Automate testing and deployment
-5. **Add monitoring**: Implement logging and error tracking
 
 ## Support
 

@@ -1,0 +1,20 @@
+name: "CodeQL Configuration"
+
+paths-ignore:
+  - "**/*test*"
+  - "**/*Test*"
+  - "**/tests/**"
+  - "**/venv/**"
+  - "**/node_modules/**"
+  - "**/build/**"
+  - "**/dist/**"
+  - "**/*.min.js"
+  - "**/*.bundle.js"
+
+paths:
+  - "6_Agent_Deployment/backend_agent_api"
+  - "6_Agent_Deployment/backend_rag_pipeline"
+  - "6_Agent_Deployment/frontend/src"
+
+queries:
+  - uses: security-and-quality

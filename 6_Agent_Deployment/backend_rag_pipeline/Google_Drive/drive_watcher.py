@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2.credentials import Credentials
+from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.auth.exceptions import RefreshError
@@ -17,6 +18,7 @@ from pathlib import Path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from common.text_processor import extract_text_from_file, chunk_text, create_embeddings
 from common.db_handler import process_file_for_rag, delete_document_by_file_id
+from common.state_manager import get_state_manager, load_state_from_config, save_state_to_config
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly',
@@ -31,6 +33,7 @@ class GoogleDriveWatcher:
             credentials_path: Path to the credentials.json file
             token_path: Path to the token.json file
             folder_id: ID of the specific Google Drive folder to watch (None to watch all files)
+            config_path: Path to the configuration file
         """
         self.credentials_path = credentials_path
         self.token_path = token_path
@@ -38,6 +41,9 @@ class GoogleDriveWatcher:
         self.service = None
         self.known_files = {}  # Store file IDs and their last modified time
         self.initialized = False  # Flag to track if we've done the initial scan
+        
+        # Initialize state manager (database-backed state if RAG_PIPELINE_ID is set)
+        self.state_manager = get_state_manager('google_drive')
         
         # Load configuration
         self.config = {}
@@ -50,26 +56,16 @@ class GoogleDriveWatcher:
         
     def load_config(self) -> None:
         """
-        Load configuration from JSON file.
+        Load configuration from JSON file and state from database (if available).
+        
+        Configuration (MIME types, processing settings) comes from config.json files.
+        Runtime state (last_check_time, known_files) comes from database when RAG_PIPELINE_ID is set.
         """
+        # Load configuration from file
         try:
             with open(self.config_path, 'r') as f:
                 self.config = json.load(f)
             print(f"Loaded configuration from {self.config_path}")
-            
-            # Load the last check time from config
-            last_check_time_str = self.config.get('last_check_time', '1970-01-01T00:00:00.000Z')
-            try:
-                self.last_check_time = datetime.strptime(last_check_time_str, '%Y-%m-%dT%H:%M:%S.%fZ')
-                print(f"Resuming from last check time: {self.last_check_time}")
-            except ValueError:
-                # If the date format is invalid, use the default
-                self.last_check_time = datetime.strptime('1970-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
-                print("Invalid last check time format in config, using default")
-
-            if not self.folder_id:
-                self.folder_id = self.config.get('watch_folder_id', None)                  
-                
         except Exception as e:
             print(f"Error loading configuration: {e}")
             self.config = {
@@ -93,57 +89,139 @@ class GoogleDriveWatcher:
                 },
                 "last_check_time": "1970-01-01T00:00:00.000Z"
             }
-            self.last_check_time = datetime.strptime('1970-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
-            print("Using default configuration")          
+            print("Using default configuration")
+        
+        # Load state from database or config file
+        if self.state_manager:
+            # Use database state management
+            state = self.state_manager.load_state()
+            self.last_check_time = state.get('last_check_time') or datetime.strptime('1970-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
+            self.known_files = state.get('known_files', {})
+            print(f"Loaded state from database - last check: {self.last_check_time}, known files: {len(self.known_files)}")
+        else:
+            # Use file-based state management (backward compatibility)
+            state = load_state_from_config(self.config_path)
+            self.last_check_time = state.get('last_check_time') or datetime.strptime('1970-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
+            self.known_files = {}  # File-based config doesn't store known_files
+            print(f"Loaded state from config file - last check: {self.last_check_time}")
+        
+        # Apply environment variable overrides
+        env_folder_id = os.getenv('RAG_WATCH_FOLDER_ID')
+        if env_folder_id:
+            self.folder_id = env_folder_id
+            print(f"Override folder ID from environment: {self.folder_id}")
+        elif not self.folder_id:
+            self.folder_id = self.config.get('watch_folder_id', None)          
             
     def save_last_check_time(self) -> None:
         """
-        Save the last check time to the config file.
+        Save the last check time to database or config file.
         """
-        try:
-            # Update the last_check_time in the config
-            self.config['last_check_time'] = self.last_check_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-            
-            # Write the updated config back to the file
-            with open(self.config_path, 'w') as f:
-                json.dump(self.config, f, indent=2)
-                
-            print(f"Saved last check time: {self.last_check_time}")
-        except Exception as e:
-            print(f"Error saving last check time: {e}")
+        if self.state_manager:
+            # Save to database
+            success = self.state_manager.update_last_check_time(self.last_check_time)
+            if success:
+                print(f"Saved last check time to database: {self.last_check_time}")
+            else:
+                print(f"Failed to save last check time to database")
+        else:
+            # Save to config file (backward compatibility)
+            success = save_state_to_config(self.config_path, self.last_check_time, self.config)
+            if success:
+                print(f"Saved last check time to config: {self.last_check_time}")
+            else:
+                print(f"Failed to save last check time to config")
+    
+    def save_state(self) -> None:
+        """
+        Save complete state (last_check_time + known_files) to database or config file.
+        """
+        if self.state_manager:
+            # Save complete state to database
+            success = self.state_manager.save_state(
+                last_check_time=self.last_check_time,
+                known_files=self.known_files
+            )
+            if success:
+                print(f"Saved complete state to database: {len(self.known_files)} known files")
+            else:
+                print(f"Failed to save complete state to database")
+        else:
+            # Only save last_check_time to config file (known_files not supported in file-based)
+            self.save_last_check_time()
     
     def authenticate(self) -> None:
         """
         Authenticate with Google Drive API.
+        Supports both service account (for cloud deployment) and OAuth2 (for local development).
         """
         creds = None
         
-        # Check if token.json exists
-        if os.path.exists(self.token_path):
-            creds = Credentials.from_authorized_user_info(
-                json.loads(open(self.token_path).read()), SCOPES)
+        # Priority 1: Check for service account credentials in environment variable
+        service_account_json = os.getenv('GOOGLE_DRIVE_CREDENTIALS_JSON')
+        if service_account_json:
+            try:
+                # Parse the service account credentials from environment variable
+                service_account_info = json.loads(service_account_json)
+                creds = ServiceAccountCredentials.from_service_account_info(
+                    service_account_info, scopes=SCOPES)
+                print("Using service account authentication for Google Drive")
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Error parsing service account credentials: {e}")
+                print("Falling back to OAuth2 authentication")
         
-        # If there are no valid credentials, let the user log in
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
+        # Priority 2: Check for existing OAuth2 token (backward compatibility)
+        if not creds and os.path.exists(self.token_path):
+            try:
+                creds = Credentials.from_authorized_user_info(
+                    json.loads(open(self.token_path).read()), SCOPES)
+                print("Using existing OAuth2 token for Google Drive")
+            except Exception as e:
+                print(f"Error loading OAuth2 token: {e}")
+        
+        # Priority 3: OAuth2 flow for interactive authentication (local development)
+        if not creds:
+            if creds and hasattr(creds, 'expired') and creds.expired and hasattr(creds, 'refresh_token') and creds.refresh_token:
                 try:
                     creds.refresh(Request())
+                    print("Refreshed OAuth2 token for Google Drive")
                 except RefreshError:
-                    # If refresh fails, re-authenticate
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        self.credentials_path, SCOPES)
-                    creds = flow.run_local_server(port=0)
+                    print("OAuth2 token refresh failed, re-authenticating...")
+                    creds = self._oauth2_authenticate()
             else:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.credentials_path, SCOPES)
-                creds = flow.run_local_server(port=0)
-            
-            # Save the credentials for the next run
-            with open(self.token_path, 'w') as token:
-                token.write(creds.to_json())
+                print("No valid credentials found, starting OAuth2 authentication...")
+                creds = self._oauth2_authenticate()
         
         # Build the Drive API service
         self.service = build('drive', 'v3', credentials=creds)
+        print("Google Drive API service initialized successfully")
+    
+    def _oauth2_authenticate(self) -> Credentials:
+        """
+        Perform OAuth2 authentication flow.
+        
+        Returns:
+            Authenticated credentials
+        """
+        if not os.path.exists(self.credentials_path):
+            raise FileNotFoundError(
+                f"Google Drive credentials file not found: {self.credentials_path}. "
+                f"Either provide OAuth2 credentials file or set GOOGLE_DRIVE_CREDENTIALS_JSON environment variable."
+            )
+        
+        flow = InstalledAppFlow.from_client_secrets_file(
+            self.credentials_path, SCOPES)
+        creds = flow.run_local_server(port=0)
+        
+        # Save the credentials for the next run
+        try:
+            with open(self.token_path, 'w') as token:
+                token.write(creds.to_json())
+            print(f"OAuth2 token saved to {self.token_path}")
+        except Exception as e:
+            print(f"Warning: Could not save OAuth2 token: {e}")
+        
+        return creds
     
     def get_folder_contents(self, folder_id: str, time_str: str) -> List[Dict[str, Any]]:
         """
@@ -353,9 +431,126 @@ class GoogleDriveWatcher:
         
         return deleted_files
     
+    def check_for_changes(self) -> Dict[str, Any]:
+        """
+        Perform a single check for changes and process them.
+        This method supports both continuous and single-run execution modes.
+        
+        Returns:
+            Dictionary with statistics about the check:
+            {
+                'files_processed': int,
+                'files_deleted': int, 
+                'errors': int,
+                'duration': float,
+                'initialized': bool
+            }
+        """
+        start_time = time.time()
+        stats = {
+            'files_processed': 0,
+            'files_deleted': 0,
+            'errors': 0,
+            'duration': 0.0,
+            'initialized': False
+        }
+        
+        try:
+            # Authenticate if needed
+            if not self.service:
+                self.authenticate()
+            
+            # Initial scan to build the known_files dictionary and process any changes since last check
+            if not self.initialized:
+                print("Performing initial scan of files...")
+                # Get all files in the watched folder that have changed since last check
+                time_str = self.last_check_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                if self.folder_id:
+                    changed_files = self.get_folder_contents(self.folder_id, time_str)
+                else:
+                    # If watching all of Drive, get files changed since last check
+                    query = f"modifiedTime > '{time_str}' or createdTime > '{time_str}'"
+                    results = self.service.files().list(
+                        q=query,
+                        pageSize=1000,
+                        fields="nextPageToken, files(id, name, mimeType, webViewLink, modifiedTime, createdTime, trashed)"
+                    ).execute()
+                    changed_files = results.get('files', [])
+                
+                # Process files that have changed since last check
+                print(f"Found {len(changed_files)} files modified since last check during initialization.")
+                for file in changed_files:
+                    if not file.get('trashed', False):  # Skip files in trash
+                        try:
+                            print(f"Processing file from initialization: {file.get('name', 'Unknown')}")
+                            self.process_file(file)
+                            # Update known_files with just the modifiedTime
+                            self.known_files[file['id']] = file.get('modifiedTime')
+                            stats['files_processed'] += 1
+                        except Exception as e:
+                            print(f"Error processing file {file.get('name', 'Unknown')} during initialization: {e}")
+                            stats['errors'] += 1
+                
+                # Update last_check_time to now (same as get_changes() would do)
+                self.last_check_time = datetime.now(timezone.utc)
+                
+                print(f"Processed {stats['files_processed']} files during initialization.")
+                self.initialized = True
+                stats['initialized'] = True
+            
+            # Get changes since the last check
+            changed_files = self.get_changes()
+            
+            # Check for deleted files
+            deleted_file_ids = self.check_for_deleted_files()
+            
+            # Process changed files
+            if changed_files:
+                print(f"Found {len(changed_files)} changed files.")
+                for file in changed_files:
+                    try:
+                        print(file)
+                        self.process_file(file)
+                        # Update known_files with just the modifiedTime
+                        self.known_files[file['id']] = file.get('modifiedTime')
+                        stats['files_processed'] += 1
+                    except Exception as e:
+                        print(f"Error processing file {file.get('name', 'Unknown')}: {e}")
+                        stats['errors'] += 1
+            
+            # Process deleted files
+            if deleted_file_ids:
+                print(f"Found {len(deleted_file_ids)} deleted files.")
+                for file_id in deleted_file_ids:
+                    try:
+                        print(f"File with ID: {file_id} has been deleted. Removing from database...")
+                        delete_document_by_file_id(file_id)
+                        # Remove from known_files
+                        if file_id in self.known_files:
+                            del self.known_files[file_id]
+                        stats['files_deleted'] += 1
+                    except Exception as e:
+                        print(f"Error deleting file {file_id}: {e}")
+                        stats['errors'] += 1
+            
+            # Calculate duration
+            stats['duration'] = time.time() - start_time
+            
+            # Save complete state (last_check_time + known_files)
+            self.save_state()
+            
+            return stats
+            
+        except Exception as e:
+            stats['duration'] = time.time() - start_time
+            stats['errors'] += 1
+            print(f"Error in check_for_changes: {e}")
+            raise
+    
     def watch_for_changes(self, interval_seconds: int = 60) -> None:
         """
         Watch for changes in Google Drive at regular intervals.
+        This method runs continuously, calling check_for_changes() in a loop.
         
         Args:
             interval_seconds: The interval in seconds between checks
@@ -364,65 +559,13 @@ class GoogleDriveWatcher:
         print(f"Starting Google Drive watcher{folder_msg}. Checking for changes every {interval_seconds} seconds...")
         
         try:
-            # Authenticate if needed
-            if not self.service:
-                self.authenticate()
-            
-            # Initial scan to build the known_files dictionary
-            if not self.initialized:
-                print("Performing initial scan of files...")
-                # Get all files in the watched folder
-                # Use the last check time from config or default to 1970-01-01
-                time_str = self.last_check_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-                if self.folder_id:
-                    files = self.get_folder_contents(self.folder_id, time_str)  # Get all files
-                else:
-                    # If watching all of Drive, get all files
-                    results = self.service.files().list(
-                        pageSize=1000,
-                        fields="nextPageToken, files(id, name, mimeType, webViewLink, modifiedTime, trashed)"
-                    ).execute()
-                    files = results.get('files', [])
-                
-                # Build the known_files dictionary - only store the modifiedTime
-                for file in files:
-                    if not file.get('trashed', False):  # Skip files in trash
-                        # Only store the modifiedTime to avoid processing all files
-                        self.known_files[file['id']] = file.get('modifiedTime')
-                
-                print(f"Found {len(self.known_files)} files in initial scan.")
-                self.initialized = True
-            
             while True:
-                # Get changes since the last check
-                changed_files = self.get_changes()
+                # Perform a single check cycle
+                stats = self.check_for_changes()
                 
-                # Check for deleted files (every 5 cycles to reduce API calls)
-                deleted_file_ids = []
-
-                # Uncomment this code and delete the line below it if you want to check for deleted files less often (for performance gains with many files)
-                # if random.random() < 0.2:  # ~20% chance each cycle, or about once every 5 cycles
-                #    print("Checking for deleted files...")
-                #     deleted_file_ids = self.check_for_deleted_files()
-                deleted_file_ids = self.check_for_deleted_files()
-                
-                # Process changed files
-                if changed_files:
-                    print(f"Found {len(changed_files)} changed files.")
-                    for file in changed_files:
-                        print(file)
-                        self.process_file(file)
-                        # Update known_files with just the modifiedTime
-                        self.known_files[file['id']] = file.get('modifiedTime')
-                
-                # Process deleted files
-                if deleted_file_ids:
-                    print(f"Found {len(deleted_file_ids)} deleted files.")
-                    for file_id in deleted_file_ids:
-                        print(f"File with ID: {file_id} has been deleted. Removing from database...")
-                        delete_document_by_file_id(file_id)
-                        # Remove from known_files
-                        del self.known_files[file_id]
+                # Log statistics
+                print(f"Check complete: {stats['files_processed']} processed, {stats['files_deleted']} deleted, "
+                      f"{stats['errors']} errors, {stats['duration']:.2f}s duration")
                 
                 # Wait for the next check
                 print(f"Waiting {interval_seconds} seconds until next check...")

@@ -2,9 +2,14 @@
 __pycache__
 node_modules
 venv
+venv_linux
 .env
 .env.cloud
 .env.local
 credentials.json
 token.json
 .windsurfrules
+.claude
+CLAUDE.md
+google-credentials
+rag-documents

@@ -25,8 +25,6 @@ services:
       # Web Search Configuration
       - BRAVE_API_KEY=${BRAVE_API_KEY}
       - SEARXNG_BASE_URL=${SEARXNG_BASE_URL}
-    networks:
-      - agent-network
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health', timeout=5)"]
       interval: 30s
@@ -41,25 +39,26 @@ services:
     restart: always
     environment:
       # Pipeline Configuration
-      - PIPELINE_TYPE=${PIPELINE_TYPE:-local}
+      - RAG_PIPELINE_TYPE=${RAG_PIPELINE_TYPE:-local}
       - RUN_MODE=${RUN_MODE:-continuous}
-      - CHECK_INTERVAL=${CHECK_INTERVAL:-60}
+      - RAG_PIPELINE_ID=${RAG_PIPELINE_ID}
       # Database Configuration (same as agent)
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
       # Embedding Configuration (same as agent)
-      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-openai}
       - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-https://api.openai.com/v1}
       - EMBEDDING_API_KEY=${EMBEDDING_API_KEY}
       - EMBEDDING_MODEL_CHOICE=${EMBEDDING_MODEL_CHOICE:-text-embedding-3-small}
+      # Google Drive Configuration
+      - GOOGLE_DRIVE_CREDENTIALS_JSON=${GOOGLE_DRIVE_CREDENTIALS_JSON}
+      - RAG_WATCH_FOLDER_ID=${RAG_WATCH_FOLDER_ID}
+      # Local Files Configuration
+      - RAG_WATCH_DIRECTORY=${RAG_WATCH_DIRECTORY}
     volumes:
       # Mount local files directory for local pipeline
       - ./rag-documents:/app/Local_Files/data
-      # Mount Google Drive credentials if using Google Drive pipeline
+      # Mount Google Drive credentials if using OAuth2 (optional)
       - ./google-credentials:/app/Google_Drive/credentials
-    networks:
-      - agent-network
-    command: ["--pipeline", "${PIPELINE_TYPE:-local}", "--mode", "${RUN_MODE:-continuous}", "--interval", "${CHECK_INTERVAL:-60}"]
 
   # Frontend Service
   frontend:
@@ -74,8 +73,6 @@ services:
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
       - VITE_AGENT_ENDPOINT=${VITE_AGENT_ENDPOINT:-http://agent-api:8001/api/pydantic-agent}
       - VITE_ENABLE_STREAMING=${VITE_ENABLE_STREAMING:-true}
-    networks:
-      - agent-network
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
@@ -84,10 +81,6 @@ services:
       start_period: 20s
     depends_on:
       - agent-api
-
-networks:
-  agent-network:
-    driver: bridge
 
 volumes:
   rag-documents:

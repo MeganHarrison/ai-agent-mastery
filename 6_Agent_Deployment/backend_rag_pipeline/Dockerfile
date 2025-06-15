@@ -34,12 +34,10 @@ RUN mkdir -p /app/Local_Files/data /app/Google_Drive/credentials && \
 USER ragpipeline
 
 # Environment variables with defaults
-ENV PIPELINE_TYPE=local
+ENV RAG_PIPELINE_TYPE=local
 ENV RUN_MODE=continuous
 ENV CHECK_INTERVAL=60
+ENV PYTHONUNBUFFERED=1
 
-# Entrypoint
+# Entrypoint - let docker_entrypoint.py handle defaults from environment variables
 ENTRYPOINT ["python", "docker_entrypoint.py"]
-
-# Default command (can be overridden)
-CMD ["--pipeline", "${PIPELINE_TYPE}", "--mode", "${RUN_MODE}", "--interval", "${CHECK_INTERVAL}"]

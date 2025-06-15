@@ -1,80 +1,24 @@
-name: Run Tests
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, module-6-prep ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, module-6-prep ]
   workflow_dispatch:
 
 jobs:
-  test-agent-tools:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        cd 4_Pydantic_AI_Agent
-        pip install -r requirements.txt
-        
-    - name: Run agent tests
-      run: |
-        cd 4_Pydantic_AI_Agent
-        python -m pytest tests/ -v
-        
-  test-rag-pipeline:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
-        
-    - name: Install RAG Pipeline dependencies
-      run: |
-        python -m pip install --upgrade pip
-        cd 4_Pydantic_AI_Agent/RAG_Pipeline
-        pip install -r requirements.txt
-        
-    - name: Run Google Drive tests
-      run: |
-        cd 4_Pydantic_AI_Agent/RAG_Pipeline
-        python -m pytest Google_Drive/tests/ -v
-        
-    - name: Run Local Files tests
-      run: |
-        cd 4_Pydantic_AI_Agent/RAG_Pipeline
-        python -m pytest Local_Files/tests/ -v
-        
-  test-common-rag:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
-        
-    - name: Install RAG Pipeline dependencies
-      run: |
-        python -m pip install --upgrade pip
-        cd 4_Pydantic_AI_Agent/RAG_Pipeline
-        pip install -r requirements.txt
-        
-    - name: Run common RAG tests
-      run: |
-        cd 4_Pydantic_AI_Agent/RAG_Pipeline
-        python -m pytest tests/ -v
+  python-tests:
+    name: Python Unit Tests
+    uses: ./.github/workflows/python-unit-tests.yml
+    with:
+      python-version: '3.12'
+  
+  security-analysis:
+    name: Security Analysis
+    uses: ./.github/workflows/codeql-analysis.yml
+  
+  docker-builds:
+    name: Docker Container Builds
+    uses: ./.github/workflows/docker-builds.yml
+    needs: [python-tests]  # Only build containers if tests pass

@@ -128,9 +128,8 @@ class TestLocalFileWatcher:
         # Verify default date was used
         assert watcher.last_check_time == datetime.strptime('1970-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
         
-        # Check that error was printed
-        captured = capfd.readouterr()
-        assert "Invalid last check time format" in captured.out
+        # Check that error was printed - with the new state manager, this is handled differently
+        # Since we use backward compatibility mode, no warning is printed
     
     @patch('builtins.open', new_callable=mock_open)
     @patch('json.dump')
@@ -164,7 +163,7 @@ class TestLocalFileWatcher:
         
         # Check that error was printed
         captured = capfd.readouterr()
-        assert "Error saving last check time" in captured.out
+        assert "Failed to save last check time to config" in captured.out
     
     def test_get_mime_type(self, watcher):
         """Test getting MIME type for different file extensions"""
@@ -345,32 +344,50 @@ class TestLocalFileWatcher:
         captured = capfd.readouterr()
         assert "No text could be extracted" in captured.out
     
+    @patch('os.walk')
+    @patch('os.stat')
+    @patch.object(LocalFileWatcher, 'get_mime_type')
     @patch.object(LocalFileWatcher, 'get_changes')
     @patch.object(LocalFileWatcher, 'check_for_deleted_files')
     @patch.object(LocalFileWatcher, 'process_file')
     @patch('Local_Files.file_watcher.delete_document_by_file_id')
     @patch('time.sleep')
-    def test_watch_for_changes(self, mock_sleep, mock_delete, mock_process, mock_check_deleted, mock_get_changes, watcher):
+    def test_watch_for_changes(self, mock_sleep, mock_delete, mock_process, mock_check_deleted, 
+                             mock_get_changes, mock_get_mime_type, mock_stat, mock_walk, watcher):
         """Test watching for changes in the local directory"""
-        # Setup mocks
-        # First call is for initial scan, second call is for the first check
-        mock_get_changes.side_effect = [
-            # Initial scan
-            [
-                {'id': '/test_dir/file1.txt', 'modifiedTime': '2023-01-01T00:00:00Z', 'webViewLink': 'file:///test_dir/file1.txt'},
-                {'id': '/test_dir/file2.pdf', 'modifiedTime': '2023-01-01T00:00:00Z', 'webViewLink': 'file:///test_dir/file2.pdf'}
-            ],
-            # First check - one new file
-            [
-                {'id': '/test_dir/file3.csv', 'modifiedTime': '2023-01-02T00:00:00Z', 'webViewLink': 'file:///test_dir/file3.csv'}
-            ]
+        # Setup initial state
+        watcher.initialized = False
+        
+        # Mock os.walk for initial scan
+        mock_walk.return_value = [
+            ('/test_dir', [], ['file1.txt', 'file2.pdf'])
         ]
         
-        # Mock check_for_deleted_files to return one deleted file
-        mock_check_deleted.return_value = ['/test_dir/file1.txt']
+        # Create mock stat results for initial files
+        class MockStat:
+            def __init__(self, mtime, ctime):
+                self.st_mtime = mtime
+                self.st_ctime = ctime
         
-        # We need to make sure process_file is called before check_for_deleted_files
-        # to ensure both files are added to known_files before one is deleted
+        # Set initial files to be newer than last_check_time
+        future_time = (watcher.last_check_time + timedelta(hours=1)).timestamp()
+        mock_stat.side_effect = [
+            MockStat(future_time, future_time),  # file1.txt
+            MockStat(future_time, future_time)   # file2.pdf
+        ]
+        
+        # Mock MIME types
+        mock_get_mime_type.side_effect = ['text/plain', 'application/pdf']
+        
+        # Mock get_changes to return a new file on the second call (after initialization)
+        mock_get_changes.return_value = [
+            {'id': '/test_dir/file3.csv', 'modifiedTime': '2023-01-02T00:00:00Z', 'webViewLink': 'file:///test_dir/file3.csv'}
+        ]
+        
+        # Mock check_for_deleted_files - first call (initialization) no deletions, second call has deletion
+        mock_check_deleted.side_effect = [[], ['/test_dir/file1.txt']]
+        
+        # We need to make sure process_file updates known_files
         def side_effect_process_file(file):
             watcher.known_files[file['id']] = file.get('modifiedTime')
         mock_process.side_effect = side_effect_process_file
@@ -381,17 +398,241 @@ class TestLocalFileWatcher:
         # Call the method
         watcher.watch_for_changes(interval_seconds=1)
         
+        # Verify processing occurred:
+        # - 2 files processed during initialization
+        # - 1 new file processed in the first check
+        # - 1 file deleted
+        # Total process_file calls: 3 (2 from initialization + 1 new file)
+        assert mock_process.call_count == 3
+        
         # Verify file2 and file3 are in known_files (file1 was deleted)
         assert len(watcher.known_files) == 2
-        assert watcher.known_files['/test_dir/file2.pdf'] == '2023-01-01T00:00:00Z'
+        assert '/test_dir/file2.pdf' in watcher.known_files
         assert watcher.known_files['/test_dir/file3.csv'] == '2023-01-02T00:00:00Z'
         assert '/test_dir/file1.txt' not in watcher.known_files
         
-        # Verify process_file was called for the new file
-        mock_process.assert_called_once()
-        
         # Verify delete_document_by_file_id was called for the deleted file
         mock_delete.assert_called_once_with('/test_dir/file1.txt')
+
+    @patch('os.walk')
+    @patch('os.stat')
+    @patch.object(LocalFileWatcher, 'get_mime_type')
+    @patch.object(LocalFileWatcher, 'get_changes')
+    @patch.object(LocalFileWatcher, 'check_for_deleted_files')
+    @patch.object(LocalFileWatcher, 'process_file')
+    @patch('common.db_handler.delete_document_by_file_id')
+    def test_check_for_changes_initial_scan(self, mock_delete_doc, mock_process_file,
+                                          mock_check_deleted, mock_get_changes, mock_get_mime_type, 
+                                          mock_stat, mock_walk, watcher):
+        """Test check_for_changes method with initial scan"""
+        # Setup - not initialized
+        watcher.initialized = False
         
-        # Verify the deleted file was removed from known_files
-        assert '/test_dir/file1.txt' not in watcher.known_files
+        # Mock os.walk to return files in the directory
+        mock_walk.return_value = [
+            ('/test_dir', [], ['file1.txt', 'file2.pdf'])
+        ]
+        
+        # Create mock stat results for files modified after last_check_time
+        class MockStat:
+            def __init__(self, mtime, ctime):
+                self.st_mtime = mtime
+                self.st_ctime = ctime
+        
+        # Set file modification times after last_check_time to trigger processing
+        future_time = (watcher.last_check_time + timedelta(hours=1)).timestamp()
+        mock_stat.side_effect = [
+            MockStat(future_time, future_time),  # file1.txt
+            MockStat(future_time, future_time)   # file2.pdf
+        ]
+        
+        # Mock MIME types
+        mock_get_mime_type.side_effect = ['text/plain', 'application/pdf']
+        
+        # Mock subsequent calls
+        mock_get_changes.return_value = []  # No new changes after initialization
+        mock_check_deleted.return_value = []  # No deletions during initialization
+        
+        # Call the method
+        stats = watcher.check_for_changes()
+        
+        # Verify initialization occurred
+        assert watcher.initialized is True
+        assert stats['initialized'] is True
+        assert len(watcher.known_files) == 2
+        assert '/test_dir/file1.txt' in watcher.known_files
+        assert '/test_dir/file2.pdf' in watcher.known_files
+        
+        # Verify stats structure
+        assert 'files_processed' in stats
+        assert 'files_deleted' in stats
+        assert 'errors' in stats
+        assert 'duration' in stats
+        # Files are now processed during initialization if they changed since last check
+        assert stats['files_processed'] == 2  # Files processed during initialization
+        assert stats['files_deleted'] == 0
+        assert stats['errors'] == 0
+        
+        # Verify process_file was called for each file during initialization
+        assert mock_process_file.call_count == 2
+
+    @patch.object(LocalFileWatcher, 'get_changes')
+    @patch.object(LocalFileWatcher, 'check_for_deleted_files')
+    @patch.object(LocalFileWatcher, 'process_file')
+    @patch('common.db_handler.delete_document_by_file_id')
+    def test_check_for_changes_with_new_files(self, mock_delete_doc, mock_process_file,
+                                            mock_check_deleted, mock_get_changes, watcher):
+        """Test check_for_changes method with new files to process"""
+        # Setup - already initialized
+        watcher.initialized = True
+        watcher.known_files = {'/test_dir/existing_file.txt': '2023-01-01T00:00:00Z'}
+        
+        # Mock new files
+        new_files = [
+            {'id': '/test_dir/new_file1.txt', 'name': 'new_file1.txt', 'modifiedTime': '2023-01-02T00:00:00Z'},
+            {'id': '/test_dir/new_file2.pdf', 'name': 'new_file2.pdf', 'modifiedTime': '2023-01-02T01:00:00Z'}
+        ]
+        mock_get_changes.return_value = new_files
+        mock_check_deleted.return_value = []
+        
+        # Call the method
+        stats = watcher.check_for_changes()
+        
+        # Verify files were processed
+        assert stats['files_processed'] == 2
+        assert stats['files_deleted'] == 0
+        assert stats['errors'] == 0
+        assert mock_process_file.call_count == 2
+        
+        # Verify existing known_files are preserved
+        assert '/test_dir/existing_file.txt' in watcher.known_files
+
+    @patch.object(LocalFileWatcher, 'get_changes')
+    @patch.object(LocalFileWatcher, 'check_for_deleted_files')
+    @patch.object(LocalFileWatcher, 'process_file')
+    @patch('Local_Files.file_watcher.delete_document_by_file_id')
+    def test_check_for_changes_with_deleted_files(self, mock_delete_doc, mock_process_file,
+                                                mock_check_deleted, mock_get_changes, watcher):
+        """Test check_for_changes method with deleted files"""
+        # Setup - already initialized
+        watcher.initialized = True
+        watcher.known_files = {
+            '/test_dir/file1.txt': '2023-01-01T00:00:00Z',
+            '/test_dir/file2.pdf': '2023-01-01T01:00:00Z',
+            '/test_dir/deleted_file.txt': '2023-01-01T02:00:00Z'
+        }
+        
+        # Mock deleted files
+        mock_get_changes.return_value = []
+        mock_check_deleted.return_value = ['/test_dir/deleted_file.txt']
+        
+        # Call the method
+        stats = watcher.check_for_changes()
+        
+        # Verify deletion was processed
+        assert stats['files_processed'] == 0
+        assert stats['files_deleted'] == 1
+        assert stats['errors'] == 0
+        mock_delete_doc.assert_called_once_with('/test_dir/deleted_file.txt')
+        
+        # Verify file was removed from known_files
+        assert '/test_dir/deleted_file.txt' not in watcher.known_files
+        assert '/test_dir/file1.txt' in watcher.known_files
+        assert '/test_dir/file2.pdf' in watcher.known_files
+
+    @patch.object(LocalFileWatcher, 'get_changes')
+    @patch.object(LocalFileWatcher, 'check_for_deleted_files')
+    @patch.object(LocalFileWatcher, 'process_file')
+    @patch('Local_Files.file_watcher.delete_document_by_file_id')
+    def test_check_for_changes_with_errors(self, mock_delete_doc, mock_process_file,
+                                         mock_check_deleted, mock_get_changes, watcher):
+        """Test check_for_changes method error handling"""
+        # Setup - already initialized
+        watcher.initialized = True
+        watcher.known_files = {}
+        
+        # Mock files with processing errors
+        new_files = [
+            {'id': '/test_dir/error_file.txt', 'name': 'error_file.txt', 'modifiedTime': '2023-01-02T00:00:00Z'},
+            {'id': '/test_dir/good_file.txt', 'name': 'good_file.txt', 'modifiedTime': '2023-01-02T01:00:00Z'}
+        ]
+        mock_get_changes.return_value = new_files
+        mock_check_deleted.return_value = ['/test_dir/deleted_error_file.txt']
+        
+        # Make process_file raise an error for the first file
+        def mock_process_side_effect(file):
+            if file['id'] == '/test_dir/error_file.txt':
+                raise Exception("Processing error")
+        
+        mock_process_file.side_effect = mock_process_side_effect
+        
+        # Make delete_document_by_file_id raise an error
+        mock_delete_doc.side_effect = Exception("Deletion error")
+        
+        # Call the method
+        stats = watcher.check_for_changes()
+        
+        # Verify error handling
+        assert stats['files_processed'] == 1  # Only good_file processed
+        assert stats['files_deleted'] == 0   # Deletion failed
+        assert stats['errors'] == 2          # One processing error, one deletion error
+
+    @patch.object(LocalFileWatcher, 'check_for_changes')
+    def test_watch_for_changes_calls_check_for_changes(self, mock_check_for_changes, watcher):
+        """Test that watch_for_changes calls check_for_changes in a loop"""
+        # Setup mock to return stats and raise KeyboardInterrupt to break loop
+        mock_stats = {
+            'files_processed': 2,
+            'files_deleted': 1,
+            'errors': 0,
+            'duration': 1.5
+        }
+        mock_check_for_changes.side_effect = [mock_stats, KeyboardInterrupt()]
+        
+        # Mock sleep to speed up test
+        with patch('time.sleep'):
+            # Call the method (should exit on KeyboardInterrupt)
+            watcher.watch_for_changes(interval_seconds=1)
+        
+        # Verify check_for_changes was called
+        assert mock_check_for_changes.call_count == 2  # Once successful, once with interrupt
+
+    @patch.object(LocalFileWatcher, 'get_changes')
+    def test_check_for_changes_exception_handling(self, mock_get_changes, watcher):
+        """Test check_for_changes handles exceptions properly"""
+        # Setup - make get_changes raise an exception
+        mock_get_changes.side_effect = Exception("File system error")
+        watcher.initialized = False
+        
+        # Call the method - should handle exception gracefully
+        with pytest.raises(Exception, match="File system error"):
+            watcher.check_for_changes()
+
+    # Parameterized test for different run modes
+    @pytest.mark.parametrize("run_mode,expected_calls", [
+        ("continuous", "multiple"),  # watch_for_changes calls check_for_changes in loop
+        ("single", "once")           # single mode calls check_for_changes once
+    ])
+    @patch.object(LocalFileWatcher, 'check_for_changes')
+    def test_run_modes(self, mock_check_for_changes, watcher, run_mode, expected_calls):
+        """Test that both continuous and single run modes work correctly"""
+        mock_stats = {
+            'files_processed': 1,
+            'files_deleted': 0,
+            'errors': 0,
+            'duration': 1.0
+        }
+        
+        if run_mode == "single":
+            # Single mode - just call check_for_changes once
+            mock_check_for_changes.return_value = mock_stats
+            stats = watcher.check_for_changes()
+            assert mock_check_for_changes.call_count == 1
+            assert stats == mock_stats
+            
+        elif run_mode == "continuous":
+            # Continuous mode - call watch_for_changes with early exit
+            mock_check_for_changes.side_effect = [mock_stats, KeyboardInterrupt()]
+            with patch('time.sleep'):
+                watcher.watch_for_changes(interval_seconds=1)
+            assert mock_check_for_changes.call_count == 2
