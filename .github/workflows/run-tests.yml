@@ -16,7 +16,7 @@ jobs:
   
   security-analysis:
     name: Security Analysis
-    uses: ./.github/workflows/codeql-analysis.yml
+    uses: ./.github/workflows/security-analysis.yml
   
   docker-builds:
     name: Docker Container Builds

@@ -66,6 +66,11 @@ jobs:
         ENVIRONMENT=${{ env.ENVIRONMENT }}
         RAG_PIPELINE_TYPE=${{ env.RAG_PIPELINE_TYPE }}
         RUN_MODE=single
+        RAG_PIPELINE_ID=ci-test-pipeline
+        RAG_WATCH_DIRECTORY=/app/Local_Files/data
+        GOOGLE_DRIVE_CREDENTIALS_JSON=
+        RAG_WATCH_FOLDER_ID=
+        CHECK_INTERVAL=30
         VITE_SUPABASE_URL=${{ env.VITE_SUPABASE_URL }}
         VITE_SUPABASE_ANON_KEY=${{ env.VITE_SUPABASE_ANON_KEY }}
         VITE_AGENT_ENDPOINT=${{ env.VITE_AGENT_ENDPOINT }}
@@ -82,34 +87,94 @@ jobs:
         cd 6_Agent_Deployment
         
         # Start services in background
+        echo "Starting Docker Compose stack..."
         docker compose up -d
         
-        # Wait for services to start
+        # Wait for services to initialize
         echo "Waiting for services to start..."
         sleep 45
         
-        # Check service status
+        # Check service status and ensure they're running
+        echo "Checking service status..."
         docker compose ps
         
-        # Test frontend accessibility
+        # Get container status and fail if any are not healthy/running
+        FRONTEND_STATUS=$(docker compose ps frontend --format "{{.State}}")
+        echo "Frontend status: $FRONTEND_STATUS"
+        
+        # Frontend should be running
+        if [[ "$FRONTEND_STATUS" != "running" ]]; then
+          echo "❌ Frontend container is not running!"
+          docker compose logs frontend
+          exit 1
+        fi
+        
+        # Test frontend accessibility (must succeed)
         echo "Testing frontend accessibility..."
-        curl -f http://localhost:8082 -o /dev/null -s || echo "Frontend test: Service running but may not be fully ready"
+        if ! curl -f http://localhost:8082 -o /dev/null -s --max-time 10; then
+          echo "❌ Frontend is not accessible on port 8082!"
+          docker compose logs frontend
+          exit 1
+        fi
+        echo "✅ Frontend is accessible"
         
-        # Test agent API health (if endpoint exists)
-        echo "Testing agent API accessibility..."
-        curl -f http://localhost:8001/health -o /dev/null -s || echo "Agent API test: Service running but health endpoint may not exist"
+        # Check for container restart loops (indicates startup failures)
+        AGENT_RESTARTS=$(docker inspect dynamous-agent-api --format='{{.RestartCount}}')
+        RAG_RESTARTS=$(docker inspect dynamous-rag-pipeline --format='{{.RestartCount}}')
         
-        # Check logs for any critical errors
-        echo "Checking for critical errors in logs..."
-        docker compose logs | grep -i "error\|critical\|fatal" || echo "No critical errors found in logs"
+        echo "Agent API restart count: $AGENT_RESTARTS"
+        echo "RAG Pipeline restart count: $RAG_RESTARTS"
+        
+        # Allow a few restarts for initialization, but fail if too many
+        if [ "$AGENT_RESTARTS" -gt 5 ]; then
+          echo "❌ Agent API container is restart looping (${AGENT_RESTARTS} restarts)!"
+          docker compose logs agent-api
+          exit 1
+        fi
+        
+        if [ "$RAG_RESTARTS" -gt 5 ]; then
+          echo "❌ RAG Pipeline container is restart looping (${RAG_RESTARTS} restarts)!"
+          docker compose logs rag-pipeline  
+          exit 1
+        fi
+        
+        # Check for critical startup errors in logs
+        echo "Checking for critical startup errors..."
+        if docker compose logs | grep -i "application startup failed\|critical\|fatal.*error" | grep -v "expected"; then
+          echo "❌ Critical errors found in container logs!"
+          docker compose logs
+          exit 1
+        fi
+        
+        echo "✅ All containers started successfully"
         
     - name: Test RAG Pipeline single run mode
       run: |
         cd 6_Agent_Deployment
         
-        # Test RAG pipeline in single run mode (should exit cleanly)
+        # Test RAG pipeline in single run mode
         echo "Testing RAG Pipeline single run mode..."
-        docker compose run --rm rag-pipeline || echo "RAG Pipeline single run completed (expected exit)"
+        
+        # Run pipeline in single mode and capture exit code
+        set +e  # Don't exit on command failure
+        docker compose run --rm rag-pipeline
+        RAG_EXIT_CODE=$?
+        set -e  # Re-enable exit on failure
+        
+        echo "RAG Pipeline exit code: $RAG_EXIT_CODE"
+        
+        # Exit codes 0-1 are acceptable (success or retry needed)
+        # Exit codes 2-3 indicate configuration/auth errors (should fail)
+        if [ "$RAG_EXIT_CODE" -eq 0 ]; then
+          echo "✅ RAG Pipeline completed successfully"
+        elif [ "$RAG_EXIT_CODE" -eq 1 ]; then
+          echo "✅ RAG Pipeline completed (retry status - acceptable for CI)"
+        else
+          echo "❌ RAG Pipeline failed with exit code $RAG_EXIT_CODE"
+          # Show logs for debugging
+          docker compose logs rag-pipeline
+          exit 1
+        fi
         
     - name: Cleanup
       if: always()

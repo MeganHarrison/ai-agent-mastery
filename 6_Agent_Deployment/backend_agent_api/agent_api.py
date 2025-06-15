@@ -111,7 +111,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
         token = credentials.credentials
         
         # Access the global HTTP client
-        global http_client
+        global http_client # noqa: F824
         if not http_client:
             raise HTTPException(status_code=500, detail="HTTP client not initialized")
         

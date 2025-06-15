@@ -207,7 +207,7 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
         # Chunk the text
         chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
         if not chunks:
-            print(f"No chunks were created for file '{file_name}' (Path: {file_path})")
+            print(f"No chunks were created for file '{file_title}' (Path: {file_id})")
             return
         
         # Create embeddings for the chunks
