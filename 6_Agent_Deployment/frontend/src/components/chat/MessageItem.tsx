@@ -18,7 +18,7 @@ interface MessageItemProps {
 }
 
 interface CodeProps {
-  node?: any;
+  node?: Element;
   inline?: boolean;
   className?: string;
   children: React.ReactNode;

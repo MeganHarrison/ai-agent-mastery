@@ -57,7 +57,7 @@ export const UsersTable = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter users based on search query
   useEffect(() => {

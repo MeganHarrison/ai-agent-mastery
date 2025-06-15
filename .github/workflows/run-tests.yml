@@ -14,11 +14,30 @@ jobs:
     with:
       python-version: '3.12'
   
+  backend-linting:
+    name: Backend Linting (Flake8)
+    uses: ./.github/workflows/backend-flake8.yml
+    with:
+      python-version: '3.12'
+  
+  frontend-linting:
+    name: Frontend Linting (ESLint)
+    uses: ./.github/workflows/frontend-eslint.yml
+    with:
+      node-version: '18'
+  
   security-analysis:
     name: Security Analysis
     uses: ./.github/workflows/security-analysis.yml
   
+  frontend-e2e:
+    name: Frontend E2E Tests
+    uses: ./.github/workflows/frontend-playwright.yml
+    with:
+      node-version: '18'
+    needs: [frontend-linting]  # Run E2E after linting passes
+  
   docker-builds:
     name: Docker Container Builds
     uses: ./.github/workflows/docker-builds.yml
-    needs: [python-tests]  # Only build containers if tests pass
+    needs: [python-tests, backend-linting]  # Only build containers if tests and linting pass

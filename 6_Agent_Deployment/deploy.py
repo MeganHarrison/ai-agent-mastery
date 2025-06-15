@@ -58,8 +58,8 @@ def deploy_agent_stack(deployment_type, project_name, action="up"):
     
     # Add action (up/down)
     if action == "up":
-        cmd.extend(["up", "-d"])
-        print(f"Starting {deployment_type} deployment with project name '{project_name}'...")
+        cmd.extend(["up", "-d", "--build"])
+        print(f"Starting {deployment_type} deployment with project name '{project_name}' (rebuilding containers)...")
     elif action == "down":
         cmd.extend(["down"])
         print(f"Stopping {deployment_type} deployment with project name '{project_name}'...")

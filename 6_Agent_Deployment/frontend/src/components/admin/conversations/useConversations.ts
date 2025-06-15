@@ -47,7 +47,7 @@ export const useConversations = () => {
 
   useEffect(() => {
     fetchConversations();
-  }, [sortOrder]);
+  }, [sortOrder]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter conversations based on search query
   useEffect(() => {

@@ -1,11 +1,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { fetchConversations } from '@/lib/api';
-import { Conversation } from '@/types/database.types';
+import { Conversation, Profile } from '@/types/database.types';
 import { useToast } from '@/hooks/use-toast';
+import { User } from '@supabase/supabase-js';
 
 interface ConversationManagementProps {
-  user: any;
+  user: User | null;
   isMounted: React.MutableRefObject<boolean>;
 }
 

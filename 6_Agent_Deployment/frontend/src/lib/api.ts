@@ -61,7 +61,7 @@ export const sendMessage = async (
       const decoder = new TextDecoder();
       let finalText = '';
       let title: string | undefined;
-      let responseSessionId = session_id;
+      const responseSessionId = session_id;
       let isCompleted = false;
 
       if (!reader) {
@@ -101,9 +101,13 @@ export const sendMessage = async (
                     if (chunk.session_id) finalSessionId = chunk.session_id;
                     isCompleted = true;
                   }
-                } catch (e) {}
+                } catch (e) {
+                  // Ignore JSON parsing errors for incomplete chunks
+                }
               }
-            } catch (e) {}
+            } catch (e) {
+              // Ignore JSON parsing errors for incomplete chunks
+            }
           }
           break;
         }

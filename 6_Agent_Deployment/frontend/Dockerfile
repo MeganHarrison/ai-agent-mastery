@@ -13,6 +13,18 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Accept build arguments for environment variables
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_AGENT_ENDPOINT
+ARG VITE_ENABLE_STREAMING
+
+# Set environment variables from build args
+ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+ENV VITE_AGENT_ENDPOINT=${VITE_AGENT_ENDPOINT}
+ENV VITE_ENABLE_STREAMING=${VITE_ENABLE_STREAMING}
+
 # Build the application
 RUN npm run build
 

@@ -342,13 +342,13 @@ docker compose -f docker-compose.yml -f docker-compose.caddy.yml down
 **Local Deployment (for AI stack integration):**
 ```bash
 # Build and start services with local overrides
-docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai up -d --build
+docker compose -f docker-compose.yml -p localai up -d --build
 
 # Restart services without rebuilding
-docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai up -d
+docker compose -f docker-compose.yml -p localai up -d
 
 # Stop all services
-docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai down
+docker compose -f docker-compose.yml -p localai down
 ```
 
 **Base Services Only (no reverse proxy):**

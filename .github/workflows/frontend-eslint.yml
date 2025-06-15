@@ -38,15 +38,3 @@ jobs:
       run: |
         cd 6_Agent_Deployment/frontend
         npm run lint
-        
-    - name: Run ESLint with checkstyle output (for annotations)
-      run: |
-        cd 6_Agent_Deployment/frontend
-        npx eslint . --format=checkstyle --output-file=eslint-results.xml || true
-        
-    - name: Annotate ESLint results
-      uses: ataylorme/eslint-annotate-action@v2
-      if: always()
-      with:
-        repo-token: "${{ secrets.GITHUB_TOKEN }}"
-        report-json: "6_Agent_Deployment/frontend/eslint-results.xml"
