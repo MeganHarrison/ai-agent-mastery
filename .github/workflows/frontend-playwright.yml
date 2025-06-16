@@ -56,21 +56,10 @@ jobs:
         VITE_ENABLE_STREAMING=${{ env.VITE_ENABLE_STREAMING }}
         EOF
         
-    - name: Build frontend for testing
-      run: |
-        cd 6_Agent_Deployment/frontend
-        npm run build
-        
-    - name: Start frontend server for E2E tests
-      run: |
-        cd 6_Agent_Deployment/frontend
-        npm run preview &
-        sleep 10
-        
     - name: Run Playwright tests
       run: |
         cd 6_Agent_Deployment/frontend
-        npx playwright test
+        npm run test
         
     - name: Upload Playwright report
       uses: actions/upload-artifact@v4
@@ -86,62 +75,4 @@ jobs:
       with:
         name: playwright-test-results
         path: 6_Agent_Deployment/frontend/test-results/
-        retention-days: 30
-
-  playwright-tests-with-backend:
-    runs-on: ubuntu-latest
-    if: false  # Disabled by default - enable when backend integration is needed
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Node.js ${{ inputs.node-version || '18' }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ inputs.node-version || '18' }}
-        cache: 'npm'
-        cache-dependency-path: '6_Agent_Deployment/frontend/package-lock.json'
-        
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
-        
-    - name: Start mock backend services
-      run: |
-        # Start a mock agent API server for E2E testing
-        cd 6_Agent_Deployment/backend_agent_api
-        pip install -r requirements.txt
-        
-        # Create mock environment
-        cat > .env << EOF
-        LLM_PROVIDER=openai
-        LLM_API_KEY=mock-key-for-testing
-        SUPABASE_URL=https://mock-project.supabase.co
-        SUPABASE_SERVICE_KEY=mock-service-key
-        EOF
-        
-        # Start agent API in background (would need mock implementation)
-        # python -m uvicorn agent_api:app --host 0.0.0.0 --port 8001 &
-        echo "Mock backend setup would go here"
-        
-    - name: Install frontend dependencies and Playwright
-      run: |
-        cd 6_Agent_Deployment/frontend
-        npm ci
-        npx playwright install --with-deps
-        
-    - name: Run full-stack E2E tests
-      run: |
-        cd 6_Agent_Deployment/frontend
-        # Run tests that require backend integration
-        npx playwright test --grep="@fullstack"
-        
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: fullstack-playwright-report
-        path: 6_Agent_Deployment/frontend/playwright-report/
         retention-days: 30

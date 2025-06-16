@@ -13,3 +13,5 @@ token.json
 CLAUDE.md
 google-credentials
 rag-documents
+test-results
+playwright-report

@@ -625,6 +625,46 @@ curl http://localhost:8001/health
 curl http://localhost:8082/health
 ```
 
+## Testing
+
+### Frontend Testing with Playwright
+
+The frontend includes Playwright tests for end-to-end testing with mocked Supabase and agent API calls.
+
+```bash
+cd frontend
+
+# Make sure Playwright is installed
+npx playwright install --with-deps
+
+# Run all tests
+npm run test
+
+# Run tests with interactive UI
+npm run test:ui
+
+# Run tests in headed browser mode (see the browser)
+npm run test:headed
+
+# Run specific test file
+npx playwright test auth.spec.ts
+
+# Debug tests
+npx playwright test --debug
+```
+
+**Test Features:**
+- ✅ **Complete mocking** - No database or API calls
+- ✅ **Authentication flow** - Login, signup, logout
+- ✅ **Chat interface** - Send messages, receive responses
+- ✅ **Conversation management** - New chats, conversation history
+- ✅ **Loading states** - UI feedback during operations
+
+The tests use comprehensive mocks for:
+- Supabase authentication and database
+- Agent API streaming responses
+- User sessions and conversation data
+
 ## Support
 
 For detailed instructions on each component, refer to their individual README files:
