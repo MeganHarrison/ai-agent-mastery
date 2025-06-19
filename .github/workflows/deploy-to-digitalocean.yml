@@ -117,7 +117,7 @@ jobs:
           
           # Stop current deployment
           echo "Stopping current deployment..."
-          python deploy.py --down --type cloud || {
+          python3 deploy.py --down --type cloud || {
             echo "Warning: Failed to stop deployment cleanly"
             docker compose -f docker-compose.yml -f docker-compose.caddy.yml down || true
           }
@@ -128,7 +128,7 @@ jobs:
           
           # Deploy new version
           echo "Starting new deployment..."
-          python deploy.py --type cloud || {
+          python3 deploy.py --type cloud || {
             echo "Deployment failed! Check logs for details"
             exit 1
           }
