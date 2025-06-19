@@ -357,7 +357,7 @@ docker compose -f docker-compose.yml -p localai down
 docker compose up -d --build
 
 # View logs
-docker compose logs -f
+docker compose -p dynamous-agent logs -f
 
 # Stop all services
 docker compose down
@@ -394,40 +394,40 @@ cp credentials.json ./google-credentials/
 **For Cloud Deployment:**
 ```bash
 # View logs for specific service
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml logs -f agent-api
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml logs -f rag-pipeline
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml logs -f frontend
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml logs -f caddy
+docker compose -p dynamous-agent logs -f agent-api
+docker compose -p dynamous-agent logs -f rag-pipeline
+docker compose -p dynamous-agent logs -f frontend
+docker compose -p dynamous-agent logs -f caddy
 
 # Rebuild specific service
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml build agent-api
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d agent-api
+docker compose -p dynamous-agent build agent-api
+docker compose -p dynamous-agent up -d agent-api
 
 # Check service health
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml ps
+docker compose -p dynamous-agent ps
 ```
 
 **For Local Deployment:**
 ```bash
 # View logs for specific service  
-docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai logs -f agent-api
-docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai logs -f rag-pipeline
-docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai logs -f frontend
+docker compose -p localai -f agent-api
+docker compose -p localai logs -f rag-pipeline
+docker compose -p localai logs -f frontend
 
 # Rebuild specific service
-docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai build agent-api
-docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai up -d agent-api
+docker compose -p localai build agent-api
+docker compose -p localai up -d agent-api
 
 # Check service health
-docker compose -f docker-compose.yml -f docker-compose.local.yml -p localai ps
+docker compose -p localai ps
 ```
 
 **For Base Services Only:**
 ```bash
 # View logs for specific service
-docker compose logs -f agent-api
-docker compose logs -f rag-pipeline
-docker compose logs -f frontend
+docker compose -p dynamous-agent logs -f agent-api
+docker compose -p dynamous-agent logs -f rag-pipeline
+docker compose -p dynamous-agent logs -f frontend
 
 # Rebuild and restart services
 docker compose up -d --build
