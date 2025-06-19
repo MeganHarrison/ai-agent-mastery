@@ -35,174 +35,139 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Configure SSH
+    - name: Setup SSH
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ secrets.DIGITALOCEAN_SSH_KEY }}
+        passphrase: ${{ secrets.DIGITALOCEAN_SSH_PASSPHRASE }}
+        known_hosts: 'placeholder'
+        
+    - name: Add server to known hosts
       run: |
-        mkdir -p ~/.ssh
-        # Write the key exactly as stored, preserving all formatting
-        cat > ~/.ssh/deploy_key << 'EOF'
-        ${{ secrets.DIGITALOCEAN_SSH_KEY }}
-        EOF
-        
-        # Ensure proper permissions
-        chmod 600 ~/.ssh/deploy_key
-        
-        # Debug: Verify key format
-        echo "Key file line count: $(wc -l < ~/.ssh/deploy_key)"
-        echo "Key starts with: $(head -1 ~/.ssh/deploy_key)"
-        echo "Key ends with: $(tail -2 ~/.ssh/deploy_key | head -1)"
-        
-        # Verify key can be read by SSH
-        ssh-keygen -lf ~/.ssh/deploy_key || echo "Key validation failed"
-        
-        # Add host to known_hosts
         ssh-keyscan -H ${{ secrets.DIGITALOCEAN_HOST }} >> ~/.ssh/known_hosts
         
     - name: Test SSH connection
       run: |
-        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-          ${{ secrets.DIGITALOCEAN_USERNAME }}@${{ secrets.DIGITALOCEAN_HOST }} \
-          "echo 'SSH connection successful'"
+        ssh ${{ secrets.DIGITALOCEAN_USERNAME }}@${{ secrets.DIGITALOCEAN_HOST }} "echo 'SSH connection successful'"
           
-    - name: Create deployment script
-      run: |
-        cat > deploy_script.sh << 'EOF'
-        #!/bin/bash
-        set -e
-        
-        echo "Starting deployment at $(date)"
-        
-        # Navigate to project directory
-        cd $DEPLOYMENT_PATH || { echo "Project directory not found at $DEPLOYMENT_PATH"; exit 1; }
-        
-        # Store current commit hash
-        OLD_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "none")
-        
-        # Configure git to use token for authentication
-        git config --local credential.helper store
-        echo "https://$GITHUB_USERNAME:$GITHUB_TOKEN@github.com" > ~/.git-credentials
-        
-        # Pull latest changes
-        echo "Pulling latest changes..."
-        git fetch origin
-        
-        # Determine which branch to deploy
-        if git rev-parse --verify origin/module-6-prep >/dev/null 2>&1 && git merge-base --is-ancestor origin/main origin/module-6-prep; then
-          echo "Deploying from module-6-prep branch"
-          git reset --hard origin/module-6-prep
-        else
-          echo "Deploying from main branch"
-          git reset --hard origin/main
-        fi
-        
-        NEW_COMMIT=$(git rev-parse HEAD)
-        
-        if [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
-          echo "No new changes to deploy (commit: $NEW_COMMIT)"
-        else
-          echo "Deploying changes from $OLD_COMMIT to $NEW_COMMIT"
-        fi
-        
-        # Navigate to deployment directory
-        cd 6_Agent_Deployment
-        
-        # Check if .env file exists
-        if [ ! -f .env ]; then
-          echo "ERROR: .env file not found. Please create it manually on the server first."
-          echo "The .env file should contain all sensitive environment variables."
-          exit 1
-        fi
-        
-        # Backup current .env file
-        cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
-        
-        # Backup current deployment state
-        echo "Creating deployment backup..."
-        docker compose ps --format json > deployment_backup_$(date +%Y%m%d_%H%M%S).json || true
-        
-        # Stop current deployment
-        echo "Stopping current deployment..."
-        python deploy.py --down --type cloud || {
-          echo "Warning: Failed to stop deployment cleanly"
-          docker compose -f docker-compose.yml -f docker-compose.caddy.yml down || true
-        }
-        
-        # Clean up old images to save space
-        echo "Cleaning up old Docker images..."
-        docker image prune -f
-        
-        # Deploy new version
-        echo "Starting new deployment..."
-        python deploy.py --type cloud || {
-          echo "Deployment failed! Check logs for details"
-          exit 1
-        }
-        
-        # Wait for services to be healthy
-        echo "Waiting for services to be healthy..."
-        for service in agent-api rag-pipeline frontend; do
-          echo "Checking $service..."
-          for i in {1..30}; do
-            if docker compose ps $service | grep -q "healthy\|running"; then
-              echo "$service is healthy"
-              break
-            fi
-            if [ $i -eq 30 ]; then
-              echo "Error: $service failed to become healthy"
-              docker compose logs $service --tail 50
-              exit 1
-            fi
-            sleep 10
-          done
-        done
-        
-        # Verify deployment
-        echo "Verifying deployment..."
-        
-        # Check agent API health
-        curl -f http://localhost:8001/health || {
-          echo "Agent API health check failed"
-          docker compose logs agent-api --tail 50
-          exit 1
-        }
-        
-        # Clean up git credentials
-        rm -f ~/.git-credentials
-        
-        echo "Deployment completed successfully at $(date)"
-        echo "Deployed commit: $NEW_COMMIT"
-        
-        # Show final status
-        docker compose ps
-        EOF
-        
-        chmod +x deploy_script.sh
         
     - name: Deploy to DigitalOcean
       timeout-minutes: 10
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_USERNAME: ${{ github.actor }}
-        DEPLOYMENT_PATH: ${{ secrets.DEPLOYMENT_PATH }}
       run: |
-        scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-          deploy_script.sh \
-          ${{ secrets.DIGITALOCEAN_USERNAME }}@${{ secrets.DIGITALOCEAN_HOST }}:~/
+        ssh ${{ secrets.DIGITALOCEAN_USERNAME }}@${{ secrets.DIGITALOCEAN_HOST }} << 'EOF'
+          export GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}'
+          export GITHUB_USERNAME='${{ github.actor }}'
+          export DEPLOYMENT_PATH='${{ secrets.DEPLOYMENT_PATH }}'
+          
+          set -e
+          
+          echo "Starting deployment at $(date)"
+          
+          # Navigate to project directory
+          cd $DEPLOYMENT_PATH || { echo "Project directory not found at $DEPLOYMENT_PATH"; exit 1; }
+          
+          # Store current commit hash
+          OLD_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "none")
+          
+          # Configure git to use token for authentication
+          git config --local credential.helper store
+          echo "https://$GITHUB_USERNAME:$GITHUB_TOKEN@github.com" > ~/.git-credentials
+          
+          # Pull latest changes
+          echo "Pulling latest changes..."
+          git fetch origin
+          
+          # Determine which branch to deploy
+          if git rev-parse --verify origin/module-6-prep >/dev/null 2>&1 && git merge-base --is-ancestor origin/main origin/module-6-prep; then
+            echo "Deploying from module-6-prep branch"
+            git reset --hard origin/module-6-prep
+          else
+            echo "Deploying from main branch"
+            git reset --hard origin/main
+          fi
+          
+          NEW_COMMIT=$(git rev-parse HEAD)
+          
+          if [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
+            echo "No new changes to deploy (commit: $NEW_COMMIT)"
+          else
+            echo "Deploying changes from $OLD_COMMIT to $NEW_COMMIT"
+          fi
+          
+          # Navigate to deployment directory
+          cd 6_Agent_Deployment
+          
+          # Check if .env file exists
+          if [ ! -f .env ]; then
+            echo "ERROR: .env file not found. Please create it manually on the server first."
+            echo "The .env file should contain all sensitive environment variables."
+            exit 1
+          fi
+          
+          # Backup current .env file
+          cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
+          
+          # Backup current deployment state
+          echo "Creating deployment backup..."
+          docker compose ps --format json > deployment_backup_$(date +%Y%m%d_%H%M%S).json || true
+          
+          # Stop current deployment
+          echo "Stopping current deployment..."
+          python deploy.py --down --type cloud || {
+            echo "Warning: Failed to stop deployment cleanly"
+            docker compose -f docker-compose.yml -f docker-compose.caddy.yml down || true
+          }
+          
+          # Clean up old images to save space
+          echo "Cleaning up old Docker images..."
+          docker image prune -f
+          
+          # Deploy new version
+          echo "Starting new deployment..."
+          python deploy.py --type cloud || {
+            echo "Deployment failed! Check logs for details"
+            exit 1
+          }
+          
+          # Wait for services to be healthy
+          echo "Waiting for services to be healthy..."
+          for service in agent-api rag-pipeline frontend; do
+            echo "Checking $service..."
+            for i in {1..30}; do
+              if docker compose ps $service | grep -q "healthy\|running"; then
+                echo "$service is healthy"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "Error: $service failed to become healthy"
+                docker compose logs $service --tail 50
+                exit 1
+              fi
+              sleep 10
+            done
+          done
+          
+          # Verify deployment
+          echo "Verifying deployment..."
+          
+          # Check agent API health
+          curl -f http://localhost:8001/health || {
+            echo "Agent API health check failed"
+            docker compose logs agent-api --tail 50
+            exit 1
+          }
+          
+          # Clean up git credentials
+          rm -f ~/.git-credentials
+          
+          echo "Deployment completed successfully at $(date)"
+          echo "Deployed commit: $NEW_COMMIT"
+          
+          # Show final status
+          docker compose ps
+        EOF
         
-        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-          ${{ secrets.DIGITALOCEAN_USERNAME }}@${{ secrets.DIGITALOCEAN_HOST }} \
-          "export GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}' && \
-           export GITHUB_USERNAME='${{ github.actor }}' && \
-           export DEPLOYMENT_PATH='${{ secrets.DEPLOYMENT_PATH }}' && \
-           bash ~/deploy_script.sh"
-           
-        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-          ${{ secrets.DIGITALOCEAN_USERNAME }}@${{ secrets.DIGITALOCEAN_HOST }} \
-          "rm -f ~/deploy_script.sh"
-        
-    - name: Cleanup SSH
-      if: always()
-      run: |
-        rm -f ~/.ssh/deploy_key
+    # SSH cleanup is handled automatically by the ssh-key-action
         
     - name: Send deployment notification
       if: always()
