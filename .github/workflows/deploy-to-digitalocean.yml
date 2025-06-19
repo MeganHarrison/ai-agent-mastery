@@ -38,8 +38,23 @@ jobs:
     - name: Configure SSH
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.DIGITALOCEAN_SSH_KEY }}" > ~/.ssh/deploy_key
+        # Write the key exactly as stored, preserving all formatting
+        cat > ~/.ssh/deploy_key << 'EOF'
+        ${{ secrets.DIGITALOCEAN_SSH_KEY }}
+        EOF
+        
+        # Ensure proper permissions
         chmod 600 ~/.ssh/deploy_key
+        
+        # Debug: Verify key format
+        echo "Key file line count: $(wc -l < ~/.ssh/deploy_key)"
+        echo "Key starts with: $(head -1 ~/.ssh/deploy_key)"
+        echo "Key ends with: $(tail -2 ~/.ssh/deploy_key | head -1)"
+        
+        # Verify key can be read by SSH
+        ssh-keygen -lf ~/.ssh/deploy_key || echo "Key validation failed"
+        
+        # Add host to known_hosts
         ssh-keyscan -H ${{ secrets.DIGITALOCEAN_HOST }} >> ~/.ssh/known_hosts
         
     - name: Test SSH connection
