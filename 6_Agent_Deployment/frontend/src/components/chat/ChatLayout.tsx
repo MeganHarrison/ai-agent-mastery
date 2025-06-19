@@ -115,7 +115,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
               isLoading={loading}
             />
             <div className="mt-2 text-xs text-center text-muted-foreground">
-              AI responses are generated based on your input. The AI assistant may produce inaccurate information.
+              AI responses are generated based on your input. The AI agent may produce inaccurate information.
             </div>
           </div>
         </div>
