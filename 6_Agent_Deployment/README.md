@@ -1,4 +1,4 @@
-# Dynamous AI Agent Mastery - Module 6: Agent Deployment
+# Dynamous AI Agent Mastery - Module 6: AI Agent Deployment
 
 A modular, production-ready deployment setup for the Dynamous AI Agent Mastery agent and application. This module restructures the code from previous modules into independently deployable components: the AI agent API, RAG pipeline, and frontend application. Each component can be deployed, scaled, and maintained separately (or together!) while working together as a cohesive system.
 
