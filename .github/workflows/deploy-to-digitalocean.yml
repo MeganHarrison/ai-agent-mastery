@@ -35,26 +35,30 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup SSH
-      uses: shimataro/ssh-key-action@v2
-      with:
-        key: ${{ secrets.DIGITALOCEAN_SSH_KEY }}
-        passphrase: ${{ secrets.DIGITALOCEAN_SSH_PASSPHRASE }}
-        known_hosts: 'placeholder'
-        
-    - name: Add server to known hosts
+    - name: Create SSH key
       run: |
-        ssh-keyscan -H ${{ secrets.DIGITALOCEAN_HOST }} >> ~/.ssh/known_hosts
+        mkdir -p ~/.ssh/
+        # Write SSH key and ensure it ends with a newline
+        printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+        sudo chmod 600 ~/.ssh/deploy_key
+        
+        # Debug: Check if key ends with newline
+        echo "Key file ends with newline: $(if [[ $(tail -c1 ~/.ssh/deploy_key | wc -l) -gt 0 ]]; then echo 'YES'; else echo 'NO'; fi)"
+        echo "Key validation:"
+        ssh-keygen -lf ~/.ssh/deploy_key || echo "Key validation failed"
+      shell: bash
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.DIGITALOCEAN_SSH_KEY }}
         
     - name: Test SSH connection
       run: |
-        ssh ${{ secrets.DIGITALOCEAN_USERNAME }}@${{ secrets.DIGITALOCEAN_HOST }} "echo 'SSH connection successful'"
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DIGITALOCEAN_USERNAME }}@${{ secrets.DIGITALOCEAN_HOST }} "echo 'SSH connection successful'"
           
         
     - name: Deploy to DigitalOcean
       timeout-minutes: 10
       run: |
-        ssh ${{ secrets.DIGITALOCEAN_USERNAME }}@${{ secrets.DIGITALOCEAN_HOST }} << 'EOF'
+        ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DIGITALOCEAN_USERNAME }}@${{ secrets.DIGITALOCEAN_HOST }} << 'EOF'
           export GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}'
           export GITHUB_USERNAME='${{ github.actor }}'
           export DEPLOYMENT_PATH='${{ secrets.DEPLOYMENT_PATH }}'
