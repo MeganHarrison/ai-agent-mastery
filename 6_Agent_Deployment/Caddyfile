@@ -1,3 +1,7 @@
+{
+    email {$LETSENCRYPT_EMAIL}
+}
+
 # Agent API reverse proxy
 {$AGENT_API_HOSTNAME} {
     # Rate limiting: 100 requests per minute per IP

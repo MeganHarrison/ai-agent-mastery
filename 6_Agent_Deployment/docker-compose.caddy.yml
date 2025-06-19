@@ -15,6 +15,7 @@ services:
     environment:
       - AGENT_API_HOSTNAME=${AGENT_API_HOSTNAME-":8001"}
       - FRONTEND_HOSTNAME=${FRONTEND_HOSTNAME-":8082"}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-internal}      
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data:rw
