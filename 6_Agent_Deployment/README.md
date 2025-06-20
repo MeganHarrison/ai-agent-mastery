@@ -166,6 +166,11 @@ cd backend_rag_pipeline
    
    # For local files (optional)
    RAG_WATCH_DIRECTORY=/app/Local_Files/data
+
+   # Optional Langfuse agent monitoring configuration
+   LANGFUSE_PUBLIC_KEY=
+   LANGFUSE_SECRET_KEY=
+   LANGFUSE_HOST=https://cloud.langfuse.com
    ```
 
 4. **Configure your pipeline (optional):**
@@ -209,12 +214,21 @@ cd frontend
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    VITE_AGENT_ENDPOINT=http://localhost:8001/api/pydantic-agent
    VITE_ENABLE_STREAMING=true
+   
+   # Optional: LangFuse integration for admin dashboard
+   VITE_LANGFUSE_HOST_WITH_PROJECT=http://localhost:3000/project/your-project-id
    ```
    
    **Important**: The `VITE_AGENT_ENDPOINT` must match your agent API URL:
    - Local development: `http://localhost:8001/api/pydantic-agent`
    - Production: `https://your-deployed-agent-url/api/pydantic-agent`
    - If using n8n instead of Python: Update to your n8n webhook URL
+   
+   **Optional LangFuse Integration**: If you want to enable LangFuse links in the admin dashboard:
+   - Set `VITE_LANGFUSE_HOST_WITH_PROJECT` to your LangFuse host URL with project ID
+   - Example: `http://localhost:3000/project/cm9n7mcx60006ph071x425gar`
+   - This adds a clickable link in the conversations table that opens the session in LangFuse
+   - If not set, the LangFuse column will show a dash (-) instead of a link
 
 3. **Start the development server:**
    ```bash
@@ -307,6 +321,9 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 VITE_AGENT_ENDPOINT=http://localhost:8001/api/pydantic-agent
 
+# Optional: LangFuse integration
+VITE_LANGFUSE_HOST_WITH_PROJECT=http://localhost:3000/project/your-project-id
+
 # RAG Pipeline Configuration
 RAG_PIPELINE_TYPE=local  # or google_drive
 RUN_MODE=continuous      # or single for scheduled runs
@@ -318,6 +335,11 @@ RAG_WATCH_FOLDER_ID=           # Specific Google Drive folder ID
 
 # Optional: Local Files Configuration  
 RAG_WATCH_DIRECTORY=           # Override container path (default: /app/Local_Files/data)
+
+# Optional Langfuse agent monitoring configuration
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+LANGFUSE_HOST=https://cloud.langfuse.com
 
 # Hostnames for Caddy reverse proxy routes
 # Leave these commented if you aren't deploying to production
@@ -558,10 +580,58 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 VITE_AGENT_ENDPOINT=http://localhost:8001/api/pydantic-agent
 VITE_ENABLE_STREAMING=true
 
+# Optional: LangFuse integration for admin dashboard
+VITE_LANGFUSE_HOST_WITH_PROJECT=http://localhost:3000/project/your-project-id
+
 # Reverse Proxy Configuration (for Caddy deployments)
 AGENT_API_HOSTNAME=agent.yourdomain.com
 FRONTEND_HOSTNAME=chat.yourdomain.com
 ```
+
+## Agent Observability with LangFuse (Optional)
+
+This deployment includes optional LangFuse integration for comprehensive agent observability. LangFuse provides detailed insights into agent conversations, performance metrics, and debugging capabilities - particularly valuable for production deployments.
+
+### What LangFuse Provides
+- **Conversation Tracking**: Complete agent interaction histories with user and session context
+- **Performance Metrics**: Response times, token usage, and cost tracking
+- **Debugging Tools**: Detailed execution traces for troubleshooting agent behavior
+- **User Analytics**: Insights into user patterns and agent effectiveness
+
+### Setup (Completely Optional)
+
+**To enable LangFuse observability:**
+
+1. **Create a LangFuse account** at [https://cloud.langfuse.com/](https://cloud.langfuse.com/) (free tier available)
+
+2. **Create a new project** and obtain your credentials
+
+3. **Add LangFuse environment variables** to your agent API `.env` file:
+   ```env
+   # Agent observability (optional - leave empty to disable)
+   LANGFUSE_PUBLIC_KEY=your_langfuse_public_key
+   LANGFUSE_SECRET_KEY=your_langfuse_secret_key
+   LANGFUSE_HOST=https://cloud.langfuse.com
+   ```
+
+4. **Optional: Enable frontend integration** by setting in your frontend `.env`:
+   ```env
+   # Add clickable LangFuse links in the admin dashboard
+   VITE_LANGFUSE_HOST_WITH_PROJECT=https://cloud.langfuse.com/project/your-project-id
+   ```
+
+**To disable LangFuse (default behavior):**
+- Simply leave the `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` empty
+- The agent runs normally with no observability overhead
+
+### Benefits for Different Use Cases
+
+- **Development**: Debug agent behavior and optimize conversation flows
+- **Production**: Monitor performance, track usage costs, and identify issues
+- **Analytics**: Understand user interactions and improve agent effectiveness
+- **Team Collaboration**: Share conversation traces and debugging information
+
+The LangFuse integration is designed to be zero-impact when disabled, making it perfect for development environments where observability isn't needed.
 
 ## Troubleshooting
 

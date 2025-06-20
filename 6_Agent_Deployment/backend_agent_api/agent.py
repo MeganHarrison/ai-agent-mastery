@@ -65,6 +65,7 @@ agent = Agent(
     system_prompt=AGENT_SYSTEM_PROMPT,
     deps_type=AgentDeps,
     retries=2,
+    instrument=True,
     # mcp_servers=[code_execution_server]
 )
 

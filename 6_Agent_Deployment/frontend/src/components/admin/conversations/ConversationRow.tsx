@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Copy } from 'lucide-react';
+import { Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Conversation } from '@/types/database.types';
@@ -27,9 +27,13 @@ export const ConversationRow = ({
     }
   }, [conversation.created_at]);
 
+  // Get LangFuse host with project from environment variable
+  const langfuseHost = import.meta.env.VITE_LANGFUSE_HOST_WITH_PROJECT;
+  const langfuseUrl = langfuseHost ? `${langfuseHost}/sessions/${conversation.session_id}` : null;
+
   return (
     <TableRow key={conversation.id}>
-      <TableCell width="25%" className="whitespace-nowrap">
+      <TableCell width="18%" className="whitespace-nowrap">
         {formattedDate}
       </TableCell>
       <TableCell width="25%">
@@ -41,9 +45,9 @@ export const ConversationRow = ({
           <span className="truncate block">{conversation.title || 'Untitled conversation'}</span>
         </Button>
       </TableCell>
-      <TableCell width="25%">
+      <TableCell width="22%">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs truncate max-w-[150px]">{conversation.user_id}</span>
+          <span className="font-mono text-xs truncate max-w-[120px]">{conversation.user_id}</span>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -54,9 +58,9 @@ export const ConversationRow = ({
           </Button>
         </div>
       </TableCell>
-      <TableCell width="25%">
+      <TableCell width="22%">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs truncate max-w-[150px]">{conversation.session_id}</span>
+          <span className="font-mono text-xs truncate max-w-[120px]">{conversation.session_id}</span>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -66,6 +70,21 @@ export const ConversationRow = ({
             <Copy className="h-3 w-3" />
           </Button>
         </div>
+      </TableCell>
+      <TableCell width="13%">
+        {langfuseUrl ? (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => window.open(langfuseUrl, '_blank')}
+            className="h-6 w-6 flex-shrink-0"
+            title="Open in LangFuse"
+          >
+            <ExternalLink className="h-3 w-3" />
+          </Button>
+        ) : (
+          <span className="text-gray-400 text-xs">-</span>
+        )}
       </TableCell>
     </TableRow>
   );

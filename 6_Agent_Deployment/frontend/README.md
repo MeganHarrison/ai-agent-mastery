@@ -51,6 +51,9 @@ A modern React application built with Vite, TypeScript, and Shadcn UI that provi
    
    # Enable streaming for Python agents (set to false for n8n)
    VITE_ENABLE_STREAMING=true
+   
+   # LangFuse integration (optional)
+   VITE_LANGFUSE_HOST_WITH_PROJECT=http://localhost:3000/project/your-project-id
    ```
 
    **Important Notes:**
@@ -62,6 +65,10 @@ A modern React application built with Vite, TypeScript, and Shadcn UI that provi
    - `VITE_ENABLE_STREAMING`: 
      - Set to `true` for Python agents with streaming support
      - Set to `false` for n8n agents or non-streaming endpoints
+   - `VITE_LANGFUSE_HOST_WITH_PROJECT` (optional):
+     - Enables LangFuse integration in the admin dashboard
+     - Should include the full host URL with project ID (e.g., `http://localhost:3000/project/your-project-id`)
+     - If not set, LangFuse links will not appear in the conversations table
 
 4. **Start the development server:**
    ```bash
@@ -136,6 +143,9 @@ VITE_SUPABASE_URL=https://your-production-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-production-anon-key
 VITE_AGENT_ENDPOINT=https://your-production-api.com/api/pydantic-agent
 VITE_ENABLE_STREAMING=true
+
+# Optional: LangFuse integration
+VITE_LANGFUSE_HOST_WITH_PROJECT=https://your-langfuse-host.com/project/your-project-id
 ```
 
 ### Build Settings for Deployment Platforms

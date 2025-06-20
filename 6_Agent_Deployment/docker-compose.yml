@@ -25,6 +25,10 @@ services:
       # Web Search Configuration
       - BRAVE_API_KEY=${BRAVE_API_KEY}
       - SEARXNG_BASE_URL=${SEARXNG_BASE_URL}
+      # Agent Observability Configuration (optional)
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health', timeout=5)"]
       interval: 30s
@@ -69,6 +73,7 @@ services:
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
         VITE_AGENT_ENDPOINT: ${VITE_AGENT_ENDPOINT:-http://agent-api:8001/api/pydantic-agent}
         VITE_ENABLE_STREAMING: ${VITE_ENABLE_STREAMING:-true}
+        VITE_LANGFUSE_HOST_WITH_PROJECT: ${VITE_LANGFUSE_HOST_WITH_PROJECT}
     container_name: dynamous-frontend
     restart: always
     ports:

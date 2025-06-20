@@ -160,6 +160,27 @@ BRAVE_API_KEY=your_brave_api_key
 SEARXNG_BASE_URL=
 ```
 
+#### Agent Observability (Optional)
+
+LangFuse provides detailed observability into your agent's execution, including conversation tracking, performance metrics, and debugging insights. This is completely optional and primarily useful for production deployments.
+
+```
+# LangFuse configuration (optional - leave empty to disable)
+# Get your keys from https://cloud.langfuse.com/ after creating a project
+LANGFUSE_PUBLIC_KEY=your_langfuse_public_key
+LANGFUSE_SECRET_KEY=your_langfuse_secret_key
+LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+**To enable LangFuse observability:**
+1. Create a free account at [https://cloud.langfuse.com/](https://cloud.langfuse.com/)
+2. Create a new project and obtain your public and secret keys
+3. Add the keys to your `.env` file
+
+**To disable LangFuse (default):**
+- Simply leave the `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` empty in your `.env` file
+- The agent will run normally without any observability overhead
+
 ## Database Setup
 
 ### Cloud Implementation

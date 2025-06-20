@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException, Security, Depends, Request, Form
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from supabase import create_client, Client
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
@@ -16,6 +16,9 @@ import base64
 import json
 import sys
 import os
+
+# Import Langfuse configuration
+from configure_langfuse import configure_langfuse
 
 # Import database utility functions
 from db_utils import (
@@ -58,6 +61,7 @@ supabase = None
 http_client = None
 title_agent = None
 mem0_client = None
+tracer = None
 
 # Define the lifespan context manager for the application
 @asynccontextmanager
@@ -66,7 +70,10 @@ async def lifespan(app: FastAPI):
     
     Handles initialization and cleanup of resources.
     """
-    global embedding_client, supabase, http_client, title_agent, mem0_client
+    global embedding_client, supabase, http_client, title_agent, mem0_client, tracer
+
+    # Initialize Langfuse tracer (returns None if not configured)
+    tracer = configure_langfuse()    
     
     # Startup: Initialize all clients
     embedding_client, supabase = get_agent_clients()
@@ -284,22 +291,37 @@ async def pydantic_agent(request: AgentRequest, user: Dict[str, Any] = Depends(v
             agent_input = [request.query]
             if binary_contents:
                 agent_input.extend(binary_contents)
+            
+            full_response = ""
+            
+            # Use tracer context if available, otherwise use nullcontext
+            span_context = tracer.start_as_current_span("Pydantic-Ai-Trace") if tracer else nullcontext()
+            
+            with span_context as span:
+                if tracer and span:
+                    # Set user and session attributes for Langfuse
+                    span.set_attribute("langfuse.user.id", request.user_id)
+                    span.set_attribute("langfuse.session.id", session_id)
+                    span.set_attribute("input.value", request.query)
                 
-            # Run the agent with the user prompt, binary contents, and the chat history
-            async with agent.iter(agent_input, deps=agent_deps, message_history=pydantic_messages) as run:
-                full_response = ""
-                async for node in run:
-                    if Agent.is_model_request_node(node):
-                        # A model request node => We can stream tokens from the model's request
-                        async with node.stream(run.ctx) as request_stream:
-                            async for event in request_stream:
-                                if isinstance(event, PartStartEvent) and event.part.part_kind == 'text':
+                # Run the agent with the user prompt, binary contents, and the chat history
+                async with agent.iter(agent_input, deps=agent_deps, message_history=pydantic_messages) as run:
+                    async for node in run:
+                        if Agent.is_model_request_node(node):
+                            # A model request node => We can stream tokens from the model's request
+                            async with node.stream(run.ctx) as request_stream:
+                                async for event in request_stream:
+                                    if isinstance(event, PartStartEvent) and event.part.part_kind == 'text':
                                         yield json.dumps({"text": event.part.content}).encode('utf-8') + b'\n'
                                         full_response += event.part.content
-                                elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
+                                    elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
                                         delta = event.delta.content_delta
                                         yield json.dumps({"text": full_response}).encode('utf-8') + b'\n'
-                                        full_response += delta             
+                                        full_response += delta
+                
+                # Set the output value after completion if tracing
+                if tracer and span:
+                    span.set_attribute("output.value", full_response)
                     
             # After streaming is complete, store the full response in the database
             message_data = run.result.new_messages_json()
