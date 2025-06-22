@@ -38,27 +38,47 @@ backend_agent_api/
 
 ### Prerequisites
 
-- Python 3.11+
+- Docker (recommended) or Python 3.11+
 
-#### If running the agent locally:
+#### Additional requirements based on your setup:
 
+If running the agent locally:
 - [Local AI package installed](https://github.com/coleam00/local-ai-packaged) (recommended)
+- OR locally hosted: Supabase, Ollama, SearXNG
 
-OR
-
-Locally hosted:
-- Supabase
-- Ollama
-- SearXNG
-
-#### If not running the agent locally:
-
+If not running the agent locally:
 - Supabase project
 - API keys for LLM provider (OpenAI or OpenRouter)
 - Brave API key
 - [Optional] Google Drive API credentials (if using Google Drive RAG pipeline)
 
-### Environment Setup
+### Docker Setup (Recommended)
+
+1. **Create a `.env` file** with your configuration:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+2. **Build and run with Docker:**
+   ```bash
+   # Build the image
+   docker build -t agent-api .
+   
+   # Run with environment variables from .env file
+   docker run -d \
+     --name agent-api \
+     -p 8001:8001 \
+     --env-file .env \
+     agent-api
+   ```
+
+3. **Access the API:**
+   - API endpoint: http://localhost:8001
+   - Health check: http://localhost:8001/health
+   - API docs: http://localhost:8001/docs
+
+### Manual Environment Setup (Alternative)
 
 1. Clone the repository (if not already done)
 
@@ -212,6 +232,31 @@ If you're using the Local AI package or a self-hosted Supabase instance:
    > **Important:** For local Ollama implementations using models like nomic-embed-text, you'll need to modify the vector dimensions in the SQL scripts from 1536 to 768 (or whatever the dimensions are for your embedding model) before running them.
 
 ## Running the API
+
+### With Docker (Recommended)
+
+```bash
+# Check if container is running
+docker ps | grep agent-api
+
+# View logs
+docker logs -f agent-api
+
+# Stop the container
+docker stop agent-api
+
+# Start the container again
+docker start agent-api
+
+# Remove the container
+docker rm agent-api
+
+# Rebuild and run
+docker build -t agent-api .
+docker run -d --name agent-api -p 8001:8001 --env-file .env agent-api
+```
+
+### Without Docker (Manual)
 
 1. Activate the virtual environment:
    ```bash

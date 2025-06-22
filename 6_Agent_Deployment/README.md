@@ -28,273 +28,51 @@ This modular approach allows you to:
 
 ## Prerequisites
 
-- Python 3.11+
-- Node.js 18+ and npm
+- Docker/Docker Desktop (recommended) OR Python 3.11+ and Node.js 18+ with npm
 - Supabase account (or self-hosted instance)
 - LLM provider account (OpenAI, OpenRouter, or local Ollama)
 - Optional: Brave API key for web search (or local SearXNG)
 - Optional: Google Drive API credentials for Google Drive RAG
 
-## Quick Start Overview
-
-### Option A: Docker Compose (Recommended)
-1. **Set up the database** - Run SQL scripts to create all necessary tables
-2. **Configure environment variables** - Copy and fill out the `.env` file
-3. **Run with Docker Compose** - Start all services with one command
-
-### Option B: Development Mode
-1. **Set up the database** - Run SQL scripts to create all necessary tables
-2. **Configure each component** - Set up environment variables and install dependencies
-3. **Start all services** - Run each component in its own process
-
-## 1. Database Setup
+## Database Setup
 
 The database is the foundation for all components. Set it up first:
 
-### Cloud Supabase
+1. **Create a Supabase project:**
+   - **Cloud**: Create a project at [https://supabase.com](https://supabase.com)
+   - **Local**: Navigate to http://localhost:8000 (default Supabase dashboard)
 
-1. Create a Supabase project at [https://supabase.com](https://supabase.com)
+2. **Navigate to the SQL Editor** in your Supabase dashboard
 
-2. Navigate to the SQL Editor in your Supabase dashboard
-
-3. Run the SQL scripts in order from the `sql/` directory:
-   ```
-   1-user_profiles_requests.sql     # User management tables
-   2-user_profiles_requests_rls.sql  # Row-level security for users
-   3-conversations_messages.sql      # Conversation storage
-   4-conversations_messages_rls.sql  # Row-level security for conversations
-   5-documents.sql                   # Document storage with vectors
-   6-document_metadata.sql           # Document metadata
-   7-document_rows.sql               # Tabular document data
-   8-execute_sql_rpc.sql             # SQL query execution function
-   9-rag_pipeline_state.sql          # RAG pipeline state management
-   ```
-
-### Local Supabase
-
-1. Navigate to http://localhost:8000 (default Supabase dashboard)
-2. Run the same SQL scripts in order
-
-> **Note**: For local Ollama implementations, modify vector dimensions in `5-documents.sql` from 1536 to match your embedding model (e.g., 768 for nomic-embed-text)
-
-## 2. Backend Agent API Setup
-
-The AI agent API is the core intelligence of the system:
-
-```bash
-cd backend_agent_api
-```
-
-1. **Create virtual environment:**
-   ```bash
-   python -m venv venv
-   
-   # Windows
-   venv\Scripts\activate
-   # macOS/Linux
-   source venv/bin/activate
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure environment:**
-   ```bash
-   cp .env.example .env
+3. **Run the complete database setup:**
+   ```sql
+   -- Copy and paste the contents of sql/0-all-tables.sql
+   -- This creates all tables, functions, triggers, and security policies
    ```
    
-   Edit `.env` with your configuration:
-   - LLM provider settings (OpenAI/OpenRouter/Ollama)
-   - Database connection (Supabase URL and service key)
-   - Embedding model configuration
-   - Web search settings (Brave API or SearXNG)
+   **⚠️ Important**: The `0-all-tables.sql` script will DROP and recreate the agent tables (user_profiles, conversations, messages, documents, etc.). This resets the agent data to a blank slate - existing agent data will be lost, but other tables in your Supabase project remain untouched.
 
-4. **Start the agent API:**
-   ```bash
-   uvicorn agent_api:app --reload --port 8001
-   ```
+**Alternative**: You can run the individual scripts (`1-user_profiles_requests.sql` through `9-rag_pipeline_state.sql`) if you prefer granular control.
 
-The API will be available at http://localhost:8001
-
-## 3. Backend RAG Pipeline Setup
-
-The RAG pipeline processes and indexes documents for the agent:
-
-```bash
-cd backend_rag_pipeline
-```
-
-1. **Create virtual environment:**
-   ```bash
-   python -m venv venv
-   
-   # Windows
-   venv\Scripts\activate
-   # macOS/Linux
-   source venv/bin/activate
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` with your configuration:
-   ```env
-   # Database and embedding settings (same as agent API)
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_SERVICE_KEY=your_service_key
-   EMBEDDING_API_KEY=your_api_key
-   EMBEDDING_MODEL_CHOICE=text-embedding-3-small
-   
-   # Pipeline configuration
-   RAG_PIPELINE_TYPE=local  # or google_drive
-   RUN_MODE=continuous      # or single
-   RAG_PIPELINE_ID=dev-pipeline
-   
-   # For Google Drive (optional)
-   # If you don't specify the credentials for the service account, it'll default to looking for a credentials.json
-   GOOGLE_DRIVE_CREDENTIALS_JSON=your_service_account_json
-   RAG_WATCH_FOLDER_ID=your_folder_id
-   
-   # For local files (optional)
-   RAG_WATCH_DIRECTORY=/app/Local_Files/data
-
-   # Optional Langfuse agent monitoring configuration
-   LANGFUSE_PUBLIC_KEY=
-   LANGFUSE_SECRET_KEY=
-   LANGFUSE_HOST=https://cloud.langfuse.com
-   ```
-
-4. **Configure your pipeline (optional):**
-   - For local files: Edit `Local_Files/config.json` if needed
-   - For Google Drive: Edit `Google_Drive/config.json` if not using environment variables
-
-5. **Run the pipeline:**
-   ```bash
-   # Unified entrypoint (recommended)
-   python docker_entrypoint.py --pipeline local --mode continuous
-   python docker_entrypoint.py --pipeline google_drive --mode continuous
-   
-   # Or run individual pipelines directly
-   python Local_Files/main.py
-   python Google_Drive/main.py
-   ```
-
-The pipeline will continuously monitor and process documents, with state managed in the database.
-
-## 4. Frontend Setup
-
-The React frontend turns our agent into a full application:
-
-```bash
-cd frontend
-```
-
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env`:
-   ```
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   VITE_AGENT_ENDPOINT=http://localhost:8001/api/pydantic-agent
-   VITE_ENABLE_STREAMING=true
-   
-   # Optional: LangFuse integration for admin dashboard
-   VITE_LANGFUSE_HOST_WITH_PROJECT=http://localhost:3000/project/your-project-id
-   ```
-   
-   **Important**: The `VITE_AGENT_ENDPOINT` must match your agent API URL:
-   - Local development: `http://localhost:8001/api/pydantic-agent`
-   - Production: `https://your-deployed-agent-url/api/pydantic-agent`
-   - If using n8n instead of Python: Update to your n8n webhook URL
-   
-   **Optional LangFuse Integration**: If you want to enable LangFuse links in the admin dashboard:
-   - Set `VITE_LANGFUSE_HOST_WITH_PROJECT` to your LangFuse host URL with project ID
-   - Example: `http://localhost:3000/project/cm9n7mcx60006ph071x425gar`
-   - This adds a clickable link in the conversations table that opens the session in LangFuse
-   - If not set, the LangFuse column will show a dash (-) instead of a link
-
-3. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
-
-The frontend will be available at http://localhost:8081
+**Ollama Configuration**: For local Ollama implementations using models like nomic-embed-text, modify the vector dimensions from 1536 to 768 in `0-all-tables.sql` (lines 133 and 149).
 
 ## Deployment Methods
 
-### Method 1: Smart Deployment Script (Recommended)
+### Method 1: Development Mode (Manual Components)
 
-The easiest way to deploy the stack is using the included Python deployment script, which automatically handles both local and cloud deployment scenarios:
+For development without Docker or to run individual containers separately, see the component-specific READMEs:
 
-#### Cloud Deployment (Standalone with Caddy)
-Deploy as a self-contained stack with built-in reverse proxy:
+- [Backend Agent API](./backend_agent_api/README.md) - Python agent with FastAPI
+- [Backend RAG Pipeline](./backend_rag_pipeline/README.md) - Document processing pipeline  
+- [Frontend](./frontend/README.md) - React application
 
-```bash
-# Configure environment variables first
-cp .env.example .env
-# Edit .env with your settings (see configuration section below)
+### Method 2: Smart Deployment Script (Recommended)
 
-# Deploy to cloud (includes Caddy reverse proxy)
-python deploy.py --type cloud
+The easiest way to deploy the stack is using the included Python deployment script, which automatically handles both local and cloud deployment scenarios.
 
-# Stop cloud deployment
-python deploy.py --down --type cloud
-```
+#### Configure Environment Variables
 
-#### Local Deployment (Integrate with the Local AI Package)
-Deploy to work alongside your existing Local AI Package with shared Caddy:
-
-```bash
-# Configure environment variables first  
-cp .env.example .env
-# Edit .env with your settings (see configuration section below)
-
-# Deploy alongside the Local AI Package (uses existing Caddy)
-python deploy.py --type local --project localai
-
-# Stop local deployment
-python deploy.py --down --type local --project localai
-```
-
-**To enable reverse proxy routes in your Local AI Package**:
-
-1. **Copy and configure** the addon file:
-   ```bash
-   # Copy caddy-addon.conf to your Local AI Package's caddy-addon folder
-   cp caddy-addon.conf /path/to/local-ai-package/caddy-addon/
-   
-   # Edit lines 2 and 21 to set your desired subdomains:
-   # Line 2: subdomain.yourdomain.com (for agent API)
-   # Line 21: subdomain2.yourdomain.com (for frontend)
-   ```
-
-2. **Restart Caddy in the Local AI Package** to load the new configuration:
-   ```bash
-   docker compose -p localai restart caddy
-   ```
-
-### Method 2: Direct Docker Compose (Advanced Users)
-
-For advanced users who prefer direct Docker Compose control:
-
-#### 1. Configure Environment Variables
+First, configure your environment variables:
 
 ```bash
 # Copy the example environment file
@@ -302,6 +80,7 @@ cp .env.example .env
 ```
 
 Edit `.env` with your configuration:
+
 ```env
 # LLM Configuration
 LLM_PROVIDER=openai
@@ -330,7 +109,7 @@ RUN_MODE=continuous      # or single for scheduled runs
 RAG_PIPELINE_ID=dev-local-pipeline  # Required for single-run mode
 
 # Optional: Google Drive Configuration
-GOOGLE_DRIVE_CREDENTIALS_JSON=  # Service account JSON for Google Drive
+GOOGLE_DRIVE_CREDENTIALS_JSON=  # Service account JSON for Google Drive if using a Service Account
 RAG_WATCH_FOLDER_ID=           # Specific Google Drive folder ID
 
 # Optional: Local Files Configuration  
@@ -346,6 +125,55 @@ LANGFUSE_HOST=https://cloud.langfuse.com
 AGENT_API_HOSTNAME=agent.yourdomain.com
 FRONTEND_HOSTNAME=chat.yourdomain.com
 ```
+
+#### Deploy with Script
+
+##### Cloud Deployment (Standalone with Caddy)
+Deploy as a self-contained stack with built-in reverse proxy:
+
+```bash
+# Deploy to cloud (includes Caddy reverse proxy)
+python deploy.py --type cloud
+
+# Stop cloud deployment
+python deploy.py --down --type cloud
+```
+
+##### Local Deployment (Integrate with the Local AI Package)
+Deploy to work alongside your existing Local AI Package with shared Caddy:
+
+```bash
+# Deploy alongside the Local AI Package (uses existing Caddy)
+python deploy.py --type local --project localai
+
+# Stop local deployment
+python deploy.py --down --type local --project localai
+```
+
+**To enable reverse proxy routes in your Local AI Package**:
+
+1. **Copy and configure** the addon file:
+   ```bash
+   # Copy caddy-addon.conf to your Local AI Package's caddy-addon folder
+   cp caddy-addon.conf /path/to/local-ai-package/caddy-addon/
+   
+   # Edit lines 2 and 21 to set your desired subdomains:
+   # Line 2: subdomain.yourdomain.com (for agent API)
+   # Line 21: subdomain2.yourdomain.com (for frontend)
+   ```
+
+2. **Restart Caddy in the Local AI Package** to load the new configuration:
+   ```bash
+   docker compose -p localai restart caddy
+   ```
+
+### Method 3: Direct Docker Compose (Advanced Users)
+
+For advanced users who prefer direct Docker Compose control:
+
+#### 1. Configure Environment Variables
+
+Use the same environment variable configuration shown in Method 2 above.
 
 #### 2. Start All Services
 
@@ -463,29 +291,35 @@ docker compose ps
 
 ## Development Mode
 
-For development with live reloading, run each component separately.
+For development with live reloading, run each component separately. You'll need 3-4 terminal windows:
 
-### Running Services Individually
-
-You'll need 3-4 terminal windows:
+### Quick Setup for Each Component
 
 1. **Terminal 1 - Agent API:**
    ```bash
    cd backend_agent_api
+   python -m venv venv
    venv\Scripts\activate  # or source venv/bin/activate
+   pip install -r requirements.txt
+   cp .env.example .env  # Then edit with your config
    uvicorn agent_api:app --reload --port 8001
    ```
 
 2. **Terminal 2 - RAG Pipeline:**
    ```bash
    cd backend_rag_pipeline
+   python -m venv venv
    venv\Scripts\activate  # or source venv/bin/activate
+   pip install -r requirements.txt
+   cp .env.example .env  # Then edit with your config
    python docker_entrypoint.py --pipeline local --mode continuous
    ```
 
 3. **Terminal 3 - Frontend:**
    ```bash
    cd frontend
+   npm install
+   cp .env.example .env  # Then edit with your config
    npm run dev
    ```
 
@@ -493,6 +327,8 @@ You'll need 3-4 terminal windows:
    ```bash
    deno run -N -R=node_modules -W=node_modules --node-modules-dir=auto jsr:@pydantic/mcp-run-python sse
    ```
+
+**Note:** Don't forget to run the SQL scripts first (see Database Setup above) and configure each `.env` file with your credentials.
 
 ## Deployment Options
 

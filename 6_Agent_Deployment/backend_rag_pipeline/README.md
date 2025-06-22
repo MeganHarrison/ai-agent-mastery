@@ -19,13 +19,73 @@ The pipeline supports both local development (individual scripts) and production
 
 ## Requirements
 
-- Python 3.11+
-- Supabase account with a PGVector-enabled database.
+- Docker (recommended) or Python 3.11+
+- Supabase account with a PGVector-enabled database
 - Tables created from the `sql/` files (including `9-rag_pipeline_state.sql` for state management)
-- OpenAI API key (or compatible embedding provider).
-- **For Google Drive Pipeline:** Google Drive API credentials (OAuth2 or service account).
+- OpenAI API key (or compatible embedding provider)
+- **For Google Drive Pipeline:** Google Drive API credentials (OAuth2 or service account)
 
 ## Installation
+
+### Docker Setup (Recommended)
+
+1. **Create a `.env` file** with your configuration:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` with your configuration:
+   ```env
+   # Environment
+   ENVIRONMENT=development
+   
+   # Pipeline Configuration
+   RAG_PIPELINE_TYPE=local  # or google_drive
+   RUN_MODE=continuous      # or single
+   RAG_PIPELINE_ID=dev-local-pipeline  # Required for database state management
+   
+   # Embedding Configuration
+   EMBEDDING_BASE_URL=https://api.openai.com/v1
+   EMBEDDING_API_KEY=your_openai_api_key
+   EMBEDDING_MODEL_CHOICE=text-embedding-3-small
+   
+   # Database Configuration
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_SERVICE_KEY=your_supabase_service_key
+   
+   # Google Drive Configuration (optional)
+   GOOGLE_DRIVE_CREDENTIALS_JSON=  # Service account JSON for production
+   RAG_WATCH_FOLDER_ID=           # Specific folder ID to watch
+   
+   # Local Files Configuration (optional)
+   RAG_WATCH_DIRECTORY=           # Override watch directory
+   ```
+
+2. **Build and run with Docker:**
+   ```bash
+   # Build the image
+   docker build -t rag-pipeline .
+   
+   # For local files pipeline - create data directory and run
+   mkdir -p ./data
+   docker run -d \
+     --name rag-pipeline \
+     -v $(pwd)/data:/app/Local_Files/data \
+     --env-file .env \
+     rag-pipeline
+   
+   # Add documents to process
+   cp your-documents/* ./data/
+   
+   # For Google Drive pipeline with OAuth credentials
+   docker run -d \
+     --name rag-pipeline \
+     -v $(pwd)/credentials:/app/Google_Drive/credentials \
+     --env-file .env \
+     rag-pipeline
+   ```
+
+### Manual Installation (Alternative)
 
 1.  **Clone the repository** (if not already done).
 
@@ -35,55 +95,27 @@ The pipeline supports both local development (individual scripts) and production
     ```
 
 3.  **Create and activate a virtual environment:**
-    It's highly recommended to use a virtual environment to manage dependencies.
     ```bash
-    # Create the virtual environment (e.g., named 'venv')
+    # Create the virtual environment
     python -m venv venv
 
     # Activate the virtual environment
-    # On Windows (PowerShell/CMD):
-    # venv\Scripts\activate
-    # On macOS/Linux (bash/zsh):
-    # source venv/bin/activate
+    # On Windows:
+    venv\Scripts\activate
+    # On macOS/Linux:
+    source venv/bin/activate
     ```
 
 4.  **Install dependencies:**
-    With the virtual environment activated, install the required packages:
     ```bash
     pip install -r requirements.txt
     ```
 
 5.  **Set up environment variables:**
-    Create a `.env` file in this directory (`backend_rag_pipeline`). Copy from `.env.example`:
+    Use the same environment variable configuration shown in the Docker setup above:
     ```bash
     cp .env.example .env
-    ```
-    
-    Edit the `.env` file with your configuration:
-    ```env
-    # Environment
-    ENVIRONMENT=development
-    
-    # Pipeline Configuration
-    RAG_PIPELINE_TYPE=local  # or google_drive
-    RUN_MODE=continuous      # or single
-    RAG_PIPELINE_ID=dev-local-pipeline  # Required for database state management
-    
-    # Embedding Configuration
-    EMBEDDING_BASE_URL=https://api.openai.com/v1
-    EMBEDDING_API_KEY=your_openai_api_key
-    EMBEDDING_MODEL_CHOICE=text-embedding-3-small
-    
-    # Database Configuration
-    SUPABASE_URL=your_supabase_url
-    SUPABASE_SERVICE_KEY=your_supabase_service_key
-    
-    # Google Drive Configuration (optional)
-    GOOGLE_DRIVE_CREDENTIALS_JSON=  # Service account JSON for production
-    RAG_WATCH_FOLDER_ID=           # Specific folder ID to watch
-    
-    # Local Files Configuration (optional)
-    RAG_WATCH_DIRECTORY=           # Override watch directory
+    # Edit .env with your configuration
     ```
 
 6.  **For Google Drive Pipeline - Google Drive API Setup:**
@@ -96,11 +128,41 @@ The pipeline supports both local development (individual scripts) and production
 
 ## Usage
 
+### With Docker (Recommended)
+
+```bash
+# Check if container is running
+docker ps | grep rag-pipeline
+
+# View real-time logs
+docker logs -f rag-pipeline
+
+# Stop the pipeline
+docker stop rag-pipeline
+
+# Start the pipeline again
+docker start rag-pipeline
+
+# Restart the pipeline (e.g., after config changes)
+docker restart rag-pipeline
+
+# Remove the container
+docker rm rag-pipeline
+
+# For local files mode - add documents
+cp /path/to/your/documents/* ./data/
+
+# For Google Drive mode - check processing status in logs
+docker logs rag-pipeline | tail -20
+```
+
+### Manual Usage (Alternative)
+
 Ensure your virtual environment is activated and you are in the `backend_rag_pipeline` directory.
 
 The pipeline can be run in multiple ways depending on your deployment needs:
 
-### Unified Docker Entrypoint (Recommended for Production)
+#### Unified Docker Entrypoint (Recommended for Production)
 
 For Docker deployment and production use, the unified entrypoint provides consistent behavior with database state management:
 
@@ -126,7 +188,7 @@ python docker_entrypoint.py --pipeline local --mode continuous --config ./custom
 - Support for both continuous and single-run modes
 - Works with both local development and Docker deployment
 
-### Individual Pipeline Scripts (Local Development)
+#### Individual Pipeline Scripts (Local Development)
 
 For local development and testing, you can still run the individual pipeline scripts directly. This section focuses on local development setup:
 

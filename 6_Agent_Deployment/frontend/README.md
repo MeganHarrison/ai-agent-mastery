@@ -23,24 +23,25 @@ A modern React application built with Vite, TypeScript, and Shadcn UI that provi
 
 ## Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 18+ and npm (recommended)
 - Supabase project (same one used by the backend)
 - Backend agent API running (either Python or n8n)
 
 ## Setup Instructions
+
+### NPM Setup (Recommended)
 
 1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. **Configure environment variables:**
+2. **Configure environment:**
    ```bash
-   # Copy the example file
    cp .env.example .env
    ```
-
-3. **Edit `.env` with your configuration:**
+   
+   Edit `.env`:
    ```env
    # Supabase credentials (from your Supabase project)
    VITE_SUPABASE_URL=https://your-project.supabase.co
@@ -56,28 +57,50 @@ A modern React application built with Vite, TypeScript, and Shadcn UI that provi
    VITE_LANGFUSE_HOST_WITH_PROJECT=http://localhost:3000/project/your-project-id
    ```
 
-   **Important Notes:**
-   - `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` must match your Supabase project
-   - `VITE_AGENT_ENDPOINT` must point to your running agent API:
-     - Local Python agent: `http://localhost:8001/api/pydantic-agent`
-     - Deployed Python agent: `https://your-api-url/api/pydantic-agent`
-     - n8n webhook: Your n8n webhook URL
-   - `VITE_ENABLE_STREAMING`: 
-     - Set to `true` for Python agents with streaming support
-     - Set to `false` for n8n agents or non-streaming endpoints
-   - `VITE_LANGFUSE_HOST_WITH_PROJECT` (optional):
-     - Enables LangFuse integration in the admin dashboard
-     - Should include the full host URL with project ID (e.g., `http://localhost:3000/project/your-project-id`)
-     - If not set, LangFuse links will not appear in the conversations table
-
-4. **Start the development server:**
+3. **Start the development server:**
    ```bash
    npm run dev
    ```
 
    The application will be available at `http://localhost:8081`
 
+### Docker Setup (Alternative)
+
+1. **Build with explicit values:**
+   ```bash
+   docker build -t frontend \
+     --build-arg VITE_SUPABASE_URL=https://your-project.supabase.co \
+     --build-arg VITE_SUPABASE_ANON_KEY=your-anon-key \
+     --build-arg VITE_AGENT_ENDPOINT=http://localhost:8001/api/pydantic-agent \
+     --build-arg VITE_ENABLE_STREAMING=true \
+     .
+   ```
+
+2. **Run the container:**
+   ```bash
+   docker run -d \
+     --name frontend \
+     -p 8082:8080 \
+     frontend
+   ```
+
+3. **Access the application** at http://localhost:8082
+
 ## Development
+
+### Docker Development
+
+When running with Docker, the frontend is served by nginx in production mode. For development with hot reload:
+
+```bash
+# Stop the Docker container
+docker stop frontend
+
+# Run in development mode locally
+cd frontend
+npm install
+npm run dev
+```
 
 ### Available Scripts
 
@@ -113,6 +136,33 @@ frontend/
 ```
 
 ## Building for Production
+
+### With Docker (Recommended)
+
+Docker automatically builds the production version:
+
+```bash
+# Build with production optimizations
+docker build -t frontend \
+  --build-arg VITE_SUPABASE_URL=your_production_url \
+  --build-arg VITE_SUPABASE_ANON_KEY=your_production_key \
+  --build-arg VITE_AGENT_ENDPOINT=https://your-api.com/api/pydantic-agent \
+  .
+
+# Run the production container
+docker run -d \
+  --name frontend-prod \
+  -p 80:8080 \
+  frontend
+```
+
+The Docker image:
+- Builds the React app with production optimizations
+- Serves it with nginx for best performance
+- Includes health checks and proper signal handling
+- Runs as a non-root user for security
+
+### Manual Build (Alternative)
 
 1. **Build the application:**
    ```bash
