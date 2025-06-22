@@ -8,6 +8,7 @@ services:
       - "8001:8001"
     environment:
       # LLM Configuration
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       - LLM_PROVIDER=${LLM_PROVIDER:-openai}
       - LLM_BASE_URL=${LLM_BASE_URL:-https://api.openai.com/v1}
       - LLM_API_KEY=${LLM_API_KEY}
@@ -42,6 +43,7 @@ services:
     container_name: dynamous-rag-pipeline
     restart: always
     environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       # Pipeline Configuration
       - RAG_PIPELINE_TYPE=${RAG_PIPELINE_TYPE:-local}
       - RUN_MODE=${RUN_MODE:-continuous}
