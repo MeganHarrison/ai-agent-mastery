@@ -7,37 +7,68 @@
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- ==============================================================================
--- DROP ALL EXISTING OBJECTS (in reverse dependency order)
--- ==============================================================================
+DO $$ 
+DECLARE
+    rec RECORD;
+BEGIN
+    -- Drop policies safely
+    FOR rec IN 
+        SELECT schemaname, tablename, policyname 
+        FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND policyname IN (
+            'Deny delete for messages',
+            'Admins can insert messages',
+            'Admins can view all messages',
+            'Users can insert messages in their conversations',
+            'Users can view their own messages',
+            'Deny delete for conversations',
+            'Admins can insert conversations',
+            'Admins can update all conversations',
+            'Admins can view all conversations',
+            'Users can update their own conversations',
+            'Users can insert their own conversations',
+            'Users can view their own conversations',
+            'Deny delete for requests',
+            'Admins can insert requests',
+            'Admins can view all requests',
+            'Users can view their own requests',
+            'Admins can update all profiles',
+            'Admins can view all profiles',
+            'Only admins can change admin status',
+            'Users can update their own profile',
+            'Users can view their own profile',
+            'Deny delete for user_profiles'
+        )
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', 
+                      rec.policyname, rec.schemaname, rec.tablename);
+    END LOOP;
 
--- Drop policies first
-DROP POLICY IF EXISTS "Deny delete for messages" ON messages;
-DROP POLICY IF EXISTS "Admins can insert messages" ON messages;
-DROP POLICY IF EXISTS "Admins can view all messages" ON messages;
-DROP POLICY IF EXISTS "Users can insert messages in their conversations" ON messages;
-DROP POLICY IF EXISTS "Users can view their own messages" ON messages;
-DROP POLICY IF EXISTS "Deny delete for conversations" ON conversations;
-DROP POLICY IF EXISTS "Admins can insert conversations" ON conversations;
-DROP POLICY IF EXISTS "Admins can update all conversations" ON conversations;
-DROP POLICY IF EXISTS "Admins can view all conversations" ON conversations;
-DROP POLICY IF EXISTS "Users can update their own conversations" ON conversations;
-DROP POLICY IF EXISTS "Users can insert their own conversations" ON conversations;
-DROP POLICY IF EXISTS "Users can view their own conversations" ON conversations;
-DROP POLICY IF EXISTS "Deny delete for requests" ON requests;
-DROP POLICY IF EXISTS "Admins can insert requests" ON requests;
-DROP POLICY IF EXISTS "Admins can view all requests" ON requests;
-DROP POLICY IF EXISTS "Users can view their own requests" ON requests;
-DROP POLICY IF EXISTS "Admins can update all profiles" ON user_profiles;
-DROP POLICY IF EXISTS "Admins can view all profiles" ON user_profiles;
-DROP POLICY IF EXISTS "Only admins can change admin status" ON user_profiles;
-DROP POLICY IF EXISTS "Users can update their own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Users can view their own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Deny delete for user_profiles" ON user_profiles;
+    -- Drop triggers safely
+    FOR rec IN 
+        SELECT t.tgname, c.relname 
+        FROM pg_trigger t
+        JOIN pg_class c ON t.tgrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public'
+        AND t.tgname IN ('on_auth_user_created', 'update_rag_pipeline_state_updated_at')
+        AND NOT t.tgisinternal
+    LOOP
+        EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', rec.tgname, rec.relname);
+    END LOOP;
 
--- Drop triggers
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP TRIGGER IF EXISTS update_rag_pipeline_state_updated_at ON rag_pipeline_state;
+    -- Drop triggers from auth schema if they exist
+    BEGIN
+        DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+    EXCEPTION 
+        WHEN undefined_table THEN 
+            NULL; -- auth.users table doesn't exist, ignore
+        WHEN undefined_object THEN 
+            NULL; -- trigger doesn't exist, ignore
+    END;
+
+END $$;
 
 -- Drop functions
 DROP FUNCTION IF EXISTS public.handle_new_user();
@@ -46,7 +77,7 @@ DROP FUNCTION IF EXISTS match_documents(vector, int, jsonb);
 DROP FUNCTION IF EXISTS execute_custom_sql(text);
 DROP FUNCTION IF EXISTS update_rag_pipeline_state_updated_at();
 
--- Drop tables (in reverse dependency order)
+-- Drop tables (in reverse dependency order) - CASCADE will handle dependencies
 DROP TABLE IF EXISTS document_rows CASCADE;
 DROP TABLE IF EXISTS documents CASCADE;
 DROP TABLE IF EXISTS document_metadata CASCADE;
@@ -379,6 +410,15 @@ WITH CHECK (is_admin());
 
 CREATE POLICY "Deny delete for messages" ON messages FOR DELETE USING (false);
 
+ALTER TABLE document_metadata ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_rows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+
+-- Document tables are locked down - just backend can access
+CREATE POLICY "Deny all access to document_metadata" ON document_metadata FOR ALL USING (false);
+CREATE POLICY "Deny all access to document_rows" ON document_rows FOR ALL USING (false);
+CREATE POLICY "Deny all access to documents" ON documents FOR ALL USING (false);
+
 -- ==============================================================================
 -- REVOKE PERMISSIONS
 -- ==============================================================================
@@ -397,6 +437,7 @@ REVOKE EXECUTE ON FUNCTION execute_custom_sql(text) FROM PUBLIC, authenticated;
 -- ✅ Triggers for automated user profile creation and timestamp updates
 -- ✅ Row Level Security enabled with comprehensive policies
 -- ✅ Proper security permissions configured
+-- ✅ Safe cleanup that handles non-existent tables/policies/triggers
 
 -- Next steps:
 -- 1. Configure your application environment variables
@@ -404,5 +445,5 @@ REVOKE EXECUTE ON FUNCTION execute_custom_sql(text) FROM PUBLIC, authenticated;
 -- 3. Test the frontend application
 
 -- Note: For Ollama with nomic-embed-text, change vector dimensions from 1536 to 768 in:
--- - documents table definition (line 133)
--- - match_documents function definition (line 149)
+-- - documents table definition
+-- - match_documents function definition

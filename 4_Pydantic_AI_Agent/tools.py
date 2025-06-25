@@ -13,7 +13,7 @@ import sys
 import os
 import re
 
-embedding_model = os.getenv('EMBEDDING_MODEL') or 'text-embedding-3-small'
+embedding_model = os.getenv('EMBEDDING_MODEL_CHOICE') or 'text-embedding-3-small'
 
 async def brave_web_search(query: str, http_client: AsyncClient, brave_api_key: str) -> str:
     """

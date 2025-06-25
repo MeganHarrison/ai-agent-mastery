@@ -13,6 +13,7 @@ from pathlib import Path
 from mem0 import Memory
 import asyncio
 import base64
+import time
 import json
 import sys
 import os
@@ -244,7 +245,14 @@ async def pydantic_agent(request: AgentRequest, user: Dict[str, Any] = Depends(v
         pydantic_messages = await convert_history_to_pydantic_format(conversation_history)
         
         # Retrieve relevant memories with Mem0
-        relevant_memories = await mem0_client.search(query=request.query, user_id=request.user_id, limit=3)
+        relevant_memories = {"results": []}
+        try:
+            relevant_memories = await mem0_client.search(query=request.query, user_id=request.user_id, limit=3)
+        except:
+            # Slight hack - retry again with a new connection pool
+            time.sleep(1)
+            relevant_memories = await mem0_client.search(query=request.query, user_id=request.user_id, limit=3)
+
         memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
         
         # Create memory task to run in parallel

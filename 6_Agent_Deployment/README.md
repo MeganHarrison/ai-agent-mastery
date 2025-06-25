@@ -260,7 +260,7 @@ docker compose -p dynamous-agent ps
 **For Local Deployment:**
 ```bash
 # View logs for specific service  
-docker compose -p localai -f agent-api
+docker compose -p localai logs -f agent-api
 docker compose -p localai logs -f rag-pipeline
 docker compose -p localai logs -f frontend
 
