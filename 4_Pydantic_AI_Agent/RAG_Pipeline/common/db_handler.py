@@ -212,7 +212,7 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
         # For images, don't chunk the image, just store the title for RAG and include the binary in the metadata
         if mime_type.startswith("image"):
             insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type, file_content)
-            return
+            return True
         
         # Insert the chunks with their embeddings
         insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type)
