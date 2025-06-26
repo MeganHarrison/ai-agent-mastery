@@ -212,3 +212,49 @@ After deployment:
 - Set up SSL certificates for HTTPS (consider using Certbot/Let's Encrypt)
 - Configure backup strategies for your data
 - Set up monitoring and alerting
+
+
+## GitHub Actions SSH Key Setup Guide
+
+### Step 1: Generate SSH Key
+
+Generate a new SSH key **without** a passphrase for GitHub Actions:
+
+```bash
+ssh-keygen -t rsa -b 4096 -C "github-actions-deploy" -f ~/.ssh/github_deploy_key
+```
+
+Then hit enter to skip adding a passphrase when prompted.
+
+### Step 2: Install Key on Your Server
+
+SSH into your machine with your first key then:
+
+```bash
+nano ~/.ssh/authorized_keys
+# Paste your public key from the .pub file created for GitHub Actions
+# Save with Ctrl+X, then Y, then Enter
+```
+
+Test that the key works:
+
+```bash
+ssh -i ~/.ssh/github_deploy_key your-username@your-server-ip "echo 'New key works!'"
+```
+
+### Step 3: Get Private Key Content
+
+Retrieve the private key content for GitHub Secrets:
+
+```bash
+cat ~/.ssh/github_deploy_key
+```
+
+**Important:** Copy the **entire content** including the `-----BEGIN OPENSSH PRIVATE KEY-----` and `-----END OPENSSH PRIVATE KEY-----` lines.
+
+---
+
+### Next Steps
+
+1. Add the private key content to your GitHub repository secrets
+2. Configure your GitHub Actions workflow with the deployment path, host, and username as well

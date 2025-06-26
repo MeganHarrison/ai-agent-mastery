@@ -30,7 +30,7 @@ export const MessageList = ({ messages, isLoading, isGeneratingResponse = false,
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 h-full">
         <div className="max-w-md text-center">
-          <h3 className="text-xl font-bold mb-2">Welcome to AI Chat</h3>
+          <h3 className="text-xl font-bold mb-2">Welcome to the Dynamous AI Agent</h3>
           <p className="text-muted-foreground mb-4">
             Start a conversation by typing a message below.
           </p>
