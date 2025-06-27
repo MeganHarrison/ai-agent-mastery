@@ -1,0 +1,134 @@
+services:
+  # Frontend React Application (Node.js)
+  - type: web
+    name: dynamous-frontend
+    runtime: node
+    plan: starter
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npx serve dist -s -p $PORT
+    envVars:
+      - fromGroup: frontend-env
+    domains:
+      - render-chat.dynamous.ai
+    
+  # Backend Agent API Service (Docker)
+  - type: web
+    name: dynamous-agent-api
+    runtime: docker
+    plan: starter
+    dockerfilePath: backend_agent_api/Dockerfile
+    dockerContext: backend_agent_api
+    envVars:
+      - fromGroup: agent-api-env
+    healthCheckPath: /health
+    domains:
+      - render-agent.dynamous.ai
+    
+  # RAG Pipeline - Background Worker (Docker)
+  - type: worker
+    name: dynamous-rag-pipeline
+    runtime: docker
+    plan: starter
+    dockerfilePath: backend_rag_pipeline/Dockerfile
+    dockerContext: backend_rag_pipeline
+    envVars:
+      - fromGroup: rag-pipeline-env
+
+# Note: This project uses external Supabase database
+# No database defined here - configure Supabase separately
+
+# Environment Variable Groups
+envVarGroups:
+  - name: frontend-env
+    envVars:
+      # Application URLs (IMPORTANT: Use your actual custom domain)
+      - key: VITE_APP_URL
+        value: https://app.dynamous.ai
+      - key: VITE_REDIRECT_URL
+        value: https://app.dynamous.ai/auth/callback
+      # Supabase Configuration
+      - key: VITE_SUPABASE_URL
+        value: https://your-project.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        value: your_supabase_anon_key
+      # Agent API Configuration
+      - key: VITE_AGENT_ENDPOINT
+        value: https://render-agent.dynamous.ai/api/pydantic-agent
+      - key: VITE_ENABLE_STREAMING
+        value: "true"
+      - key: VITE_LANGFUSE_HOST_WITH_PROJECT
+        value: your_langfuse_host
+        
+  - name: agent-api-env
+    envVars:
+      # LLM Configuration
+      - key: LLM_PROVIDER
+        value: openai
+      - key: LLM_BASE_URL
+        value: https://api.openai.com/v1
+      - key: LLM_API_KEY
+        value: your_openai_api_key
+      - key: LLM_CHOICE
+        value: gpt-4o-mini
+      - key: VISION_LLM_CHOICE
+        value: gpt-4o-mini
+      # Embedding Configuration
+      - key: EMBEDDING_PROVIDER
+        value: openai
+      - key: EMBEDDING_BASE_URL
+        value: https://api.openai.com/v1
+      - key: EMBEDDING_API_KEY
+        value: your_openai_api_key
+      - key: EMBEDDING_MODEL_CHOICE
+        value: text-embedding-3-small
+      # Database Configuration
+      - key: SUPABASE_URL
+        value: https://your-project.supabase.co
+      - key: SUPABASE_SERVICE_KEY
+        value: your_supabase_service_key
+      - key: DATABASE_URL
+        value: postgresql://postgres.your-project:password@aws-0-region.pooler.supabase.com:6543/postgres
+      # Production Environment
+      - key: ENVIRONMENT
+        value: production
+      # Web Search Configuration
+      - key: BRAVE_API_KEY
+        value: your_brave_api_key
+      - key: SEARXNG_BASE_URL
+        value: your_searxng_base_url
+      # Agent Observability Configuration (Langfuse)
+      - key: LANGFUSE_PUBLIC_KEY
+        value: your_langfuse_public_key
+      - key: LANGFUSE_SECRET_KEY
+        value: your_langfuse_private_key
+      - key: LANGFUSE_HOST
+        value: your_langfuse_host
+
+  - name: rag-pipeline-env
+    envVars:
+      # Pipeline Configuration
+      - key: RAG_PIPELINE_TYPE
+        value: google_drive
+      - key: RUN_MODE
+        value: continuous
+      - key: CHECK_INTERVAL
+        value: "300"
+      - key: RAG_PIPELINE_ID
+        value: render-web
+      # Database Configuration
+      - key: SUPABASE_URL
+        value: https://your-project.supabase.co
+      - key: SUPABASE_SERVICE_KEY
+        value: your_supabase_service_key
+      # Embedding Configuration
+      - key: EMBEDDING_API_KEY
+        value: your_openai_api_key
+      - key: EMBEDDING_BASE_URL
+        value: https://api.openai.com/v1
+      - key: EMBEDDING_MODEL_CHOICE
+        value: text-embedding-3-small
+      # Google Drive Configuration
+      - key: GOOGLE_DRIVE_CREDENTIALS_JSON
+        value: your_google_drive_service_account_json
+      - key: RAG_WATCH_FOLDER_ID
+        value: your_google_drive_folder_id
