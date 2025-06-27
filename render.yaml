@@ -4,8 +4,8 @@ services:
     name: dynamous-frontend
     runtime: node
     plan: starter
-    buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npx serve dist -s -p $PORT
+    buildCommand: cd 6_Agent_Deployment/frontend && npm install && npm run build
+    startCommand: cd 6_Agent_Deployment/frontend && npx serve dist -s -p $PORT
     envVars:
       - fromGroup: frontend-env
     domains:
@@ -16,7 +16,7 @@ services:
     name: dynamous-agent-api
     runtime: docker
     plan: starter
-    dockerfilePath: backend_agent_api/Dockerfile
+    dockerfilePath: 6_Agent_Deployment/backend_agent_api/Dockerfile
     dockerContext: backend_agent_api
     envVars:
       - fromGroup: agent-api-env
@@ -29,7 +29,7 @@ services:
     name: dynamous-rag-pipeline
     runtime: docker
     plan: starter
-    dockerfilePath: backend_rag_pipeline/Dockerfile
+    dockerfilePath: 6_Agent_Deployment/backend_rag_pipeline/Dockerfile
     dockerContext: backend_rag_pipeline
     envVars:
       - fromGroup: rag-pipeline-env
