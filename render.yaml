@@ -17,7 +17,7 @@ services:
     runtime: docker
     plan: starter
     dockerfilePath: 6_Agent_Deployment/backend_agent_api/Dockerfile
-    dockerContext: backend_agent_api
+    dockerContext: 6_Agent_Deployment/backend_agent_api
     envVars:
       - fromGroup: agent-api-env
     healthCheckPath: /health
@@ -30,7 +30,7 @@ services:
     runtime: docker
     plan: starter
     dockerfilePath: 6_Agent_Deployment/backend_rag_pipeline/Dockerfile
-    dockerContext: backend_rag_pipeline
+    dockerContext: 6_Agent_Deployment/backend_rag_pipeline
     envVars:
       - fromGroup: rag-pipeline-env
 
