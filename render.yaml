@@ -9,7 +9,7 @@ services:
     envVars:
       - fromGroup: frontend-env
     domains:
-      - chat.dynamous.ai
+      - render-chat.dynamous.ai
     
   # Backend Agent API Service (Docker)
   - type: web
@@ -22,7 +22,7 @@ services:
       - fromGroup: agent-api-env
     healthCheckPath: /health
     domains:
-      - agent.dynamous.ai
+      - render-agent.dynamous.ai
     
   # RAG Pipeline - Background Worker (Docker)
   - type: worker
