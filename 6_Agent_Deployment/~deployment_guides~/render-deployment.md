@@ -27,7 +27,7 @@ The deployment will create three services:
 - **Agent API** (Docker): FastAPI server handling AI agent requests
 - **RAG Pipeline** (Docker): Background worker processing documents
 
-**Cost**: Each service runs on Render's Starter plan ($7/month per service), totaling approximately $21/month for the complete deployment.
+**Cost**: Both backend services runs on Render's Starter plan ($7/month per service), totaling $14/month for the complete deployment. The static site deployment with the global CDN for the frontend is free.
 
 ## Step 1: Set Up Your Repository
 
