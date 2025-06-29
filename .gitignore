@@ -18,3 +18,4 @@ playwright-report
 frontend-env.env
 agent-api-env.env
 rag-pipeline-env.env
+infra/terraform.tfvars
