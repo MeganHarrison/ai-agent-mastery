@@ -32,7 +32,7 @@ resource "google_compute_managed_ssl_certificate" "frontend_ssl" {
 
 module "lb_site" {
   source  = "terraform-google-modules/cloud-foundation-fabric/google//modules/lb-http"
-  version = "6.4.0"
+  version = "~> 6.4"
 
   project_id = var.project_id
   name       = "frontend-lb"

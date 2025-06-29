@@ -22,6 +22,7 @@ agent_env = {
   LANGFUSE_PUBLIC_KEY     = ""
   LANGFUSE_SECRET_KEY     = ""
   LANGFUSE_HOST           = "https://cloud.langfuse.com"
+  DATABASE_URL            = "postgresql://postgres:YOUR-SUPABASE-PASSWORD@db.YOUR.supabase.co:6543/postgres?pgbouncer=true"
 }
 
 rag_env = {
@@ -29,13 +30,12 @@ rag_env = {
   RAG_PIPELINE_TYPE             = "google_drive"
   RUN_MODE                      = "single"
   RAG_PIPELINE_ID               = "prod-drive-pipeline"
+  EMBEDDING_PROVIDER            = "openai"
   EMBEDDING_BASE_URL            = "https://api.openai.com/v1"
   EMBEDDING_API_KEY             = "sk-REPLACE"
   EMBEDDING_MODEL_CHOICE        = "text-embedding-3-small"
   SUPABASE_URL                  = "https://YOUR.supabase.co"
   SUPABASE_SERVICE_KEY          = "service-role-REPLACE"
-  GOOGLE_DRIVE_CREDENTIALS_JSON = <<EOF
-  { ...service-account JSON... }
-  EOF
+  GOOGLE_DRIVE_CREDENTIALS_JSON = '{ ...service-account JSON... }'
   RAG_WATCH_FOLDER_ID           = "drive-folder-id"
 }

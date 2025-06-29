@@ -6,7 +6,7 @@ Deploy the full Dynamous AI Agent stack — React front‑end, FastAPI agent API
 
 ## 1  Prerequisites
 
-1. **Google Cloud project** — [Create one](https://console.cloud.google.com/projectcreate) and note its **`PROJECT_ID`** & **`PROJECT_NUMBER`**.
+1. **Google Cloud project** — [Create one](https://console.cloud.google.com/projectcreate) and note its **`PROJECT_ID`** & **`PROJECT_NUMBER`**. Be sure to add billing information as well or you'll get an error with enabling services below.
 2. **Google Cloud SDK** — Install via the [SDK install guide](https://cloud.google.com/sdk/docs/install) then initialise:
 
    ```bash
@@ -16,13 +16,11 @@ Deploy the full Dynamous AI Agent stack — React front‑end, FastAPI agent API
 3. **Terraform CLI ≥ 1.7** — [Download Terraform](https://developer.hashicorp.com/terraform/downloads).
 4. **Supabase project** — create, then run the schema script: `6_Agent_Deployment/sql/0-all-tables.sql`
 5. **Google Drive service account** — JSON key + Drive folder ID from local setup.
-6. **Enable required GCP APIs** (run once):
+6. **Domain names ready** — You'll need access to your DNS provider to add records.
+7. **Enable required GCP APIs** (run once):
 
    ```bash
-   gcloud services enable run.googleapis.com runapps.googleapis.com \
-       artifactregistry.googleapis.com storage.googleapis.com \
-       cloudbuild.googleapis.com cloudscheduler.googleapis.com \
-       secretmanager.googleapis.com
+   gcloud services enable run.googleapis.com runapps.googleapis.com artifactregistry.googleapis.com storage.googleapis.com cloudbuild.googleapis com cloudscheduler.googleapis.com secretmanager.googleapis.com
    ```
 
 > **Note**  — `infra/terraform.tfvars` is in the **`.gitignore`** so secrets never reach Git.  You can later migrate any secret value to **Secret Manager** and reference it from Terraform if you wish as well.
@@ -90,6 +88,11 @@ rag_env  = { … }
 
    ```bash
    cd infra
+   
+   # FIRST: Create state bucket and update versions.tf
+   gsutil mb gs://tfstate-${PROJECT_ID}
+   # Edit versions.tf line 11: replace YOUR-PROJECT-ID with your actual project ID
+   
    terraform init
    terraform apply      # review → yes
    ```
@@ -135,7 +138,45 @@ rag_env  = { … }
 
 ---
 
-## 7  Smoke test
+## 7  DNS Configuration
+
+After running `terraform apply`, you need to configure DNS records at your domain provider.
+
+### Get the frontend IP
+
+```bash
+gcloud compute forwarding-rules list
+# Look for EXTERNAL_IP of frontend-lb-forwarding-rule
+```
+
+### Create DNS records
+
+At your DNS provider, create these two records:
+
+**Frontend (A record)**:
+- Name: `chat` (just the subdomain, not full domain)
+- Type: A
+- Value: [IP address from step above]
+- TTL: 300
+
+**API (CNAME record)**:
+- Name: `agent` (just the subdomain, not full domain)
+- Type: CNAME
+- Value: `ghs.googlehosted.com`
+- TTL: 300
+
+### Verify DNS
+
+After 5-30 minutes, verify DNS propagation:
+
+```bash
+dig chat.dynamous.ai    # Should show your load balancer IP
+dig agent.dynamous.ai   # Should show ghs.googlehosted.com
+```
+
+> **Troubleshooting**: If SSL certificates stay "PROVISIONING" for over an hour, double-check your DNS records. The certificates won't provision until DNS is properly configured.
+
+## 8  Smoke test
 
 1. Visit `https://chat.dynamous.ai` (your frontend URL) — page loads, no 404/403.
 2. `curl https://agent.dynamous.ai/api/pydantic-agent` (your agent API URL) — returns 200.
@@ -148,7 +189,7 @@ rag_env  = { … }
 | Symptom                         | Fix                                                                  |
 | ------------------------------- | -------------------------------------------------------------------- |
 | Build fails on deploy           | Confirm Cloud Build SA roles; ensure second run after granting roles |
-| Cert stuck "PROVISIONING"       | Check DNS A/CNAME records for both domains                           |
+| Cert stuck "PROVISIONING"       | Set DNS: Frontend A→[LB IP], API CNAME→ghs.googlehosted.com          |
 | Scheduler firing but job absent | IAM on Scheduler SA: must have Run Invoker role on the job           |
 | Old JS/CSS                      | `gsutil rsync -d` deletes stale assets; invalidate CDN if enabled    |
 

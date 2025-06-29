@@ -5,9 +5,10 @@ terraform {
     google-beta  = { source = "hashicorp/google-beta",  version = "~> 5.21" }
   }
 
-  # backend bucket created manually the first time (skip if you prefer local state)
+  # backend bucket created manually the first time
+  # Uncomment and replace YOUR-PROJECT-ID with actual project ID
   backend "gcs" {
-    bucket = "tfstate-${var.project_id}"
+    bucket = "tfstate-dynamous-gcp-deployment"
     prefix = "prod"
   }
 }
