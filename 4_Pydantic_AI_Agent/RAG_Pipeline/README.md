@@ -53,10 +53,11 @@ This RAG (Retrieval Augmented Generation) pipeline processes files from either G
     Create a `.env` file in the **project root directory** (i.e., one level above the `RAG_Pipeline` directory, so `../.env` from your current location if you are inside `RAG_Pipeline`). The scripts are configured to look for it there.
     ```env
     # ../.env
+    EMBEDDING_MODEL_NAME=your_embedding_model_choice
+    EMBEDDING_BASE_URL=your_provider_base_url
+    EMBEDDING_API_KEY=your_provider_api_key
     SUPABASE_URL=your_supabase_url
     SUPABASE_SERVICE_KEY=your_supabase_service_key
-    LLM_API_KEY=your_openai_api_key
-    # EMBEDDING_MODEL_NAME="text-embedding-3-small"
     ```
 
 6.  **For Google Drive Pipeline - Google Drive API Setup:**
