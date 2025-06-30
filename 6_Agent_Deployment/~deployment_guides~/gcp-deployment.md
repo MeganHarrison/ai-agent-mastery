@@ -25,7 +25,7 @@ This guide is more concise since this is a more advanced tutorial and assumes yo
 7. **Enable required GCP APIs** (run once):
 
    ```bash
-   gcloud services enable run.googleapis.com runapps.googleapis.com artifactregistry.googleapis.com storage.googleapis.com cloudbuild.googleapis com cloudscheduler.googleapis.com secretmanager.googleapis.com compute.googleapis.com
+   gcloud services enable run.googleapis.com runapps.googleapis.com artifactregistry.googleapis.com storage.googleapis.com cloudbuild.googleapis com cloudscheduler.googleapis.com secretmanager.googleapis.com compute.googleapis.com certificatemanager.googleapis.com
    ```
 
 > **Note**  — `infra/terraform.tfvars` is in the **`.gitignore`** so secrets never reach Git.  You can later migrate any secret value to **Secret Manager** and reference it from Terraform if you wish as well.
@@ -143,6 +143,8 @@ Just so you understand what is being created at a high level:
 
 `_BOOTSTRAP_ONLY=yes` skips deploy commands which we only need within continuous delivery (CD).
 
+The GCP free tier is going to cover basically everything here except the load balancer for the frontend - your cost for development or lighter traffice is only going to be ~$20-$30 per month. On top of that, GCP offers $300 in free credits for the first 90 days!
+
 ---
 
 ## 6  DNS Configuration
@@ -164,13 +166,13 @@ At your DNS provider, create these two records:
 - Name: `chat` (just the subdomain, not full domain)
 - Type: A
 - Value: [IP address from step above]
-- TTL: 300
+- TTL: 300 or Automatic
 
 **API (CNAME record)**:
 - Name: `agent` (just the subdomain, not full domain)
 - Type: CNAME
 - Value: `ghs.googlehosted.com`
-- TTL: 300
+- TTL: 300 or Automatic
 
 > **Troubleshooting**: If SSL certificates stay "PROVISIONING" for over an hour, double-check your DNS records. The certificates won't provision until DNS is properly configured.
 
@@ -196,7 +198,7 @@ After ~5-30 minutes to give time for DNS propagation:
    * *Repository*: Connect new repository -> GitHub for source -> select your repository
    * *Branch*: Generally you'll use your main branch to deploy, but feel free to adjust the regex to include other branches
    * *Configuration*: Leave as autodetected if `cloudbuild.yml` is in the root of the repo (it is for us)
-   * *Service Account*: Create a new service account with the necessary permissions to deploy or (more simple) select the compute service account we have been using
+   * *Service Account*: Select the compute service account we have been using
 
 > **Why no API keys here?**  Runtime secrets (OpenAI key, Brave key, Supabase service key, GDrive JSON, etc.) are injected by **Terraform** straight into Cloud Run and Cloud Run Job. Cloud Build never needs to read them, so they stay local in `terraform.tfvars` **or** in Secret Manager referenced by Terraform.  Cloud Build only needs Secret Manager access if you later decide to bake a secret into the React bundle.
 
