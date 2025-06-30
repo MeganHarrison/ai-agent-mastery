@@ -3,9 +3,9 @@ name: Security Analysis
 on:
   workflow_call:
   push:
-    branches: [ main, module-6-prep ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, module-6-prep ]
+    branches: [ main ]
   schedule:
     - cron: '0 2 * * 1'  # Run weekly on Mondays at 2 AM UTC
   workflow_dispatch:

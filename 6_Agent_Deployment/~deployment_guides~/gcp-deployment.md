@@ -49,7 +49,9 @@ cloudbuild.yaml
 
 ---
 
-## 3  Configure `infra/terraform.tfvars` (copy example and rename to terraform.tfvars) and `cloudbuild.yaml`
+## 3  Configure `infra/terraform.tfvars`, `infra/versions.tf`, and `cloudbuild.yaml`
+
+First, make a copy of `terraform.tfvars.example` and rename it to `terraform.tfvars`. This is where you'll put all of your environment variables for the backend:
 
 ```hcl
 project_id      = "ai-agent-mastery"
@@ -67,7 +69,11 @@ rag_env  = { … }
 
 *(Insert the full maps exactly as in the example file; keep secrets here or pull from Secret Manager.)*
 
-Then for `cloudbuild.yaml`, Edit the top of the file to set your values for _REGION, _REPO, _BUCKET, _API_DOMAIN, and the default values for the frontend environment variables towards the bottom (all frontend values are public).
+Then for `infra/versions.tf`, uncomment the bottom component and replace YOUR-PROJECT-ID with your GCP project ID (mine was dynamous-gcp-deployment in the video guide).
+
+Last for `cloudbuild.yaml`, Edit the top of the file to set your values for _REGION, _REPO, _BUCKET, _API_DOMAIN, and the default values for the frontend environment variables towards the bottom (all frontend values are public).
+
+> It's ideal if you have your own repository for this work, so feel free to create your own private GitHub repository based on the code for the AI Agent Mastery course.
 
 ---
 

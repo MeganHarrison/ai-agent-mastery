@@ -9,9 +9,9 @@ on:
         default: '3.12'
         type: string
   push:
-    branches: [ main, module-6-prep ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, module-6-prep ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:

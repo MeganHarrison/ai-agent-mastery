@@ -1,8 +1,8 @@
-project_id      = "ai-agent-mastery"
-region          = "us-central1"
+project_id      = "your-project-id"
+region          = "us-central1-or-your-region"
 
-frontend_domain = "chat.dynamous.ai"
-api_domain      = "agent.dynamous.ai"
+frontend_domain = "chat.yourdomain.com"
+api_domain      = "agent.yourdomain.com"
 
 agent_env = {
   ENVIRONMENT             = "production"

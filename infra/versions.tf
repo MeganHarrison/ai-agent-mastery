@@ -7,8 +7,8 @@ terraform {
 
   # backend bucket created manually the first time
   # Uncomment and replace YOUR-PROJECT-ID with actual project ID
-  backend "gcs" {
-    bucket = "tfstate-dynamous-gcp-deployment"
-    prefix = "prod"
-  }
+  #backend "gcs" {
+  #  bucket = "tfstate-YOUR-PROJECT-ID"
+  #  prefix = "prod"
+  #}
 }

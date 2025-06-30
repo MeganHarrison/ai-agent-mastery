@@ -80,15 +80,9 @@ jobs:
           # Pull latest changes
           echo "Pulling latest changes..."
           git fetch origin
-          
-          # Determine which branch to deploy
-          if git rev-parse --verify origin/module-6-prep >/dev/null 2>&1 && git merge-base --is-ancestor origin/main origin/module-6-prep; then
-            echo "Deploying from module-6-prep branch"
-            git reset --hard origin/module-6-prep
-          else
-            echo "Deploying from main branch"
-            git reset --hard origin/main
-          fi
+
+          echo "Deploying from main branch"
+          git reset --hard origin/main
           
           NEW_COMMIT=$(git rev-parse HEAD)
           
