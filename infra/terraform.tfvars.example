@@ -36,6 +36,8 @@ rag_env = {
   EMBEDDING_MODEL_CHOICE        = "text-embedding-3-small"
   SUPABASE_URL                  = "https://YOUR.supabase.co"
   SUPABASE_SERVICE_KEY          = "service-role-REPLACE"
-  GOOGLE_DRIVE_CREDENTIALS_JSON = '{ ...service-account JSON... }'
+  GOOGLE_DRIVE_CREDENTIALS_JSON = <<EOF
+  { ...service-account JSON... }
+  EOF
   RAG_WATCH_FOLDER_ID           = "drive-folder-id"
 }

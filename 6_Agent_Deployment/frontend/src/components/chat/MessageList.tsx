@@ -43,7 +43,7 @@ export const MessageList = ({ messages, isLoading, isGeneratingResponse = false,
               "Write a short story about a robot learning to paint"
             </div>
             <div className="bg-secondary/50 p-3 rounded-md">
-              "What are the best practices for React performance optimization?"
+              "What are the best practices for FastAPI performance optimization?"
             </div>
           </div>
         </div>

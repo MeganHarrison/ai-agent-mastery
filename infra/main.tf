@@ -19,10 +19,38 @@ resource "google_storage_bucket" "frontend" {
   name                        = var.frontend_domain       # must match domain
   location                    = "US"
   uniform_bucket_level_access = true
+  
+  # Explicitly disable public access prevention to allow allUsers
+  public_access_prevention = "inherited"
+  
   website {
     main_page_suffix = "index.html"
     not_found_page   = "index.html"
   }
+}
+
+# Add public access for debugging
+resource "google_storage_bucket_iam_member" "public_access" {
+  bucket = google_storage_bucket.frontend.name
+  role   = "roles/storage.objectViewer"
+  member = "allUsers"
+}
+
+# Get project data for service account
+data "google_project" "project" {}
+
+# Give load balancer service account access to bucket
+resource "google_storage_bucket_iam_member" "backend_bucket_access" {
+  bucket = google_storage_bucket.frontend.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:service-${data.google_project.project.number}@compute-system.iam.gserviceaccount.com"
+}
+
+# Also give broader access for troubleshooting
+resource "google_storage_bucket_iam_member" "backend_bucket_legacy" {
+  bucket = google_storage_bucket.frontend.name
+  role   = "roles/storage.legacyBucketReader"
+  member = "serviceAccount:service-${data.google_project.project.number}@compute-system.iam.gserviceaccount.com"
 }
 
 resource "google_compute_managed_ssl_certificate" "frontend_ssl" {
@@ -30,23 +58,59 @@ resource "google_compute_managed_ssl_certificate" "frontend_ssl" {
   managed { domains = [var.frontend_domain] }
 }
 
-module "lb_site" {
-  source  = "terraform-google-modules/cloud-foundation-fabric/google//modules/lb-http"
-  version = "~> 6.4"
-
-  project_id = var.project_id
-  name       = "frontend-lb"
-  ssl        = true
-
-  certificate_map = {
-    (var.frontend_domain) = google_compute_managed_ssl_certificate.frontend_ssl.name
+# Backend bucket with CDN
+resource "google_compute_backend_bucket" "frontend" {
+  name        = "frontend-backend-bucket"
+  bucket_name = google_storage_bucket.frontend.name
+  enable_cdn  = true
+  
+  cdn_policy {
+    cache_mode        = "CACHE_ALL_STATIC"
+    default_ttl       = 3600
+    max_ttl           = 86400
+    client_ttl        = 3600
+    negative_caching  = true
   }
-  backends = {
-    default = { backend_bucket = google_storage_bucket.frontend.name }
+}
+
+# URL map
+resource "google_compute_url_map" "frontend" {
+  name            = "frontend-lb"
+  default_service = google_compute_backend_bucket.frontend.self_link
+}
+
+# HTTPS proxy
+resource "google_compute_target_https_proxy" "frontend" {
+  name             = "frontend-https-proxy"
+  url_map          = google_compute_url_map.frontend.self_link
+  ssl_certificates = [google_compute_managed_ssl_certificate.frontend_ssl.self_link]
+}
+
+# Global forwarding rule
+resource "google_compute_global_forwarding_rule" "frontend" {
+  name       = "frontend-lb-forwarding-rule"
+  target     = google_compute_target_https_proxy.frontend.self_link
+  port_range = "443"
+}
+
+# HTTP to HTTPS redirect
+resource "google_compute_url_map" "https_redirect" {
+  name = "frontend-https-redirect"
+  default_url_redirect {
+    https_redirect = true
+    strip_query    = false
   }
-  host_rules = [
-    { hosts = [var.frontend_domain], path_matcher = "allpaths" }
-  ]
+}
+
+resource "google_compute_target_http_proxy" "https_redirect" {
+  name    = "frontend-http-proxy"
+  url_map = google_compute_url_map.https_redirect.self_link
+}
+
+resource "google_compute_global_forwarding_rule" "https_redirect" {
+  name       = "frontend-http-forwarding-rule"
+  target     = google_compute_target_http_proxy.https_redirect.self_link
+  port_range = "80"
 }
 
 ################  Cloud Run service (Agent API) #####
@@ -58,18 +122,37 @@ resource "google_cloud_run_v2_service" "agent" {
   template {
     containers {
       image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker.repository_id}/backend_agent_api:latest"
-      ports { container_port = 8001 }
-      env   = [for k, v in var.agent_env : { name = k, value = v }]
+      ports {
+        container_port = 8001
+      }
+      dynamic "env" {
+        for_each = var.agent_env
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
     }
   }
-  traffic { percent = 100, latest_revision = true }
+  traffic {
+    percent = 100
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+  }
 }
 
-resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
-  service  = google_cloud_run_v2_service.agent.name
+# Make Cloud Run publicly accessible via IAM policy
+resource "google_cloud_run_v2_service_iam_policy" "public_access" {
+  name     = google_cloud_run_v2_service.agent.name
   location = var.region
-  role     = "roles/run.invoker"
-  member   = "allUsers"
+  
+  policy_data = jsonencode({
+    bindings = [
+      {
+        role = "roles/run.invoker"
+        members = ["allUsers"]
+      }
+    ]
+  })
 }
 
 ################  Cloud Run job (RAG)  ##############
@@ -82,38 +165,71 @@ resource "google_cloud_run_v2_job" "rag" {
     template {
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker.repository_id}/backend_rag_pipeline:latest"
-        env   = [for k, v in var.rag_env : { name = k, value = v }]
+        dynamic "env" {
+          for_each = var.rag_env
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
       }
       max_retries = 0
       timeout     = "900s"
     }
   }
+
+  # Add native Cloud Run scheduling
+  lifecycle {
+    ignore_changes = [
+      # Allow manual trigger configuration in console
+      annotations
+    ]
+  }
 }
 
-# SA for scheduler → job
+# Service account for Cloud Scheduler
 resource "google_service_account" "scheduler" {
   account_id   = "rag-scheduler"
-  display_name = "Scheduler invoker"
+  display_name = "RAG Pipeline Scheduler"
 }
-resource "google_cloud_run_v2_job_iam_member" "invoke_from_scheduler" {
+
+# Grant Cloud Run invoker role to scheduler service account
+resource "google_cloud_run_v2_job_iam_binding" "scheduler_binding" {
   provider = google-beta
   name     = google_cloud_run_v2_job.rag.name
   location = var.region
   role     = "roles/run.invoker"
-  member   = "serviceAccount:${google_service_account.scheduler.email}"
+  members = [
+    "serviceAccount:${google_service_account.scheduler.email}"
+  ]
 }
 
-################  Cloud Scheduler trigger  ###########
+# Cloud Scheduler job to trigger RAG pipeline every 10 minutes
 resource "google_cloud_scheduler_job" "rag_trigger" {
-  name     = "rag-every-10m"
-  region   = var.region
-  schedule = "*/10 * * * *"
-
+  name        = "rag-every-10m"
+  description = "Trigger RAG pipeline every 10 minutes"
+  schedule    = "*/10 * * * *"
+  region      = var.region
+  
   http_target {
     http_method = "POST"
-    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.rag.name}:run"
-    oidc_token  { service_account_email = google_service_account.scheduler.email }
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${data.google_project.project.number}/jobs/${google_cloud_run_v2_job.rag.name}:run"
+    
+    oauth_token {
+      service_account_email = google_service_account.scheduler.email
+    }
   }
+  
+  depends_on = [
+    google_cloud_run_v2_job.rag,
+    google_cloud_run_v2_job_iam_binding.scheduler_binding
+  ]
+}
+
+################  SSL Certificate for API domain  ####
+resource "google_compute_managed_ssl_certificate" "api_ssl" {
+  name    = "api-ssl"
+  managed { domains = [var.api_domain] }
 }
 
 ################  Domain mapping (API)  ##############
@@ -122,6 +238,8 @@ resource "google_cloud_run_domain_mapping" "api_domain" {
   location = var.region
   metadata { namespace = var.project_id }
   spec     { route_name = google_cloud_run_v2_service.agent.name }
+  
+  depends_on = [google_compute_managed_ssl_certificate.api_ssl]
 }
 
 ################  Outputs  ###########################

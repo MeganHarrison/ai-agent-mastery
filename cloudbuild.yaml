@@ -1,9 +1,9 @@
 substitutions:
   _REGION: us-central1
-  _REPO:   us-central1-docker.pkg.dev/$PROJECT_ID/docker-artifacts
+  _REPO:   us-central1-docker.pkg.dev/dynamous-gcp-deployment/docker-artifacts
   _SRC:    6_Agent_Deployment
-  _BUCKET: chat.dynamous.ai
-  _API_DOMAIN: agent.dynamous.ai
+  _BUCKET: gcp-chat.dynamous.ai  # Must match your frontend_domain from terraform.tfvars
+  _API_DOMAIN: gcp-agent.dynamous.ai  # Must match your api_domain from terraform.tfvars
 
 steps:
 # ───────── Build & (optionally) deploy Agent API ─────────
@@ -43,7 +43,7 @@ steps:
           --region ${_REGION}
       fi
 
-# ───────── Build React & upload to bucket ────────────────
+# ───────── Build React frontend ────────────────
 - id: build-frontend
   name: node:20
   dir: ${_SRC}/frontend
@@ -51,17 +51,25 @@ steps:
   args:
     - -c
     - |
-      # write Vite env file from Cloud Build vars
+      # write Vite env file from Cloud Build vars (with defaults for local builds)
       cat <<EOF > .env.production
-VITE_SUPABASE_URL=$$VITE_SUPABASE_URL
-VITE_SUPABASE_ANON_KEY=$$VITE_SUPABASE_ANON_KEY
-VITE_AGENT_ENDPOINT=https://${_API_DOMAIN}/api/pydantic-agent
-VITE_ENABLE_STREAMING=true
-VITE_LANGFUSE_HOST_WITH_PROJECT=$$VITE_LANGFUSE_HOST_WITH_PROJECT
-EOF
+      VITE_SUPABASE_URL=$${VITE_SUPABASE_URL:-"https://gewcfncoqvxnkrbpfonk.supabase.co"}
+      VITE_SUPABASE_ANON_KEY=$${VITE_SUPABASE_ANON_KEY:-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdld2NmbmNvcXZ4bmtyYnBmb25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYxODIzMTAsImV4cCI6MjA1MTc1ODMxMH0.EF4gWxkxRLiw6V6H4gXTPGXiGDF5OEgfJIHySm73cTU"}
+      VITE_AGENT_ENDPOINT=https://${_API_DOMAIN}/api/pydantic-agent
+      VITE_ENABLE_STREAMING=true
+      VITE_LANGFUSE_HOST_WITH_PROJECT=$${VITE_LANGFUSE_HOST_WITH_PROJECT:-""}
+      EOF
       npm ci
       npm run build
-      gsutil -m rsync -d -r ./dist gs://${_BUCKET}
+
+# ───────── Upload frontend to bucket ────────────────
+- id: upload-frontend
+  name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  entrypoint: bash
+  args:
+    - -c
+    - |
+      gsutil -m rsync -d -r ${_SRC}/frontend/dist gs://${_BUCKET}
       gsutil web set -m index.html -e index.html gs://${_BUCKET}
 
 options:

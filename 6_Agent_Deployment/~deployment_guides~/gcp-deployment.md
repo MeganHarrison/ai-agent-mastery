@@ -12,15 +12,18 @@ Deploy the full Dynamous AI Agent stack — React front‑end, FastAPI agent API
    ```bash
    gcloud init
    gcloud config set project PROJECT_ID
+   gcloud auth application-default login    # For Terraform access
    ```
-3. **Terraform CLI ≥ 1.7** — [Download Terraform](https://developer.hashicorp.com/terraform/downloads).
+
+   Then follow the auth instructions to set the GOOGLE_APPLICATION_CREDENTIALS environment variable to the given path if prompted.
+3. **Terraform CLI ≥ 1.7** — [Download Terraform](https://developer.hashicorp.com/terraform/downloads). Then add the path to terraform.exe to your system PATH.
 4. **Supabase project** — create, then run the schema script: `6_Agent_Deployment/sql/0-all-tables.sql`
 5. **Google Drive service account** — JSON key + Drive folder ID from local setup.
 6. **Domain names ready** — You'll need access to your DNS provider to add records.
 7. **Enable required GCP APIs** (run once):
 
    ```bash
-   gcloud services enable run.googleapis.com runapps.googleapis.com artifactregistry.googleapis.com storage.googleapis.com cloudbuild.googleapis com cloudscheduler.googleapis.com secretmanager.googleapis.com
+   gcloud services enable run.googleapis.com runapps.googleapis.com artifactregistry.googleapis.com storage.googleapis.com cloudbuild.googleapis com cloudscheduler.googleapis.com secretmanager.googleapis.com compute.googleapis.com
    ```
 
 > **Note**  — `infra/terraform.tfvars` is in the **`.gitignore`** so secrets never reach Git.  You can later migrate any secret value to **Secret Manager** and reference it from Terraform if you wish as well.
@@ -44,7 +47,7 @@ cloudbuild.yaml
 
 ---
 
-## 3  Configure `infra/terraform.tfvars` (copy example → real file)
+## 3  Configure `infra/terraform.tfvars` (copy example → real file) and `cloudbuild.yaml`
 
 ```hcl
 project_id      = "ai-agent-mastery"
@@ -62,11 +65,13 @@ rag_env  = { … }
 
 *(Insert the full maps exactly as in the example file; keep secrets here or pull from Secret Manager.)*
 
+Then for `cloudbuild.yaml`, Edit the top of the file to set your values for _REGION, _REPO, _BUCKET, _API_DOMAIN, and the default values for the frontend environment variables towards the bottom (all frontend values are public).
+
 ---
 
 ## 4  Initial bootstrap (one‑time)
 
-> **Why this order?**  The first Cloud Build run creates the build service‑account.  We grant roles **before** a second run so the full deploy succeeds.
+> **Why this order?**  The first Cloud Build run creates the build service‑account - it is supposed to fail.  We grant roles **before** a second run so the full deploy succeeds.
 
 1. **Kick‑start Cloud Build** (creates service‑account & only needs Storage + Artifact Registry which are already allowed for the default SA):
 
@@ -74,7 +79,7 @@ rag_env  = { … }
    gcloud builds submit --config cloudbuild.yaml . --substitutions=_BOOTSTRAP_ONLY=yes
    ```
 
-   This step just builds & pushes images; deploys are skipped (the YAML checks `_BOOTSTRAP_ONLY`).
+   This step will fail but will create the account below for us to set permissions.
 
 2. **Grant roles** to `PROJECT_NUMBER@cloudbuild.gserviceaccount.com`:
 
@@ -83,50 +88,44 @@ rag_env  = { … }
    * `roles/storage.admin`
    * `roles/cloudscheduler.admin`
    * `roles/secretmanager.secretAccessor`
+   * `roles/logging.logWriter`
+   * `roles/iam.serviceAccountUser`
 
-3. **Provision infrastructure**:
+3. **Full Cloud Build run** (now succeeds with new roles):
+
+   ```bash
+   gcloud builds submit --config cloudbuild.yaml . --substitutions=_BOOTSTRAP_ONLY=yes
+   ```
+
+   Terraform can now find the pushed `:latest` images; Cloud Run and Scheduler come up green.   
+
+4. **Configure Organization Policy for Public Access**:
+   
+   - Go to **IAM & Admin** → **Organization Policies** (make sure you are in your project, not organization level!)
+   - Search for **"Domain restricted sharing"** or `iam.allowedPolicyMemberDomains`
+   - Click **"Manage Policy"**
+   - Select **"Override parent's policy"**
+   - Under **Policy enforcement**, select **"Replace"**
+   - Click **"Add a rule"**
+   - Set **Policy Values** to **"Allow All"**
+   - Click **"Done"** → **"Set Policy"**   
+
+5. **Provision infrastructure**:
 
    ```bash
    cd infra
    
    # FIRST: Create state bucket and update versions.tf
-   gsutil mb gs://tfstate-${PROJECT_ID}
+   gsutil mb gs://tfstate-${PROJECT_ID} # Replace with your project ID
    # Edit versions.tf line 11: replace YOUR-PROJECT-ID with your actual project ID
    
    terraform init
    terraform apply      # review → yes
    ```
 
-4. **Full Cloud Build run** (now succeeds with new roles):
-
-   ```bash
-   gcloud builds submit --config cloudbuild.yaml .
-   ```
-
-   Terraform can now find the pushed `:latest` images; Cloud Run and Scheduler come up green.
-
 ---
 
-## 5  Continuous deployment trigger
-
-1. **Connect GitHub** → Cloud Build → Repositories → Connect → GitHub.
-2. **Create trigger**  (Cloud Build → Triggers):
-
-   * *Event*: Push to `main`
-   * *Config*: `cloudbuild.yaml`
-   * *Variables* tab ➜ add **only the three public build‑time values** used for the React bundle:
-
-     ```
-     VITE_SUPABASE_URL
-     VITE_SUPABASE_ANON_KEY
-     VITE_LANGFUSE_HOST_WITH_PROJECT
-     ```
-
-> **Why no API keys here?**  Runtime secrets (OpenAI key, Brave key, Supabase service key, GDrive JSON, etc.) are injected by **Terraform** straight into Cloud Run and Cloud Run Job. Cloud Build never needs to read them, so they stay local in `terraform.tfvars` **or** in Secret Manager referenced by Terraform.  Cloud Build only needs Secret Manager access if you later decide to bake a secret into the React bundle.
-
----
-
-## 6  `cloudbuild.yaml` at a glance
+## 5  `cloudbuild.yaml` at a glance
 
 | Step                | Action                                                                                     |
 | ------------------- | ------------------------------------------------------------------------------------------ |
@@ -138,7 +137,7 @@ rag_env  = { … }
 
 ---
 
-## 7  DNS Configuration
+## 6  DNS Configuration
 
 After running `terraform apply`, you need to configure DNS records at your domain provider.
 
@@ -165,26 +164,37 @@ At your DNS provider, create these two records:
 - Value: `ghs.googlehosted.com`
 - TTL: 300
 
-### Verify DNS
-
-After 5-30 minutes, verify DNS propagation:
-
-```bash
-dig chat.dynamous.ai    # Should show your load balancer IP
-dig agent.dynamous.ai   # Should show ghs.googlehosted.com
-```
-
 > **Troubleshooting**: If SSL certificates stay "PROVISIONING" for over an hour, double-check your DNS records. The certificates won't provision until DNS is properly configured.
 
-## 8  Smoke test
+## 7  Smoke test
 
-1. Visit `https://chat.dynamous.ai` (your frontend URL) — page loads, no 404/403.
-2. `curl https://agent.dynamous.ai/api/pydantic-agent` (your agent API URL) — returns 200.
+After ~5-30 minutes to give time for DNS propagation:
+
+1. Visit `https://chat.dynamous.ai` (replace with your frontend URL) — page loads, no 404/403.
+2. `curl https://agent.dynamous.ai/api/pydantic-agent` (replace with your agent API URL) — returns 200.
 3. Upload a doc to the RAG Google Drive folder → wait ≤ 10 min → ask agent → the new content is referenced.
+
+> Sometimes it can take even longer for SSL certificates to provision. You can view the status of your SSL certs by searching for and vising the Cerfiticate manager in GCP.
 
 ---
 
-## 8  Troubleshooting quick‑hits
+## 8  Continuous deployment trigger
+
+1. **Connect GitHub** → Cloud Build → Repositories → Link repository → Conection -> Create host connection -> Set up GitHub.
+2. **Create trigger** -> Cloud Build → Triggers -> Create trigger:
+
+   * *Event*: Push to a branch
+   * *Source*: Cloud Build repositories
+   * *Repository*: Connect new repository -> GitHub for source -> select your repository
+   * *Branch*: Generally you'll use your main branch to deploy, but feel free to adjust the regex to include other branches
+   * *Configuration*: Leave as autodetected if `cloudbuild.yml` is in the root of the repo (it is for us)
+   * *Service Account*: Create a new service account with the necessary permissions to deploy or (more simple) select the compute service account we have been using
+
+> **Why no API keys here?**  Runtime secrets (OpenAI key, Brave key, Supabase service key, GDrive JSON, etc.) are injected by **Terraform** straight into Cloud Run and Cloud Run Job. Cloud Build never needs to read them, so they stay local in `terraform.tfvars` **or** in Secret Manager referenced by Terraform.  Cloud Build only needs Secret Manager access if you later decide to bake a secret into the React bundle.
+
+---
+
+## 9  Troubleshooting quick‑hits
 
 | Symptom                         | Fix                                                                  |
 | ------------------------------- | -------------------------------------------------------------------- |
