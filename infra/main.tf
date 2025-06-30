@@ -29,13 +29,6 @@ resource "google_storage_bucket" "frontend" {
   }
 }
 
-# Add public access for debugging
-resource "google_storage_bucket_iam_member" "public_access" {
-  bucket = google_storage_bucket.frontend.name
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
-}
-
 # Get project data for service account
 data "google_project" "project" {}
 
