@@ -33,11 +33,8 @@ Currently, the repository includes:
 - Modular containerization architecture with Docker
 - Production-ready deployment configurations for multiple cloud platforms
 - Complete CI/CD workflows with GitHub Actions
+- Multiple deployment strategies: DigitalOcean, Render, and Google Cloud Platform with Terraform
 - Agent observability and monitoring with Langfuse integration
-- Reverse proxy setup with Caddy for SSL and routing
-- Scalable microservices architecture supporting independent component deployment
-- Comprehensive testing framework including Pytest and Playwright tests
-- Multiple deployment strategies: DigitalOcean, Render, and Google Cloud Platform
 
 #### Mock Data for RAG
 
