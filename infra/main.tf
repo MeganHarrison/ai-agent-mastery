@@ -226,20 +226,12 @@ resource "google_cloud_scheduler_job" "rag_trigger" {
   ]
 }
 
-################  SSL Certificate for API domain  ####
-resource "google_compute_managed_ssl_certificate" "api_ssl" {
-  name    = "api-ssl"
-  managed { domains = [var.api_domain] }
-}
-
 ################  Domain mapping (API)  ##############
 resource "google_cloud_run_domain_mapping" "api_domain" {
   name     = var.api_domain
   location = var.region
   metadata { namespace = var.project_id }
   spec     { route_name = google_cloud_run_v2_service.agent.name }
-  
-  depends_on = [google_compute_managed_ssl_certificate.api_ssl]
 }
 
 ################  Outputs  ###########################

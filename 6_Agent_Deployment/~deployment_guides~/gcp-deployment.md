@@ -2,6 +2,8 @@
 
 Deploy the full Dynamous AI Agent stack — React front‑end, FastAPI agent API, and RAG pipeline — on **Google Cloud Platform (GCP)**. Terraform provisions the infrastructure and Cloud Build delivers continuous deployment.
 
+This guide is more concise since this is a more advanced tutorial and assumes you are somewhat comfortable with deploying applications to the cloud!
+
 ---
 
 ## 1  Prerequisites
@@ -47,7 +49,7 @@ cloudbuild.yaml
 
 ---
 
-## 3  Configure `infra/terraform.tfvars` (copy example → real file) and `cloudbuild.yaml`
+## 3  Configure `infra/terraform.tfvars` (copy example and rename to terraform.tfvars) and `cloudbuild.yaml`
 
 ```hcl
 project_id      = "ai-agent-mastery"
@@ -73,7 +75,7 @@ Then for `cloudbuild.yaml`, Edit the top of the file to set your values for _REG
 
 > **Why this order?**  The first Cloud Build run creates the build service‑account - it is supposed to fail.  We grant roles **before** a second run so the full deploy succeeds.
 
-1. **Kick‑start Cloud Build** (creates service‑account & only needs Storage + Artifact Registry which are already allowed for the default SA):
+1. **Kick‑start Cloud Build** (creates the service account for us):
 
    ```bash
    gcloud builds submit --config cloudbuild.yaml . --substitutions=_BOOTSTRAP_ONLY=yes
@@ -90,6 +92,8 @@ Then for `cloudbuild.yaml`, Edit the top of the file to set your values for _REG
    * `roles/secretmanager.secretAccessor`
    * `roles/logging.logWriter`
    * `roles/iam.serviceAccountUser`
+
+You can do this by going to APIs and Services -> Credentials -> Click on your service account -> Permissions -> Manage access -> Add roels
 
 3. **Full Cloud Build run** (now succeeds with new roles):
 
@@ -123,9 +127,13 @@ Then for `cloudbuild.yaml`, Edit the top of the file to set your values for _REG
    terraform apply      # review → yes
    ```
 
+Your infrastructure is now deployed to GCP!
+
 ---
 
 ## 5  `cloudbuild.yaml` at a glance
+
+Just so you understand what is being created at a high level:
 
 | Step                | Action                                                                                     |
 | ------------------- | ------------------------------------------------------------------------------------------ |
@@ -133,7 +141,7 @@ Then for `cloudbuild.yaml`, Edit the top of the file to set your values for _REG
 | **build-rag**       | Build RAG image → push → `gcloud beta run jobs deploy`                                     |
 | **build-frontend**  | Create `.env.production` from build variables → `npm run build` → `gsutil rsync` to bucket |
 
-`_BOOTSTRAP_ONLY=yes` skips deploy commands so the very first run can succeed without Run‑Admin role.
+`_BOOTSTRAP_ONLY=yes` skips deploy commands which we only need within continuous delivery (CD).
 
 ---
 
