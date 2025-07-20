@@ -1,11 +1,11 @@
 """
-Main API endpoints for the LangGraph RAG Guardrail Agent System.
+Main API endpoints for the LangGraph LLM Routing Agent System.
 
 This provides a FastAPI endpoint that integrates with LangGraph workflows,
 conversation history, file attachments, and streaming responses.
 """
-from typing import List, Optional, Dict, Any, AsyncIterator
-from fastapi import FastAPI, HTTPException, Security, Depends, Request
+from typing import Optional, Dict, Any, AsyncIterator
+from fastapi import FastAPI, HTTPException, Security, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -13,10 +13,7 @@ from contextlib import asynccontextmanager, nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv
-from httpx import AsyncClient
 import asyncio
-import base64
-import time
 import json
 import os
 
@@ -26,8 +23,7 @@ from langfuse import observe
 
 # Import our models and utilities
 from api.models import (
-    AgentRequest, AgentResponse, FileAttachment, 
-    HealthCheckResponse, ErrorResponse
+    AgentRequest, HealthCheckResponse
 )
 from api.streaming import create_error_stream
 from graph.workflow import create_api_initial_state
@@ -135,9 +131,9 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application"""
     app = FastAPI(
-        title="LangGraph RAG Guardrail Agent System",
+        title="LangGraph Multi-Agent Routing System",
         version="1.0.0",
-        description="Multi-agent RAG system with citation validation using LangGraph",
+        description="Multi-agent routing system with web search, email search, and RAG using LangGraph",
         lifespan=lifespan
     )
     
@@ -155,13 +151,14 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
-@app.post("/api/langgraph-rag-agents")
-async def langgraph_rag_agents_endpoint(
+@app.post("/api/langgraph-agent-routing")
+async def langgraph_routing_agents_endpoint(
     request: AgentRequest, 
     user: Dict[str, Any] = Depends(verify_token)
 ):
     """
-    LangGraph RAG agents endpoint with streaming and conversation history.
+    LangGraph multi-agent routing endpoint with streaming and conversation history.
+    Routes to web search, email search, RAG search, or fallback agents.
     
     Args:
         request: Agent request with query, session info, and optional files
@@ -199,14 +196,11 @@ async def langgraph_rag_agents_endpoint(
         
         session_id = request.session_id
         conversation_record = None
-        conversation_title = None
-        is_new_conversation = False
         
         # Check if session_id is empty, create a new conversation if needed
         if not session_id:
             session_id = generate_session_id(request.user_id)
             conversation_record = await create_conversation(supabase, request.user_id, session_id)
-            is_new_conversation = True
         
         # Store user's query immediately (no file support in simplified version)
         await store_message(
@@ -294,7 +288,7 @@ async def stream_langgraph_response(
         # Import workflow directly
         from graph.workflow import workflow
         
-        thread_id = f"rag-guardrail-{session_id}"
+        thread_id = f"llm-routing-{session_id}"
         config = {"configurable": {"thread_id": thread_id}}
         
         # Add LangFuse callback if available
@@ -336,7 +330,7 @@ async def stream_langgraph_response(
                             full_response += decoded
                             chunk_data = {"text": full_response}
                             yield json.dumps(chunk_data).encode('utf-8') + b'\n'
-                        except:
+                        except Exception:
                             # If can't decode, yield as-is
                             yield chunk
                 elif stream_mode == "values":
@@ -367,9 +361,9 @@ async def stream_langgraph_response(
                 message_data=message_data_bytes,
                 data={
                     "request_id": initial_state["request_id"],
-                    "validation_passed": final_state.get("validation_result") == "valid" if final_state else False,
-                    "citations": final_state.get("google_drive_urls", []) if final_state else [],
-                    "iterations": final_state.get("iteration_count", 0) if final_state else 0,
+                    "agent_type": final_state.get("agent_type", "unknown") if final_state else "unknown",
+                    "routing_decision": final_state.get("routing_decision", "unknown") if final_state else "unknown",
+                    "streaming_success": final_state.get("streaming_success", True) if final_state else True,
                     "streaming_tokens_collected": len(full_response) if full_response else 0
                 }
             )
@@ -389,9 +383,9 @@ async def stream_langgraph_response(
                     "complete": True,
                     "request_id": initial_state["request_id"],
                     "final_response": full_response,
-                    "citations": final_state.get("google_drive_urls", []) if final_state else [],
-                    "validation_passed": final_state.get("validation_result") == "valid" if final_state else False,
-                    "iterations": final_state.get("iteration_count", 0) if final_state else 0
+                    "agent_type": final_state.get("agent_type", "unknown") if final_state else "unknown",
+                    "routing_decision": final_state.get("routing_decision", "unknown") if final_state else "unknown",
+                    "streaming_success": final_state.get("streaming_success", True) if final_state else True
                 }
                 yield json.dumps(final_chunk).encode('utf-8') + b'\n'
             except Exception as e:
@@ -419,7 +413,7 @@ async def health_check() -> HealthCheckResponse:
         health_status = {
             "status": "healthy",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "message": "LangGraph RAG Guardrail Agent System is running",
+            "message": "LangGraph Multi-Agent Routing System is running",
             "dependencies": {
                 "embedding_client": "connected" if embedding_client else "disconnected",
                 "supabase": "connected" if supabase else "disconnected", 
@@ -451,11 +445,11 @@ async def health_check() -> HealthCheckResponse:
 async def root():
     """Root endpoint with system information"""
     return {
-        "system": "LangGraph RAG Guardrail Agent System",
+        "system": "LangGraph Multi-Agent Routing System",
         "version": "1.0.0", 
-        "description": "Multi-agent RAG system with citation validation using LangGraph",
+        "description": "Multi-agent routing system with web search, email search, and RAG using LangGraph",
         "endpoints": {
-            "POST /api/langgraph-rag-agents": "Main LangGraph RAG query endpoint with streaming",
+            "POST /api/langgraph-rag-agents": "Main LangGraph multi-agent routing endpoint with streaming",
             "GET /health": "Health check endpoint",
             "GET /": "System information"
         }

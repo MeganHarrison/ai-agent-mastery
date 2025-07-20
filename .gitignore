@@ -20,3 +20,4 @@ rag-pipeline-env.env
 infra/terraform.tfvars
 .terraform
 .terraform*
+.langgraph_api

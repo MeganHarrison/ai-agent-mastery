@@ -9,7 +9,8 @@ from agents.primary_agent import primary_agent
 from agents.guardrail_agent import guardrail_agent
 from agents.deps import create_agent_deps
 from tools.validation_tools import extract_google_drive_urls, extract_file_ids_from_urls
-from pydantic_ai.messages import ModelMessage
+from pydantic_ai.messages import ModelMessage, PartDeltaEvent, PartStartEvent, TextPartDelta
+from pydantic_ai import Agent
 
 load_dotenv()
 
@@ -35,32 +36,45 @@ async def primary_agent_node(state: AgentState, writer) -> dict:
         
         # Run primary agent with streaming
         full_response = ""
-        new_messages = ""
+        streaming_success = False
         
         try:
-            # Stream response tokens as they arrive
-            async with primary_agent.run_stream(
-                agent_input, 
-                deps=deps,
-                message_history=message_history
-            ) as result:
-                async for chunk in result.stream_text(delta=True):
-                    writer(chunk)
-                    full_response += chunk
+            # CORRECT PATTERN: Use .iter() for streaming with message history
+            async with primary_agent.iter(agent_input, deps=deps, message_history=message_history) as run:
+                async for node in run:
+                    if primary_agent.is_model_request_node(node):
+                        # Stream tokens from the model's request
+                        async with node.stream(run.ctx) as request_stream:
+                            async for event in request_stream:
+                                if isinstance(event, PartStartEvent) and event.part.part_kind == 'text':
+                                    writer(event.part.content)
+                                    full_response += event.part.content
+                                elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
+                                    delta = event.delta.content_delta
+                                    writer(delta)
+                                    full_response += delta
+                streaming_success = True
                 
-                new_messages = result.new_messages_json()
+                # Get final result and capture new messages
+                if run.result and run.result.data and not full_response:
+                    full_response = str(run.result.data)
+                    writer(full_response)
                 
+                # Capture new messages for conversation history
+                new_messages = run.result.new_messages_json()
+                    
         except Exception as stream_error:
-            print(f"Streaming error, falling back to non-streaming: {stream_error}")
-            # Fallback to non-streaming mode
-            run = await primary_agent.run(
-                agent_input, 
-                deps=deps,
-                message_history=message_history
-            )
-            full_response = run.data
-            new_messages = run.new_messages_json()
+            # PATTERN: Non-streaming fallback
+            print(f"Streaming failed, using fallback: {stream_error}")
+            writer("\n[Streaming unavailable, generating response...]\n")
+            
+            run = await primary_agent.run(agent_input, deps=deps, message_history=message_history)
+            full_response = str(run.data) if run.data else "No response generated"
             writer(full_response)
+            streaming_success = False
+            
+            # Capture new messages from fallback run
+            new_messages = run.new_messages_json()
         
         return {
             "primary_response": full_response,
