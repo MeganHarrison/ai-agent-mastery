@@ -27,7 +27,9 @@
       "WebFetch(domain:www.merge.dev)",
       "WebFetch(domain:ai.pydantic.dev)",
       "Bash(export LLM_API_KEY=test)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:forum.asana.com)"
     ],
     "deny": []
   }

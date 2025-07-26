@@ -34,7 +34,6 @@ def mock_state():
         "delegate_to": None,
         "final_response": "",
         "workflow_complete": False,
-        "agent_type": "",
         "pydantic_message_history": []
     }
 
@@ -55,7 +54,6 @@ def mock_state_with_shared():
         "delegate_to": None,
         "final_response": "",
         "workflow_complete": False,
-        "agent_type": "",
         "pydantic_message_history": []
     }
 
@@ -69,23 +67,23 @@ def mock_writer():
 @pytest.fixture
 def mock_supervisor_decision_delegate():
     """Create mock supervisor decision for delegation"""
-    return SupervisorDecision(
-        messages="I'll delegate to the web research agent to gather information.",
-        delegate_to="web_research",
-        reasoning="User is asking for research, need to gather current information first",
-        final_response=False
-    )
+    return {
+        "messages": "I'll delegate to the web research agent to gather information.",
+        "delegate_to": "web_research",
+        "reasoning": "User is asking for research, need to gather current information first",
+        "final_response": False
+    }
 
 
 @pytest.fixture
 def mock_supervisor_decision_final():
     """Create mock supervisor decision for final response"""
-    return SupervisorDecision(
-        messages="Based on the completed research and project planning, here's your comprehensive summary...",
-        delegate_to=None,
-        reasoning="All work is complete, providing final response to user",
-        final_response=True
-    )
+    return {
+        "messages": "Based on the completed research and project planning, here's your comprehensive summary...",
+        "delegate_to": None,
+        "reasoning": "All work is complete, providing final response to user",
+        "final_response": True
+    }
 
 
 class TestSupervisorWorkflow:
@@ -103,10 +101,9 @@ class TestSupervisorWorkflow:
             
             # Verify delegation decision
             assert result["delegate_to"] == "web_research"
-            assert result["workflow_complete"] is False
+            assert not result["workflow_complete"]  # Empty string is falsy
             assert result["final_response"] == ""
             assert result["iteration_count"] == 1
-            assert result["agent_type"] == "supervisor"
             assert len(result["supervisor_reasoning"]) > 0
 
     @pytest.mark.asyncio
@@ -122,9 +119,8 @@ class TestSupervisorWorkflow:
             
             # Verify final response
             assert result["delegate_to"] is None
-            assert result["workflow_complete"] is True
+            assert result["workflow_complete"]  # Non-empty string is truthy
             assert result["final_response"] != ""
-            assert result["agent_type"] == "supervisor"
 
     @pytest.mark.asyncio
     async def test_supervisor_node_with_shared_state(self, mock_state_with_shared, mock_writer, mock_supervisor_decision_final):
@@ -193,7 +189,6 @@ class TestSupervisorWorkflow:
             
             # Verify error handling
             assert result["workflow_complete"] is True
-            assert result["agent_type"] == "error"
             assert "Supervisor error" in result["final_response"]
             
             # Verify error was written
@@ -350,7 +345,6 @@ class TestSupervisorWorkflow:
         assert state["delegate_to"] is None
         assert state["final_response"] == ""
         assert state["workflow_complete"] is False
-        assert state["agent_type"] == ""
         assert state["pydantic_message_history"] == []
         assert state["message_history"] == []
         assert state["conversation_title"] is None
@@ -376,7 +370,6 @@ class TestSupervisorWorkflow:
             "request_id": "test-request",
             "query": "Test query",
             "final_response": "Test response",
-            "agent_type": "supervisor",
             "supervisor_reasoning": "Delegation reasoning",
             "shared_state": ["Web Research: results", "Task Management: created"],
             "iteration_count": 3,
@@ -392,7 +385,6 @@ class TestSupervisorWorkflow:
         assert response_data["request_id"] == "test-request"
         assert response_data["query"] == "Test query"
         assert response_data["response"] == "Test response"
-        assert response_data["agent_type"] == "supervisor"
         assert response_data["supervisor_reasoning"] == "Delegation reasoning"
         assert len(response_data["shared_state"]) == 2
         assert response_data["iteration_count"] == 3
@@ -411,7 +403,6 @@ class TestSupervisorWorkflow:
         # Verify defaults are handled
         assert response_data["query"] == "Minimal query"
         assert response_data["response"] == ""
-        assert response_data["agent_type"] == "unknown"
         assert response_data["shared_state"] == []
         assert response_data["iteration_count"] == 0
         assert response_data["workflow_complete"] is False

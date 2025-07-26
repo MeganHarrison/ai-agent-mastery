@@ -387,18 +387,18 @@ class TestWebResearchAgent:
     def test_web_research_system_prompt_structure(self):
         """Test that web research agent has proper system prompt"""
         # Access the system prompt constant
-        from agents.web_research_agent import SYSTEM_PROMPT
+        from agents.prompts import WEB_RESEARCH_SYSTEM_PROMPT
         
         # Verify key elements are present
-        assert "research" in SYSTEM_PROMPT.lower()
-        assert "brave search" in SYSTEM_PROMPT.lower()
-        assert "synthesis" in SYSTEM_PROMPT.lower()
-        assert "concise" in SYSTEM_PROMPT.lower()
+        assert "research" in WEB_RESEARCH_SYSTEM_PROMPT.lower()
+        assert "brave search" in WEB_RESEARCH_SYSTEM_PROMPT.lower()
+        assert "synthesis" in WEB_RESEARCH_SYSTEM_PROMPT.lower()
+        assert "concise" in WEB_RESEARCH_SYSTEM_PROMPT.lower()
         
         # Verify output format requirements
-        assert "3-5 key points" in SYSTEM_PROMPT
-        assert "500 words" in SYSTEM_PROMPT
-        assert "bullet points" in SYSTEM_PROMPT.lower()
+        assert "3-5 key points" in WEB_RESEARCH_SYSTEM_PROMPT
+        assert "500 words" in WEB_RESEARCH_SYSTEM_PROMPT
+        assert "bullet points" in WEB_RESEARCH_SYSTEM_PROMPT.lower()
 
     @pytest.mark.asyncio
     async def test_web_research_tool_error_propagation(self, mock_web_research_deps):

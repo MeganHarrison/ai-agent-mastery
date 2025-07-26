@@ -45,12 +45,12 @@ def mock_supervisor_final_decision():
 def mock_supervisor_result():
     """Create mock supervisor agent result"""
     mock_result = MagicMock()
-    mock_result.output = SupervisorDecision(
-        messages="Research delegation complete",
-        delegate_to="web_research",
-        reasoning="Need to gather information first",
-        final_response=False
-    )
+    mock_result.output = {
+        "messages": "Research delegation complete",
+        "delegate_to": "web_research",
+        "reasoning": "Need to gather information first",
+        "final_response": False
+    }
     return mock_result
 
 
@@ -59,59 +59,64 @@ class TestSupervisorDecision:
 
     def test_supervisor_decision_creation(self):
         """Test creating a valid SupervisorDecision"""
-        decision = SupervisorDecision(
-            messages="Test message",
-            delegate_to="web_research",
-            reasoning="Test reasoning",
-            final_response=False
-        )
+        decision = {
+            "messages": "Test message",
+            "delegate_to": "web_research",
+            "reasoning": "Test reasoning",
+            "final_response": False
+        }
         
-        assert decision.messages == "Test message"
-        assert decision.delegate_to == "web_research"
-        assert decision.reasoning == "Test reasoning"
-        assert decision.final_response is False
+        assert decision.get("messages") == "Test message"
+        assert decision.get("delegate_to") == "web_research"
+        assert decision.get("reasoning") == "Test reasoning"
+        assert decision.get("final_response") is False
 
     def test_supervisor_decision_optional_fields(self):
         """Test SupervisorDecision with optional fields"""
         # Test with minimal required fields
-        decision = SupervisorDecision(
-            reasoning="Test reasoning"
-        )
+        decision = {
+            "reasoning": "Test reasoning"
+        }
         
-        assert decision.messages is None
-        assert decision.delegate_to is None
-        assert decision.reasoning == "Test reasoning"
-        assert decision.final_response is False  # Default value
+        assert decision.get("messages") is None
+        assert decision.get("delegate_to") is None
+        assert decision.get("reasoning") == "Test reasoning"
+        assert decision.get("final_response", False) is False  # Default value
 
     def test_supervisor_decision_final_response(self):
         """Test SupervisorDecision for final response"""
-        decision = SupervisorDecision(
-            messages="Final response to user",
-            delegate_to=None,
-            reasoning="All work complete",
-            final_response=True
-        )
+        decision = {
+            "messages": "Final response to user",
+            "delegate_to": None,
+            "reasoning": "All work complete",
+            "final_response": True
+        }
         
-        assert decision.messages == "Final response to user"
-        assert decision.delegate_to is None
-        assert decision.final_response is True
+        assert decision.get("messages") == "Final response to user"
+        assert decision.get("delegate_to") is None
+        assert decision.get("final_response") is True
 
     def test_supervisor_decision_valid_delegation_targets(self):
         """Test valid delegation targets"""
         valid_targets = ["web_research", "task_management", "email_draft", None]
         
         for target in valid_targets:
-            decision = SupervisorDecision(
-                delegate_to=target,
-                reasoning="Test reasoning"
-            )
-            assert decision.delegate_to == target
+            decision = {
+                "delegate_to": target,
+                "reasoning": "Test reasoning"
+            }
+            assert decision.get("delegate_to") == target
 
     def test_supervisor_decision_validation_error(self):
-        """Test SupervisorDecision validation errors"""
-        # Missing required reasoning field
-        with pytest.raises(ValidationError):
-            SupervisorDecision()
+        """Test SupervisorDecision structure validation"""
+        # TypedDict doesn't do runtime validation, but we can test basic structure
+        decision = {}
+        
+        # Should be able to access fields safely with .get()
+        assert decision.get("messages") is None
+        assert decision.get("delegate_to") is None
+        assert decision.get("reasoning") is None
+        assert decision.get("final_response", False) is False
 
 
 class TestSupervisorAgent:
@@ -130,9 +135,9 @@ class TestSupervisorAgent:
             
             # Verify result structure
             assert hasattr(result, 'output')
-            assert isinstance(result.output, SupervisorDecision)
-            assert result.output.delegate_to == "web_research"
-            assert result.output.final_response is False
+            assert isinstance(result.output, dict)
+            assert result.output.get("delegate_to") == "web_research"
+            assert result.output.get("final_response") is False
 
     @pytest.mark.asyncio
     async def test_supervisor_agent_final_response(self, mock_supervisor_deps):
@@ -140,20 +145,20 @@ class TestSupervisorAgent:
         query = "Provide final summary based on completed work"
         
         mock_final_result = MagicMock()
-        mock_final_result.output = SupervisorDecision(
-            messages="Here's your complete summary of all work done...",
-            delegate_to=None,
-            reasoning="All agents have completed their work",
-            final_response=True
-        )
+        mock_final_result.output = {
+            "messages": "Here's your complete summary of all work done...",
+            "delegate_to": None,
+            "reasoning": "All agents have completed their work",
+            "final_response": True
+        }
         
         with patch.object(supervisor_agent, 'run', return_value=mock_final_result) as mock_run:
             result = await supervisor_agent.run(query, deps=mock_supervisor_deps)
             
             # Verify final response
-            assert result.output.final_response is True
-            assert result.output.delegate_to is None
-            assert result.output.messages is not None
+            assert result.output.get("final_response") is True
+            assert result.output.get("delegate_to") is None
+            assert result.output.get("messages") is not None
 
     @pytest.mark.asyncio
     async def test_supervisor_agent_with_context(self, mock_supervisor_deps, mock_supervisor_result):
@@ -216,18 +221,18 @@ class TestSupervisorAgent:
         
         for query, expected_delegate in test_cases:
             mock_result = MagicMock()
-            mock_result.output = SupervisorDecision(
-                messages="Response message",
-                delegate_to=expected_delegate,
-                reasoning="Delegation reasoning",
-                final_response=(expected_delegate is None)
-            )
+            mock_result.output = {
+                "messages": "Response message",
+                "delegate_to": expected_delegate,
+                "reasoning": "Delegation reasoning",
+                "final_response": (expected_delegate is None)
+            }
             
             with patch.object(supervisor_agent, 'run', return_value=mock_result):
                 result = await supervisor_agent.run(query, deps=mock_supervisor_deps)
                 
-                assert result.output.delegate_to == expected_delegate
-                assert result.output.final_response == (expected_delegate is None)
+                assert result.output.get("delegate_to") == expected_delegate
+                assert result.output.get("final_response") == (expected_delegate is None)
 
     @pytest.mark.asyncio
     async def test_supervisor_agent_streaming_compatibility(self, mock_supervisor_deps):

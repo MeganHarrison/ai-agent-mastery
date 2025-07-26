@@ -361,7 +361,6 @@ async def stream_langgraph_response(
                 message_data=message_data_bytes,
                 data={
                     "request_id": initial_state["request_id"],
-                    "agent_type": final_state.get("agent_type", "unknown") if final_state else "unknown",
                     "routing_decision": final_state.get("routing_decision", "unknown") if final_state else "unknown",
                     "streaming_success": final_state.get("streaming_success", True) if final_state else True,
                     "streaming_tokens_collected": len(full_response) if full_response else 0
@@ -383,7 +382,6 @@ async def stream_langgraph_response(
                     "complete": True,
                     "request_id": initial_state["request_id"],
                     "final_response": full_response,
-                    "agent_type": final_state.get("agent_type", "unknown") if final_state else "unknown",
                     "routing_decision": final_state.get("routing_decision", "unknown") if final_state else "unknown",
                     "streaming_success": final_state.get("streaming_success", True) if final_state else True
                 }

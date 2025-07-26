@@ -18,7 +18,6 @@ class SupervisorAgentState(TypedDict, total=False):
     # Final response and workflow control
     final_response: str
     workflow_complete: bool
-    agent_type: str  # Final responding agent
     
     # Message history management (only supervisor updates when providing final response)
     pydantic_message_history: List[ModelMessage]

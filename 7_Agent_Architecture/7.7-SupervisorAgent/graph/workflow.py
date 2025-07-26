@@ -78,22 +78,32 @@ async def supervisor_node(state: SupervisorAgentState, writer) -> dict:
         Shared State: {shared_state_summary}
         Iteration: {state.get("iteration_count", 0)}/20
         """
+        message_history = state.get("pydantic_message_history", [])
         
         full_response = ""
+        full_reasoning = ""
         decision_data = None
+        new_messages = []
         
         try:
             # Streaming structured output using .run_stream()
-            async with supervisor_agent.run_stream(enhanced_query, deps=deps) as result:
+            async with supervisor_agent.run_stream(enhanced_query, deps=deps, message_history=message_history) as result:
                 async for partial_decision in result.stream():
                     # Stream messages field if it's being populated for final responses
                     messages = partial_decision.get('messages')
+                    reasoning = partial_decision.get('reasoning')
                     if messages:
                         writer(messages[len(full_response):])
                         full_response = messages
             
+                    if reasoning:
+                        writer(reasoning[len(full_reasoning):])
+                        full_reasoning = reasoning
+            
             # Extract structured decision from streaming result
             decision_data = await result.get_output()
+
+            new_messages = result.new_messages_json()
             
         except Exception as stream_error:
             # FALLBACK: Non-streaming structured output
@@ -104,9 +114,16 @@ async def supervisor_node(state: SupervisorAgentState, writer) -> dict:
             decision_data = result.output
             
             # Use only the messages field if present for final response
-            if decision_data.get('messages'):
-                writer(decision_data.get('messages'))
-                full_response = decision_data.get('messages')
+            messages = decision_data.get('messages')
+            reasoning = decision_data.get('reasoning')
+            if messages:
+                writer(messages)
+                full_response = messages
+
+            if reasoning:
+                writer(reasoning)
+
+            new_messages = result.new_messages_json()
         
         # PATTERN: Use structured decision for workflow control
         final_response = decision_data.get('messages') if decision_data.get('final_response') else ""
@@ -117,7 +134,7 @@ async def supervisor_node(state: SupervisorAgentState, writer) -> dict:
             "final_response": final_response,
             "workflow_complete": final_response,
             "delegate_to": decision_data.get('delegate_to'),
-            "agent_type": "supervisor"
+            "message_history": [new_messages]
         }
         
     except Exception as e:
@@ -125,8 +142,7 @@ async def supervisor_node(state: SupervisorAgentState, writer) -> dict:
         writer(error_msg)
         return {
             "final_response": error_msg,
-            "workflow_complete": True,
-            "agent_type": "error"
+            "workflow_complete": True
         }
 
 
@@ -143,7 +159,7 @@ async def web_research_node(state: SupervisorAgentState, writer) -> dict:
         run = await web_research_agent.run(agent_input, deps=deps, message_history=message_history)
         full_response = str(run.output) if run.output else "No response generated"
         
-        writer(f"✅ Web research completed")
+        writer(f"✅ Web research completed\n\n")
         
         # Use full response in shared state (agent prompt ensures it's concise)
         summary = f"Web Research: {full_response}"
@@ -189,7 +205,7 @@ async def task_management_node(state: SupervisorAgentState, writer) -> dict:
         run = await task_management_agent.run(task_prompt, deps=deps, message_history=message_history)
         full_response = str(run.output) if run.output else "No response generated"
         
-        writer(f"✅ Task management completed")
+        writer(f"✅ Task management completed\n\n")
         
         # Use full response in shared state (agent prompt ensures it's concise)
         summary = f"Task Management: {full_response}"
@@ -235,7 +251,7 @@ async def email_draft_node(state: SupervisorAgentState, writer) -> dict:
         run = await email_draft_agent.run(email_prompt, deps=deps, message_history=message_history)
         full_response = str(run.output) if run.output else "No response generated"
         
-        writer(f"✅ Email draft completed")
+        writer(f"✅ Email draft completed\n\n")
         
         # Use full response in shared state (agent prompt ensures it's concise)
         summary = f"Email Draft: {full_response}"
@@ -334,7 +350,6 @@ def create_api_initial_state(
         "delegate_to": None,
         "final_response": "",
         "workflow_complete": False,
-        "agent_type": "",
         "pydantic_message_history": pydantic_message_history or [],
         "message_history": [],
         "conversation_title": None,
@@ -349,7 +364,6 @@ def extract_api_response_data(state: SupervisorAgentState) -> Dict[str, Any]:
         "request_id": state.get("request_id"),
         "query": state["query"],
         "response": state.get("final_response", ""),
-        "agent_type": state.get("agent_type", "unknown"),
         "supervisor_reasoning": state.get("supervisor_reasoning", ""),
         "shared_state": state.get("shared_state", []),
         "iteration_count": state.get("iteration_count", 0),

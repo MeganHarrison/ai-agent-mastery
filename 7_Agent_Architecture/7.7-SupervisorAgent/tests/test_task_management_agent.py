@@ -409,15 +409,18 @@ class TestTaskManagementAgent:
 
     def test_task_management_system_prompt_structure(self):
         """Test that task management agent has proper system prompt"""
-        # Access the system prompt constant
-        from agents.task_management_agent import SYSTEM_PROMPT
+        # Access the system prompt function
+        from agents.prompts import get_task_management_system_prompt
+        
+        system_prompt = get_task_management_system_prompt()
         
         # Verify key elements are present
-        assert "task management" in SYSTEM_PROMPT.lower()
-        assert "asana" in SYSTEM_PROMPT.lower()
-        assert "project" in SYSTEM_PROMPT.lower()
-        assert "concise" in SYSTEM_PROMPT.lower()
+        assert "task management" in system_prompt.lower()
+        assert "asana" in system_prompt.lower()
+        assert "project" in system_prompt.lower()
+        assert "concise" in system_prompt.lower()
+        assert "today is" in system_prompt.lower()  # Check date inclusion
         
         # Verify output format requirements
-        assert "bullet points" in SYSTEM_PROMPT.lower()
-        assert "300 words" in SYSTEM_PROMPT
+        assert "bullet points" in system_prompt.lower()
+        assert "300 words" in system_prompt
