@@ -25,8 +25,6 @@ async def search_web_tool(
         query: Search query
         count: Number of results to return (1-10)
         offset: Offset for pagination
-        country: Country code for localized results
-        lang: Language code for results
         
     Returns:
         List of search results as dictionaries

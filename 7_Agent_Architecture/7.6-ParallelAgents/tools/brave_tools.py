@@ -1,11 +1,12 @@
 """
-Web search tool functions for the multi-agent routing system.
-Pure tool functions that can be imported and used by web search agents.
+Brave Search tool functions for the sequential agent system.
+These are standalone functions that can be imported and used by any agent.
 """
 
 import logging
 import httpx
-from typing import List, Dict, Any, Optional
+import asyncio
+from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 async def search_web_tool(
     api_key: str,
     query: str,
-    count: int = 10,
+    count: int = 5,
     offset: int = 0
 ) -> List[Dict[str, Any]]:
     """
@@ -22,7 +23,7 @@ async def search_web_tool(
     Args:
         api_key: Brave Search API key
         query: Search query
-        count: Number of results to return (1-20)
+        count: Number of results to return (1-10)
         offset: Offset for pagination
         
     Returns:
@@ -39,7 +40,7 @@ async def search_web_tool(
         raise ValueError("Query cannot be empty")
     
     # Ensure count is within valid range
-    count = min(max(count, 1), 20)
+    count = min(max(count, 1), 10)
     
     headers = {
         "X-Subscription-Token": api_key,
@@ -53,6 +54,9 @@ async def search_web_tool(
     }
     
     logger.info(f"Searching Brave for: {query}")
+    
+    # Rate limiting: Add delay to prevent quota issues
+    await asyncio.sleep(1.0)  # 1 second delay between API calls
     
     async with httpx.AsyncClient() as client:
         try:
