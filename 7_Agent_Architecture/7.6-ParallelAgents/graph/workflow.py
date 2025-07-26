@@ -313,7 +313,8 @@ def create_workflow():
     # Add conditional routing after guardrail for parallel execution
     builder.add_conditional_edges(
         "guardrail_node",
-        route_after_guardrail
+        route_after_guardrail,
+        ["seo_research_node", "social_research_node", "competitor_research_node", "fallback_node"]
     )
     
     # Parallel research nodes all feed into synthesis (fan-in)
