@@ -34,10 +34,10 @@ User Query → Router Agent → Conditional Routing → Specialized Agent → Re
 
 ## Installation
 
-1. **Clone the repository**:
+1. **Navigate to this directory**:
+
 ```bash
-git clone <repository-url>
-cd 7.5-LLMRouting
+cd 7_Agent_Architecture/7.5-LLMRouting
 ```
 
 2. **Create and activate virtual environment**:
@@ -107,24 +107,9 @@ PORT=8002
 
 ## Usage
 
-### 🎯 **Streamlit Web Interface** (Recommended)
+### 🚀 **Full API Server** (Recommended)
 
-The simplest way to use the system:
-
-```bash
-# Make sure you're in the project directory and virtual environment is activated
-streamlit run streamlit_app.py
-```
-
-- **No authentication required**
-- **Real-time streaming responses**
-- **Intelligent routing indicators**
-- **Clean, simple interface**
-- **Session management**
-
-### 🔧 **Full API Server** (Advanced)
-
-For production use with authentication and full features:
+The recommended way to use the system for production:
 
 ```bash
 # Start the full API server
@@ -155,6 +140,21 @@ curl -X POST http://localhost:8002/api/langgraph-rag-agents \
     "session_id": "session789"
   }'
 ```
+
+### 🎯 **Streamlit Web Interface** (Quick Testing)
+
+A simple way to quickly test the agent with a basic UI:
+
+```bash
+# Make sure you're in the project directory and virtual environment is activated
+streamlit run streamlit_app.py
+```
+
+- **No authentication required**
+- **Real-time streaming responses**
+- **Intelligent routing indicators**
+- **Clean, simple interface**
+- **Session management**
 
 ## Routing Logic
 

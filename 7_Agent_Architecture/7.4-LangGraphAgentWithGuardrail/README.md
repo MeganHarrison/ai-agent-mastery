@@ -25,10 +25,10 @@ User Query → Primary Agent → Guardrail Agent → Validated Response
 
 ## Installation
 
-1. **Clone the repository**:
+1. **Navigate to this directory**:
+
 ```bash
-git clone <repository-url>
-cd AgentGuardrailWithLangGraph
+cd 7_Agent_Architecture/7.4-LangGraphAgentWithGuardrail
 ```
 
 2. **Create and activate virtual environment**:
@@ -89,24 +89,9 @@ PORT=8000
 
 ## Usage
 
-### 🎯 **Streamlit Web Interface** (Recommended)
+### 🚀 **Full API Server** (Recommended)
 
-The simplest way to use the system:
-
-```bash
-# Make sure you're in the project directory and virtual environment is activated
-streamlit run streamlit_app.py
-```
-
-- **No authentication required**
-- **Real-time streaming responses**
-- **Citation validation indicators**
-- **Clean, simple interface**
-- **Session management**
-
-### 🔧 **Full API Server** (Advanced)
-
-For production use with authentication and full features (compatible with the AI Agent Mastery frontend):
+The recommended way to use the system for production:
 
 ```bash
 # Start the full API server
@@ -118,7 +103,6 @@ python -m uvicorn api.endpoints:app --host 0.0.0.0 --port 8040 --reload
 - **Conversation history** 
 - **User management**
 - **Rate limiting**
-- **File attachments** (planned)
 
 **API Endpoints:**
 - `POST /api/langgraph-rag-agents` - Main RAG query endpoint (requires auth)
@@ -138,15 +122,20 @@ curl -X POST http://localhost:8001/api/langgraph-rag-agents \
   }'
 ```
 
-**Features:**
-- **No authentication required**
-- **Basic streaming endpoint**
-- **Health check**
+### 🎯 **Streamlit Web Interface** (Quick Testing)
 
-**API Endpoints:**
-- `POST /api/rag-agents` - Simple RAG query endpoint
-- `GET /health` - Health check
-- `GET /` - System information
+A simple way to quickly test the agent with a basic UI:
+
+```bash
+# Make sure you're in the project directory and virtual environment is activated
+streamlit run streamlit_app.py
+```
+
+- **No authentication required**
+- **Real-time streaming responses**
+- **Citation validation indicators**
+- **Clean, simple interface**
+- **Session management**
 
 ## Response Format
 

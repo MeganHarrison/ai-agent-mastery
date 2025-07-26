@@ -43,10 +43,10 @@ User Query → Guardrail Agent → Research/Outreach Detection
 
 ## Installation
 
-1. **Clone the repository**:
+1. **Navigate to this directory**:
+
 ```bash
-git clone <repository-url>
-cd 7.6-SequentialAgents
+cd 7_Agent_Architecture/7.6-SequentialAgents
 ```
 
 2. **Create and activate virtual environment**:
@@ -118,9 +118,43 @@ PORT=8040
 
 ## Usage
 
-### 🎯 **Streamlit Web Interface** (Recommended)
+### 🚀 **Full API Server** (Recommended)
 
-The simplest way to use the system:
+The recommended way to use the system for production:
+
+```bash
+# Start the full API server
+python -m uvicorn api.endpoints:app --host 0.0.0.0 --port 8040 --reload
+```
+
+**Features:**
+- **JWT Authentication** via Supabase
+- **Conversation history** 
+- **User management**
+- **Rate limiting**
+- **Sequential workflow metadata**
+
+**API Endpoints:**
+- `POST /api/langgraph-sequential-agents` - Main sequential workflow endpoint (requires auth)
+- `GET /health` - Health check
+- `GET /` - System information
+
+**Example API call:**
+```bash
+curl -X POST http://localhost:8040/api/langgraph-sequential-agents \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-jwt-token" \
+  -d '{
+    "query": "Research Jane Doe at InnovateCorp and draft an outreach email",
+    "user_id": "user123",
+    "request_id": "req456", 
+    "session_id": "session789"
+  }'
+```
+
+### 🎯 **Streamlit Web Interface** (Quick Testing)
+
+A simple way to quickly test the agent with a basic UI:
 
 ```bash
 # Make sure you're in the project directory and virtual environment is activated
@@ -151,39 +185,6 @@ streamlit run streamlit_app.py
 "Help me understand this concept"
 ```
 
-### 🔧 **Full API Server** (Advanced)
-
-For production use with authentication and full features:
-
-```bash
-# Start the full API server
-python -m uvicorn api.endpoints:app --host 0.0.0.0 --port 8040 --reload
-```
-
-**Features:**
-- **JWT Authentication** via Supabase
-- **Conversation history** 
-- **User management**
-- **Rate limiting**
-- **Sequential workflow metadata**
-
-**API Endpoints:**
-- `POST /api/langgraph-rag-agents` - Main sequential workflow endpoint (requires auth)
-- `GET /health` - Health check
-- `GET /` - System information
-
-**Example API call:**
-```bash
-curl -X POST http://localhost:8040/api/langgraph-rag-agents \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-jwt-token" \
-  -d '{
-    "query": "Research Jane Doe at InnovateCorp and draft an outreach email",
-    "user_id": "user123",
-    "request_id": "req456", 
-    "session_id": "session789"
-  }'
-```
 
 ## Sequential Workflow Logic
 

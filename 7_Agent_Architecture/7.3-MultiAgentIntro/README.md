@@ -63,7 +63,13 @@ In this pattern, the Research Agent completely hands off control to the Email Ag
 
 ## Installation
 
-### 1. Set up a virtual environment
+### 1. Navigate to this directory
+
+```bash
+cd 7_Agent_Architecture/7.3-MultiAgentIntro
+```
+
+### 2. Set up a virtual environment
 
 ```bash
 # Create and activate virtual environment
@@ -73,7 +79,7 @@ source venv/bin/activate  # On Linux/macOS
 venv\Scripts\activate     # On Windows
 ```
 
-### 2. Install dependencies
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -86,7 +92,7 @@ This includes all necessary packages:
 - `google-auth` and related packages for Gmail
 - Other dependencies for search and utilities
 
-### 3. Set up Gmail API
+### 4. Set up Gmail API
 
 #### Step 1: Enable Gmail API
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
@@ -102,13 +108,13 @@ This includes all necessary packages:
 4. Download the credentials file as `credentials.json`
 5. Place `credentials.json` in the `credentials/` directory
 
-### 4. Set up Brave Search API
+### 5. Set up Brave Search API
 
 1. Visit [Brave Search API](https://api.search.brave.com/register)
 2. Create an account and get your API key
 3. Note: Free tier includes 2,000 requests per month
 
-### 5. Configure environment variables
+### 6. Configure environment variables
 
 Copy the example environment file and fill in your values:
 

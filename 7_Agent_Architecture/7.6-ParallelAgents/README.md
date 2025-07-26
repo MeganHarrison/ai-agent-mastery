@@ -56,10 +56,10 @@ graph TD
 
 ## Installation
 
-1. **Clone the repository**:
+1. **Navigate to this directory**:
+
 ```bash
-git clone <repository-url>
-cd 7.6-ParallelAgents
+cd 7_Agent_Architecture/7.6-ParallelAgents
 ```
 
 2. **Create and activate virtual environment**:
@@ -103,11 +103,6 @@ SUPABASE_SERVICE_KEY=your_supabase_service_key
 # ===== Brave Search Configuration =====
 BRAVE_API_KEY=BSA-your-brave-search-api-key-here
 
-# ===== Gmail Configuration =====
-# IMPORTANT: Uses compose and send scope for Gmail draft creation
-GMAIL_CREDENTIALS_PATH=./credentials/credentials.json
-GMAIL_TOKEN_PATH=./credentials/token.json
-
 # ===== Langfuse Configuration (Optional) =====
 LANGFUSE_PUBLIC_KEY=pk-lf-your-public-key
 LANGFUSE_SECRET_KEY=sk-lf-your-secret-key
@@ -131,9 +126,43 @@ PORT=8040
 
 ## Usage
 
-### 🎯 **Streamlit Web Interface** (Recommended)
+### 🚀 **Full API Server** (Recommended)
 
-The simplest way to use the system:
+The recommended way to use the system for production:
+
+```bash
+# Start the full API server
+python -m uvicorn api.endpoints:app --host 0.0.0.0 --port 8040 --reload
+```
+
+**Features:**
+- **JWT Authentication** via Supabase
+- **Conversation history** 
+- **User management**
+- **Rate limiting**
+- **Parallel workflow metadata**
+
+**API Endpoints:**
+- `POST /api/langgraph-parallel-agents` - Main parallel research workflow endpoint (requires auth)
+- `GET /health` - Health check
+- `GET /` - System information
+
+**Example API call:**
+```bash
+curl -X POST http://localhost:8040/api/langgraph-parallel-agents \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-jwt-token" \
+  -d '{
+    "query": "Research Jane Doe at InnovateCorp and draft an outreach email",
+    "user_id": "user123",
+    "request_id": "req456", 
+    "session_id": "session789"
+  }'
+```
+
+### 🎯 **Streamlit Web Interface** (Quick Testing)
+
+A simple way to quickly test the agent with a basic UI:
 
 ```bash
 # Make sure you're in the project directory and virtual environment is activated
@@ -166,39 +195,6 @@ streamlit run streamlit_app.py
 "Help me understand this concept"
 ```
 
-### 🔧 **Full API Server** (Advanced)
-
-For production use with authentication and full features:
-
-```bash
-# Start the full API server
-python -m uvicorn api.endpoints:app --host 0.0.0.0 --port 8040 --reload
-```
-
-**Features:**
-- **JWT Authentication** via Supabase
-- **Conversation history** 
-- **User management**
-- **Rate limiting**
-- **Parallel workflow metadata**
-
-**API Endpoints:**
-- `POST /api/langgraph-parallel-agents` - Main parallel research workflow endpoint (requires auth)
-- `GET /health` - Health check
-- `GET /` - System information
-
-**Example API call:**
-```bash
-curl -X POST http://localhost:8040/api/langgraph-parallel-agents \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-jwt-token" \
-  -d '{
-    "query": "Research Jane Doe at InnovateCorp and draft an outreach email",
-    "user_id": "user123",
-    "request_id": "req456", 
-    "session_id": "session789"
-  }'
-```
 
 ## Parallel Workflow Logic
 
@@ -244,7 +240,6 @@ All interfaces return responses with parallel workflow metadata:
   "competitor_research": "TechCorp recently raised $50M Series B and is positioned well against competitors...",
   "research_synthesis": "Comprehensive analysis synthesizing all research findings...",
   "synthesis_complete": true,
-  "agent_type": "synthesis",
   "complete": true
 }
 ```
@@ -271,31 +266,7 @@ All interfaces return responses with parallel workflow metadata:
 - **Models**: Pydantic models for requests/responses
 - **Endpoints**: FastAPI endpoints with authentication
 - **Streaming**: Real-time response streaming utilities
-- **Database Utils**: Supabase integration for conversations
-
-## Gmail Configuration
-
-**Important**: This system uses compose/send Gmail scope but **only creates drafts** - no emails are sent automatically.
-
-1. **Set up Gmail API credentials**:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a project and enable Gmail API
-   - Create OAuth2 credentials
-   - Download `credentials.json`
-
-2. **Required scopes**:
-   ```
-   https://www.googleapis.com/auth/gmail.compose
-   https://www.googleapis.com/auth/gmail.send
-   ```
-
-3. **Place credentials**:
-   ```bash
-   mkdir credentials
-   cp path/to/credentials.json credentials/
-   ```
-
-4. **First run**: The system will prompt for OAuth consent and save a token file
+- **Database Utils**: Supabase integration for conversationsd
 
 ## Observability & Monitoring
 
@@ -425,7 +396,7 @@ Check guardrail routing decisions:
 
 **Conversation Flow:**
 1. Guardrail detects conversation → `is_research_request: false`
-2. Routes directly to fallback agent → `agent_type: "fallback"`
+2. Routes directly to fallback agent
 
 ### Rate Limiting & API Usage
 
