@@ -28,6 +28,9 @@ class EmailAgentState(TypedDict, total=False):
     # Message tracking
     message_history: List[bytes]  # For pydantic message serialization
     
+    # Workflow control
+    _resuming_from_interrupt: Optional[bool]  # Flag to prevent duplicate approval UI
+    
     # API context (preserved for compatibility)
     conversation_title: Optional[str]
     is_new_conversation: Optional[bool]

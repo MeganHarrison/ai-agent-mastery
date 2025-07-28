@@ -128,6 +128,7 @@ INSTRUCTIONS:
 async def human_approval_node(state: EmailAgentState, writer) -> dict:
     """
     Human approval node with interrupt.
+    ONLY shows approval UI on first request - not when resuming from interrupt.
     
     Args:
         state: Current workflow state
@@ -152,7 +153,7 @@ async def human_approval_node(state: EmailAgentState, writer) -> dict:
             "email_body": None
         }
     
-    # Present email for approval
+    # Present email for approval - ONLY on first visit, not when resuming
     approval_request = {
         "type": "email_approval",
         "recipients": email_recipients,
@@ -160,29 +161,45 @@ async def human_approval_node(state: EmailAgentState, writer) -> dict:
         "body": email_body
     }
     
-    try:
-        writer("\n\n🔔 **Email Approval Required**\n\n")
-        writer(f"**To:** {', '.join(email_recipients)}\n")
-        writer(f"**Subject:** {email_subject}\n\n")
-        writer("**Message:**\n")
-        writer(f"{email_body}\n\n")
-        writer("Please respond with 'yes' to approve or 'no' to decline.\n")
-        writer("You can add feedback after: 'yes-looks great' or 'no-please revise the tone'\n\n")
-    except Exception as presentation_error:
-        writer(f"❌ **Error presenting approval UI: {str(presentation_error)}**\n")
-        return {
-            "approval_granted": False,
-            "approval_feedback": "Error in approval UI",
-            "email_recipients": None,
-            "email_subject": None,
-            "email_body": None
-        }
+    # CRITICAL: Only show UI on first visit - detect if we're resuming from interrupt
+    # If the node is being executed again, it means we're resuming and should skip UI
+    already_showed_ui = hasattr(human_approval_node, '_ui_shown_for_session')
+    session_key = f"{state.get('session_id')}_{email_recipients}_{email_subject}"
+    
+    if not already_showed_ui or session_key not in getattr(human_approval_node, '_ui_shown_for_session', set()):
+        # First time showing UI for this approval request
+        if not hasattr(human_approval_node, '_ui_shown_for_session'):
+            human_approval_node._ui_shown_for_session = set()
+        human_approval_node._ui_shown_for_session.add(session_key)
+        
+        try:
+            writer("\n\n🔔 **Email Approval Required**\n\n")
+            writer(f"**To:** {', '.join(email_recipients)}\n")
+            writer(f"**Subject:** {email_subject}\n\n")
+            writer("**Message:**\n")
+            writer(f"{email_body}\n\n")
+            writer("Please respond with 'yes' to approve or 'no' to decline.\n")
+            writer("You can add feedback after: 'yes-looks great' or 'no-please revise the tone'\n\n")
+        except Exception as presentation_error:
+            writer(f"❌ **Error presenting approval UI: {str(presentation_error)}**\n")
+            return {
+                "approval_granted": False,
+                "approval_feedback": "Error in approval UI",
+                "email_recipients": None,
+                "email_subject": None,
+                "email_body": None
+            }
     
     # CRITICAL: Interrupt should NOT be in try/catch - it's normal control flow
     human_response = interrupt(approval_request)
     
-    # Process response and ALWAYS clear email state to prevent loops
+    # When this executes, it means we're resuming from interrupt
+    # The UI was already shown, so don't show it again - just process the response
     approval_granted = human_response.get("approved", False)
+    
+    # Clean up the session tracking since approval process is complete
+    if hasattr(human_approval_node, '_ui_shown_for_session'):
+        human_approval_node._ui_shown_for_session.discard(session_key)
     
     if approval_granted:
         writer("\n✅ **Email approved! Sending now...**\n")
@@ -271,6 +288,7 @@ def route_email_agent_decision(state: EmailAgentState) -> str:
     if state.get("email_recipients") and state.get("email_subject"):
         return "human_approval_node"
     return END  # Normal conversation response
+
 
 
 def route_after_approval(state: EmailAgentState) -> str:

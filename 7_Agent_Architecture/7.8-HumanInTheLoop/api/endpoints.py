@@ -362,7 +362,7 @@ async def stream_langgraph_response(
                     span.update_trace(user_id=user_id, session_id=session_id)
                 
                 if is_approval_response:
-                    # Resume from interrupt with Command - NO approval UI checks needed
+                    # Resume from interrupt with Command - let the workflow handle it normally
                     command = Command(resume=approval_decision)
                     
                     async for stream_mode, chunk in workflow.astream(command, config, stream_mode=["custom", "values"]):
