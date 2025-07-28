@@ -93,8 +93,10 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_KEY=your_supabase_service_key
 
 # ===== Human-in-the-Loop Configuration =====
-# PostgreSQL database URL for LangGraph checkpointer (required for email approval workflow)
-DATABASE_URL=postgresql://user:password@localhost:5432/langgraph_hitl
+# Postgres database URL for LangGraph checkpointer and store
+# Format: postgresql://[user]:[password]@[host]:[port]/[database]
+# Supabase example (direct connection): postgresql://postgres:password@db.fkfltevvnmzyrcptwlyg.supabase.co:5432/postgres
+DATABASE_URL=
 
 # ===== Gmail Configuration =====
 # Gmail OAuth2 credentials for human-in-the-loop email management
@@ -142,13 +144,13 @@ python -m uvicorn api.endpoints:app --host 0.0.0.0 --port 8040 --reload
 - **PostgreSQL checkpointer for state persistence**
 
 **API Endpoints:**
-- `POST /api/langgraph-agent` - Main email agent endpoint with HITL approval (requires auth)
+- `POST /api/human-in-the-loop-agent` - Main email agent endpoint with HITL approval (requires auth)
 - `GET /health` - Health check
 - `GET /` - System information
 
 **Example API call:**
 ```bash
-curl -X POST http://localhost:8040/api/langgraph-agent \
+curl -X POST http://localhost:8040/api/human-in-the-loop-agent \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-jwt-token" \
   -d '{
