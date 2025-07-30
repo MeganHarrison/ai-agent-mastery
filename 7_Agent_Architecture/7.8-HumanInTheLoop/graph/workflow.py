@@ -339,6 +339,9 @@ def create_email_workflow(checkpointer=None):
     return builder.compile(checkpointer=checkpointer)
 
 
+workflow = create_email_workflow()
+
+
 def create_email_api_initial_state(
     query: str,
     session_id: str,
