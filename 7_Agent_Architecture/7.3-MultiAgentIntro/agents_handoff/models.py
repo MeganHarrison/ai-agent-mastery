@@ -10,7 +10,7 @@ from typing import Optional, Union, Literal
 from pydantic import BaseModel, Field
 
 # Re-export the original models for reuse
-from agents.models import (
+from agents_delegation.models import (
     ResearchQuery,
     BraveSearchResult,
     EmailDraft,

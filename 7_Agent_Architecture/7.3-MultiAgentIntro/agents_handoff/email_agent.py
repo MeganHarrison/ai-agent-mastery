@@ -11,9 +11,9 @@ from typing import Optional
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models import KnownModelName
 
-from agents.providers import get_llm_model
-from agents.tools import create_email_draft_tool, list_email_drafts_tool
-from agents.models import EmailDraftResponse
+from agents_delegation.providers import get_llm_model
+from agents_delegation.tools import create_email_draft_tool, list_email_drafts_tool
+from agents_delegation.models import EmailDraftResponse
 
 
 @dataclass

@@ -14,7 +14,7 @@ from typing import Optional
 from pydantic_ai.messages import ModelRequest, ModelResponse, PartDeltaEvent, PartStartEvent, TextPartDelta
 
 from agents_handoff.cli_interface import research_agent, ResearchAgentDependencies
-from agents.providers import validate_llm_configuration, get_model_info
+from agents_delegation.providers import validate_llm_configuration, get_model_info
 from config.settings import settings
 
 # Setup logging

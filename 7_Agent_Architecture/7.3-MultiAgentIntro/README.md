@@ -22,7 +22,7 @@ This system includes two main AI agents that collaborate to provide intelligent 
 
 ## Agent Collaboration Patterns
 
-### 1. Agent-as-Tool Pattern (`agents/`)
+### 1. Agent-as-Tool Pattern (`agents_delegation/`)
 
 In this pattern, the Email Agent is invoked as a tool by the Research Agent:
 
@@ -148,7 +148,7 @@ DEBUG=false
 
 The system provides two Streamlit web interfaces for different agent collaboration patterns:
 
-#### Agent-as-Tool Pattern Interface
+#### Agent-as-Tool (Delegation) Pattern Interface
 ```bash
 streamlit run streamlit_ui_tool_subagent.py
 ```

@@ -12,8 +12,8 @@ from dataclasses import dataclass
 
 from pydantic_ai import Agent, RunContext
 
-from agents.providers import get_llm_model
-from agents.tools import search_web_tool
+from agents_delegation.providers import get_llm_model
+from agents_delegation.tools import search_web_tool
 from .email_agent import email_agent, EmailAgentDependencies
 
 logger = logging.getLogger(__name__)

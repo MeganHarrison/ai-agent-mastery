@@ -16,8 +16,8 @@ from pydantic_ai import Agent
 from httpx import AsyncClient
 from pydantic_ai.messages import ModelRequest, ModelResponse, PartDeltaEvent, PartStartEvent, TextPartDelta
 
-from agents.research_agent import research_agent, ResearchAgentDependencies
-from agents.providers import validate_llm_configuration, get_model_info
+from agents_delegation.research_agent import research_agent, ResearchAgentDependencies
+from agents_delegation.providers import validate_llm_configuration, get_model_info
 from config.settings import settings
 
 # Setup logging
