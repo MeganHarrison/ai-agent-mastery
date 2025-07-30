@@ -26,7 +26,7 @@ class EmailAgentDependencies:
 
 
 # Email agent for handoff
-email_agent = Agent[EmailAgentDependencies, str](
+email_agent = Agent(
     model=get_llm_model(),
     deps_type=EmailAgentDependencies,
     output_type=str,

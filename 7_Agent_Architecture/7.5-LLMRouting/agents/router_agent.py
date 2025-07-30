@@ -28,7 +28,8 @@ router_agent = Agent(
     get_model(use_smaller_model=True),
     output_type=RouterResponse,
     deps_type=RouterDependencies,
-    system_prompt=ROUTER_SYSTEM_PROMPT
+    system_prompt=ROUTER_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

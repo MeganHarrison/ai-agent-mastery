@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 web_search_agent = Agent(
     get_model(),
     deps_type=AgentDependencies,
-    system_prompt=WEB_SEARCH_SYSTEM_PROMPT
+    system_prompt=WEB_SEARCH_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

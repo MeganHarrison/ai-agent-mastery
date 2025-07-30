@@ -150,7 +150,7 @@ Please create a well-structured email that addresses the context provided.
 
 
 # Research agent with Union output type: str OR email_handoff function
-research_agent = Agent[ResearchAgentDependencies, Union[str, None]](
+research_agent = Agent(
     get_llm_model(),
     deps_type=ResearchAgentDependencies,
     output_type=[str, email_handoff],  # type: ignore
