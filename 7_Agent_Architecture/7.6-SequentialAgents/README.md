@@ -152,6 +152,30 @@ curl -X POST http://localhost:8040/api/langgraph-sequential-agents \
   }'
 ```
 
+### 🖥️ **Frontend Interface** (AI Agent Mastery Course Web Interface)
+
+To interact with this API endpoint through the web interface:
+
+1. **Open a new terminal** (keep the API server running in the first terminal)
+
+2. **Navigate to the frontend directory**:
+```bash
+cd ../6_Agent_Deployment/frontend
+```
+
+3. **Update the agent endpoint in your `.env` file**:
+```bash
+# Update the VITE_AGENT_ENDPOINT variable to:
+VITE_AGENT_ENDPOINT=http://localhost:8040/api/langgraph-sequential-agents
+```
+
+4. **Start the frontend**:
+```bash
+npm run dev
+```
+
+5. **Access the interface** at `http://localhost:8080` (or check the terminal for the exact port)
+
 ### 🎯 **Streamlit Web Interface** (Quick Testing)
 
 A simple way to quickly test the agent with a basic UI:

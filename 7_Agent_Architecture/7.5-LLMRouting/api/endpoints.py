@@ -264,7 +264,6 @@ async def langgraph_routing_agents_endpoint(
         )
 
 
-@observe()
 async def stream_langgraph_response(
     initial_state: Dict[str, Any],
     session_id: str,
@@ -300,7 +299,7 @@ async def stream_langgraph_response(
                 config["callbacks"] = [langfuse_handler]
 
                 # Start the Langfuse trace
-                tracing_span = langfuse.start_as_current_span(name="rag-agent-with-guardrail", input={"user_query": initial_state["query"]})
+                tracing_span = langfuse.start_as_current_span(name="llm-routing", input={"user_query": initial_state["query"]})
             except Exception as e:
                 print(e)
         
@@ -449,7 +448,7 @@ async def root():
         "version": "1.0.0", 
         "description": "Multi-agent routing system with web search, email search, and RAG using LangGraph",
         "endpoints": {
-            "POST /api/langgraph-rag-agents": "Main LangGraph multi-agent routing endpoint with streaming",
+            "POST /api/langgraph-agent-routing": "Main LangGraph multi-agent routing endpoint with streaming",
             "GET /health": "Health check endpoint",
             "GET /": "System information"
         }

@@ -270,7 +270,6 @@ async def langgraph_rag_agents_endpoint(
         )
 
 
-@observe()
 async def stream_langgraph_response(
     initial_state: Dict[str, Any],
     session_id: str,

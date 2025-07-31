@@ -264,7 +264,6 @@ async def langgraph_routing_agents_endpoint(
         )
 
 
-@observe()
 async def stream_langgraph_response(
     initial_state: Dict[str, Any],
     session_id: str,
@@ -300,7 +299,7 @@ async def stream_langgraph_response(
                 config["callbacks"] = [langfuse_handler]
 
                 # Start the Langfuse trace
-                tracing_span = langfuse.start_as_current_span(name="sequential-agents", input={"user_query": initial_state["query"]})
+                tracing_span = langfuse.start_as_current_span(name="supervisor-agent", input={"user_query": initial_state["query"]})
             except Exception as e:
                 print(e)
         

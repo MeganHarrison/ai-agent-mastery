@@ -273,7 +273,6 @@ async def langgraph_agent_endpoint(
 
 
 
-@observe()
 async def stream_langgraph_response(
     request: AgentRequest,
     session_id: str,
