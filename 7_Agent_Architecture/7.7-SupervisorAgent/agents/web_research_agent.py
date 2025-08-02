@@ -2,6 +2,7 @@
 Web Research Agent for conducting targeted web research using Brave Search API.
 """
 
+import time
 import logging
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
@@ -112,6 +113,8 @@ async def conduct_comprehensive_search(
                 except Exception as e:
                     logger.warning(f"Failed to search query '{query}': {e}")
                     all_results[query] = [{"error": str(e)}]
+                
+                time.sleep(1)
         
         logger.info(f"Comprehensive search completed: {total_sources} total sources across {len(all_results)} queries")
         
