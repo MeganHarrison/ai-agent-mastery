@@ -464,7 +464,6 @@ async def send_email_tool(
         message = _create_email_message(to, subject, body, cc, bcc)
         
         # Send the email
-        """
         send_result = (
             service.users()
             .messages()
@@ -474,10 +473,6 @@ async def send_email_tool(
         
         message_id = send_result.get('id')
         thread_id = send_result.get('threadId')
-        """
-
-        message_id = "3555525"
-        thread_id = "345345345345"
         
         logger.info(f"Email sent successfully: {message_id}")
         
