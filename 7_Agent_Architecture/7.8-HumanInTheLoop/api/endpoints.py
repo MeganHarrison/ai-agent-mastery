@@ -307,7 +307,7 @@ async def stream_langgraph_response(
         is_approval_response = False
         approval_decision = None
         
-        # CRITICAL FIX: Check for approval responses even without awaiting_approval flag
+        # Check for approval responses even without awaiting_approval flag
         # This handles the race condition where interrupt happens before flag is set
         query_lower = request.query.lower().strip()
         if query_lower.startswith("yes-") or query_lower == "yes":

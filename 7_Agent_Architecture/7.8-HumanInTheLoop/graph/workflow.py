@@ -49,7 +49,7 @@ async def email_agent_node(state: EmailAgentState, writer) -> dict:
             prev_subject = state.get("previous_email_subject", "")
             prev_body = state.get("previous_email_body", "")
             
-            # CRITICAL: Provide revision context that instructs agent to revise and send
+            # Provide revision context that instructs agent to revise and send
             query = f"""
 REVISION REQUEST - INCORPORATE FEEDBACK AND PREPARE REVISED EMAIL:
 
@@ -95,7 +95,6 @@ INSTRUCTIONS:
                 "email_subject": decision_data['subject'],
                 "email_body": decision_data['body'],
                 "message_history": [new_messages] if new_messages else [],
-                # Clear revision state
                 "revision_requested": None,
                 "approval_feedback": None,
                 "previous_email_recipients": None,
@@ -106,7 +105,6 @@ INSTRUCTIONS:
         # Normal conversation response - update message history
         return {
             "message_history": [new_messages] if new_messages else [],
-            # Clear revision state
             "revision_requested": None,
             "approval_feedback": None,
             "previous_email_recipients": None,
@@ -161,7 +159,7 @@ async def human_approval_node(state: EmailAgentState, writer) -> dict:
         "body": email_body
     }
     
-    # CRITICAL: Only show UI on first visit - detect if we're resuming from interrupt
+    # Only show UI on first visit - detect if we're resuming from interrupt
     # If the node is being executed again, it means we're resuming and should skip UI
     already_showed_ui = hasattr(human_approval_node, '_ui_shown_for_session')
     session_key = f"{state.get('session_id')}_{email_recipients}_{email_subject}"
@@ -190,7 +188,7 @@ async def human_approval_node(state: EmailAgentState, writer) -> dict:
                 "email_body": None
             }
     
-    # CRITICAL: Interrupt should NOT be in try/catch - it's normal control flow
+    # Interrupt should NOT be in try/catch - it's normal control flow
     human_response = interrupt(approval_request)
     
     # When this executes, it means we're resuming from interrupt
@@ -206,7 +204,6 @@ async def human_approval_node(state: EmailAgentState, writer) -> dict:
         return {
             "approval_granted": True,
             "approval_feedback": human_response.get("feedback", "")
-            # Keep email fields for sending
         }
     else:
         # Route back to agent for revision
@@ -216,11 +213,9 @@ async def human_approval_node(state: EmailAgentState, writer) -> dict:
             "approval_granted": False,
             "approval_feedback": feedback,
             "revision_requested": True,
-            # Keep email info for revision but clear approval state
             "previous_email_recipients": email_recipients,
             "previous_email_subject": email_subject, 
             "previous_email_body": email_body,
-            # Clear current email state to prevent immediate re-approval
             "email_recipients": None,
             "email_subject": None,
             "email_body": None
