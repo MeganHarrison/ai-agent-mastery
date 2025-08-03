@@ -37,7 +37,8 @@ class TaskManagementAgentDependencies:
 task_management_agent = Agent(
     get_model(),
     deps_type=TaskManagementAgentDependencies,
-    system_prompt=get_task_management_system_prompt()
+    system_prompt=get_task_management_system_prompt(),
+    instrument=True
 )
 
 

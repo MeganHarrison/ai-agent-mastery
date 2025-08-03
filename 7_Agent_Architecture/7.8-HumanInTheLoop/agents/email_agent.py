@@ -155,5 +155,6 @@ email_agent = Agent(
         read_inbox_emails,
         create_email_draft,
         list_email_drafts
-    ]
+    ],
+    instrument=True
 )

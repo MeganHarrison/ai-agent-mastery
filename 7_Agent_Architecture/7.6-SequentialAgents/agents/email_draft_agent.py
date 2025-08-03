@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 email_draft_agent = Agent(
     get_model(use_smaller_model=False),
     deps_type=EmailDraftAgentDependencies,
-    system_prompt=EMAIL_DRAFT_SYSTEM_PROMPT
+    system_prompt=EMAIL_DRAFT_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

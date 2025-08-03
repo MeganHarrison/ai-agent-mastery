@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 synthesis_agent = Agent(
     get_model(use_smaller_model=False),
     deps_type=ResearchAgentDependencies,
-    system_prompt=SYNTHESIS_SYSTEM_PROMPT
+    system_prompt=SYNTHESIS_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

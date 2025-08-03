@@ -29,7 +29,8 @@ class EmailDraftAgentDependencies:
 email_draft_agent = Agent(
     get_model(),
     deps_type=EmailDraftAgentDependencies,
-    system_prompt=EMAIL_DRAFT_SYSTEM_PROMPT
+    system_prompt=EMAIL_DRAFT_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

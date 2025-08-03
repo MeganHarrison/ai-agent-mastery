@@ -18,5 +18,6 @@ logger = logging.getLogger(__name__)
 fallback_agent = Agent(
     get_model(use_smaller_model=False),
     deps_type=GuardrailDependencies,
-    system_prompt=FALLBACK_SYSTEM_PROMPT
+    system_prompt=FALLBACK_SYSTEM_PROMPT,
+    instrument=True
 )

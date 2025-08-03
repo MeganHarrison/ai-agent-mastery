@@ -51,7 +51,8 @@ supervisor_agent = Agent(
     get_model(),
     deps_type=SupervisorAgentDependencies,
     output_type=SupervisorDecision,
-    system_prompt=SUPERVISOR_SYSTEM_PROMPT
+    system_prompt=SUPERVISOR_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

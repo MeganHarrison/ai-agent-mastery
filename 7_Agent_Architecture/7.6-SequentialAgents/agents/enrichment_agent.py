@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 enrichment_agent = Agent(
     get_model(use_smaller_model=False),
     deps_type=ResearchAgentDependencies,
-    system_prompt=ENRICHMENT_SYSTEM_PROMPT
+    system_prompt=ENRICHMENT_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

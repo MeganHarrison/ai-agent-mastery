@@ -28,5 +28,6 @@ guardrail_agent = Agent(
     get_model(use_smaller_model=True),
     output_type=GuardrailResponse,
     deps_type=GuardrailDependencies,
-    system_prompt=GUARDRAIL_SYSTEM_PROMPT
+    system_prompt=GUARDRAIL_SYSTEM_PROMPT,
+    instrument=True
 )

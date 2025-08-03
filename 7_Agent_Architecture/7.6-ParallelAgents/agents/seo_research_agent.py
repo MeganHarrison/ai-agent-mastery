@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 seo_research_agent = Agent(
     get_model(use_smaller_model=False),
     deps_type=ResearchAgentDependencies,
-    system_prompt=SEO_RESEARCH_SYSTEM_PROMPT
+    system_prompt=SEO_RESEARCH_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 social_research_agent = Agent(
     get_model(use_smaller_model=False),
     deps_type=ResearchAgentDependencies,
-    system_prompt=SOCIAL_RESEARCH_SYSTEM_PROMPT
+    system_prompt=SOCIAL_RESEARCH_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

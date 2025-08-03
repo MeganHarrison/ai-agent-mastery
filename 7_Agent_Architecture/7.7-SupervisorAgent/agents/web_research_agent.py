@@ -29,7 +29,8 @@ class WebResearchAgentDependencies:
 web_research_agent = Agent(
     get_model(),
     deps_type=WebResearchAgentDependencies,
-    system_prompt=WEB_RESEARCH_SYSTEM_PROMPT
+    system_prompt=WEB_RESEARCH_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

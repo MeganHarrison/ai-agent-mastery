@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 research_agent = Agent(
     get_model(use_smaller_model=False),
     deps_type=ResearchAgentDependencies,
-    system_prompt=RESEARCH_SYSTEM_PROMPT
+    system_prompt=RESEARCH_SYSTEM_PROMPT,
+    instrument=True
 )
 
 

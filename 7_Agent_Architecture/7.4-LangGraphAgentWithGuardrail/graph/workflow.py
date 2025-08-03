@@ -39,7 +39,7 @@ async def primary_agent_node(state: AgentState, writer) -> dict:
         streaming_success = False
         
         try:
-            # CORRECT PATTERN: Use .iter() for streaming with message history
+            # PATTERN: Use .iter() for streaming with message history
             async with primary_agent.iter(agent_input, deps=deps, message_history=message_history) as run:
                 async for node in run:
                     if primary_agent.is_model_request_node(node):
