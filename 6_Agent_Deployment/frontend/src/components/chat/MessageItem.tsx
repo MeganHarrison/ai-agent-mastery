@@ -79,7 +79,14 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
         rehypePlugins={[rehypeRaw]} // Allow HTML in markdown
         components={{
           // Add proper paragraph handling with increased spacing
-          p: ({children}) => <p className="mb-6 last:mb-0">{children}</p>,
+          p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
+          // Handle headers with proper spacing
+          h1: ({children}) => <h1 className="text-2xl font-bold mt-6 mb-4 first:mt-0">{children}</h1>,
+          h2: ({children}) => <h2 className="text-xl font-bold mt-5 mb-3 first:mt-0">{children}</h2>,
+          h3: ({children}) => <h3 className="text-lg font-bold mt-4 mb-2 first:mt-0">{children}</h3>,
+          h4: ({children}) => <h4 className="text-base font-bold mt-3 mb-2 first:mt-0">{children}</h4>,
+          h5: ({children}) => <h5 className="text-sm font-bold mt-3 mb-2 first:mt-0">{children}</h5>,
+          h6: ({children}) => <h6 className="text-sm font-bold mt-3 mb-2 first:mt-0">{children}</h6>,
           // Ensure proper link styling with a distinct color
           a: ({href, children}) => <a href={href} className="text-blue-400 hover:text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>,
           // Ensure proper line break handling

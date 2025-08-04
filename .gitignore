@@ -3,14 +3,13 @@ __pycache__
 node_modules
 venv
 venv_linux
+venv_windows
 .env
 .env.cloud
 .env.local
 credentials.json
 token.json
 .windsurfrules
-.claude
-CLAUDE.md
 google-credentials
 rag-documents
 test-results
@@ -21,3 +20,4 @@ rag-pipeline-env.env
 infra/terraform.tfvars
 .terraform
 .terraform*
+.langgraph_api
