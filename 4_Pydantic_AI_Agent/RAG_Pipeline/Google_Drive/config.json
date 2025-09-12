@@ -4,6 +4,7 @@
     "text/plain",
     "text/html",
     "text/csv",
+    "text/markdown",
     "application/vnd.ms-excel",
     "application/vnd.google-apps.document",
     "application/vnd.google-apps.spreadsheet",
