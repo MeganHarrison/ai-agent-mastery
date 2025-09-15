@@ -8,7 +8,7 @@ services:
     envVars:
       - fromGroup: frontend-env
     domains:
-      - render-chat.dynamous.ai
+      - alleato.bizwizardai.com
     
   # Backend Agent API Service (Docker)
   - type: web
@@ -21,7 +21,7 @@ services:
       - fromGroup: agent-api-env
     healthCheckPath: /health
     domains:
-      - render-agent.dynamous.ai
+      - api.bizwizardai.com
     
   # RAG Pipeline - Background Worker (Docker)
   - type: worker
