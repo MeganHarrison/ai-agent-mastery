@@ -21,6 +21,27 @@ import { Input } from '@/components/ui/input'
 import { toast } from '@/hooks/use-toast'
 import Link from 'next/link'
 
+// Input sanitization utility
+const sanitizeInput = (value: string): string => {
+  // Remove potential script tags and dangerous HTML
+  return value
+    .replace(/<script[^>]*>.*?<\/script>/gi, '')
+    .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+    .trim();
+};
+
+// Validation utility for URL
+const isValidUrl = (url: string): boolean => {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentMetadata[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,7 +58,7 @@ export default function DocumentsPage() {
       const { data, error } = await supabase
         .from('document_metadata')
         .select('*')
-        .not('type', 'in', '(SOPs,documents)')
+        .or('type.is.null,type.not.in.("SOPs","documents")')
         .order('date', { ascending: false })
 
       if (error) throw error
@@ -61,19 +82,71 @@ export default function DocumentsPage() {
 
   const handleSave = async () => {
     try {
+      if (!editingId) {
+        toast({
+          title: 'Error',
+          description: 'No document selected for editing',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      // Validate and sanitize inputs
+      const sanitizedDoc: Partial<DocumentMetadata> = {}
+      
+      // Sanitize text fields
+      if (editedDoc.title !== undefined) {
+        sanitizedDoc.title = sanitizeInput(editedDoc.title)
+        if (sanitizedDoc.title.length < 1 || sanitizedDoc.title.length > 500) {
+          throw new Error('Title must be between 1 and 500 characters')
+        }
+      }
+      
+      if (editedDoc.project !== undefined) {
+        sanitizedDoc.project = sanitizeInput(editedDoc.project || '')
+        if (sanitizedDoc.project.length > 200) {
+          throw new Error('Project name must be less than 200 characters')
+        }
+      }
+      
+      if (editedDoc.summary !== undefined) {
+        sanitizedDoc.summary = sanitizeInput(editedDoc.summary || '')
+        if (sanitizedDoc.summary.length > 5000) {
+          throw new Error('Summary must be less than 5000 characters')
+        }
+      }
+      
+      // Validate URL field
+      if (editedDoc.fireflies_link !== undefined) {
+        const link = editedDoc.fireflies_link || ''
+        if (link && !isValidUrl(link)) {
+          throw new Error('Recording link must be a valid URL')
+        }
+        sanitizedDoc.fireflies_link = link
+      }
+      
+      // Validate date field
+      if (editedDoc.date !== undefined) {
+        sanitizedDoc.date = sanitizeInput(editedDoc.date || '')
+        // Simple date format validation (YYYY-MM-DD)
+        if (sanitizedDoc.date && !/^\d{4}-\d{2}-\d{2}/.test(sanitizedDoc.date)) {
+          throw new Error('Date must be in valid format')
+        }
+      }
+
       const { error } = await supabase
         .from('document_metadata')
-        .update(editedDoc)
+        .update(sanitizedDoc)
         .eq('id', editingId)
 
       if (error) throw error
 
       setDocuments(documents.map(doc => 
-        doc.id === editingId ? { ...doc, ...editedDoc } : doc
+        doc.id === editingId ? { ...doc, ...sanitizedDoc } : doc
       ))
       
       if (selectedDoc?.id === editingId) {
-        setSelectedDoc({ ...selectedDoc, ...editedDoc })
+        setSelectedDoc({ ...selectedDoc, ...sanitizedDoc })
       }
 
       setEditingId(null)
@@ -87,7 +160,7 @@ export default function DocumentsPage() {
       console.error('Error updating document:', error)
       toast({
         title: 'Error',
-        description: 'Failed to update document',
+        description: error instanceof Error ? error.message : 'Failed to update document',
         variant: 'destructive',
       })
     }
@@ -172,10 +245,14 @@ export default function DocumentsPage() {
                         <td className="px-6 py-4">
                           {editingId === doc.id ? (
                             <Input
+                              type="text"
                               value={editedDoc.title || ''}
                               onChange={(e) => setEditedDoc({ ...editedDoc, title: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
                               className="bg-gray-700 border-gray-600 text-white"
+                              maxLength={500}
+                              required
+                              placeholder="Document title"
                             />
                           ) : (
                             <div className="flex items-center gap-2">
@@ -187,10 +264,13 @@ export default function DocumentsPage() {
                         <td className="px-6 py-4">
                           {editingId === doc.id ? (
                             <Input
+                              type="text"
                               value={editedDoc.project || ''}
                               onChange={(e) => setEditedDoc({ ...editedDoc, project: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
                               className="bg-gray-700 border-gray-600 text-white"
+                              maxLength={200}
+                              placeholder="Project name"
                             />
                           ) : (
                             <div className="flex items-center gap-2">
@@ -202,10 +282,12 @@ export default function DocumentsPage() {
                         <td className="px-6 py-4">
                           {editingId === doc.id ? (
                             <Input
+                              type="date"
                               value={editedDoc.date || ''}
                               onChange={(e) => setEditedDoc({ ...editedDoc, date: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
                               className="bg-gray-700 border-gray-600 text-white"
+                              placeholder="YYYY-MM-DD"
                             />
                           ) : (
                             <div className="flex items-center gap-2">
@@ -217,10 +299,13 @@ export default function DocumentsPage() {
                         <td className="px-6 py-4">
                           {editingId === doc.id ? (
                             <Input
+                              type="text"
                               value={editedDoc.summary || ''}
                               onChange={(e) => setEditedDoc({ ...editedDoc, summary: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
                               className="bg-gray-700 border-gray-600 text-white"
+                              maxLength={5000}
+                              placeholder="Brief summary"
                             />
                           ) : (
                             <span className="text-sm text-gray-300">
@@ -231,10 +316,13 @@ export default function DocumentsPage() {
                         <td className="px-6 py-4 text-center">
                           {editingId === doc.id ? (
                             <Input
+                              type="url"
                               value={editedDoc.fireflies_link || ''}
                               onChange={(e) => setEditedDoc({ ...editedDoc, fireflies_link: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
                               className="bg-gray-700 border-gray-600 text-white"
+                              placeholder="https://..."
+                              pattern="https?://.*"
                             />
                           ) : (
                             doc.fireflies_link && (
