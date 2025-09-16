@@ -1,57 +1,92 @@
 'use client'
 
-import { useAuth } from '@/hooks/useAuth'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { Message } from '@/types/database.types';
+import { ChatLayout } from '@/components/chat/ChatLayout';
+import { useConversationManagement } from '@/components/chat/ConversationManagement';
+import { useMessageHandling } from '@/components/chat/MessageHandling';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function Chat() {
-  const { user, loading, signOut } = useAuth()
-  const router = useRouter()
-
+  const { user, session } = useAuth();
+  const { toast } = useToast();
+  const isMobile = useIsMobile();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(isMobile);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [newConversationId, setNewConversationId] = useState<string | null>(null);
+  
+  // Update sidebar collapsed state when mobile status changes
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
+    setIsSidebarCollapsed(isMobile);
+  }, [isMobile]);
+  
+  // Ref to track if component is mounted
+  const isMounted = useRef(true);
+  
+  useEffect(() => {
+    return () => {
+      // When component unmounts
+      isMounted.current = false;
+    };
+  }, []);
+  
+  // Use our extracted conversation management hook
+  const {
+    conversations,
+    selectedConversation,
+    setSelectedConversation,
+    setConversations,
+    loadConversations,
+    handleNewChat,
+    handleSelectConversation
+  } = useConversationManagement({ user, isMounted });
+  
+  // Use our extracted message handling hook
+  const { 
+    handleSendMessage,
+    loadMessages
+  } = useMessageHandling({
+    setNewConversationId,
+    user,
+    session, // Pass the session from useAuth
+    selectedConversation,
+    setMessages,
+    setLoading,
+    setError,
+    isMounted,
+    setSelectedConversation,
+    setConversations,
+    loadConversations
+  });
+
+  // Load messages when a conversation is selected
+  useEffect(() => {
+    if (selectedConversation) {
+      loadMessages(selectedConversation);
+    } else {
+      setMessages([]);
     }
-  }, [user, loading, router])
+  }, [selectedConversation, loadMessages]);
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/login')
-  }
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader className="h-8 w-8 animate-spin" />
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
+  // No longer needed since we're simplifying the UI to just disable the send button during loading
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background dark:bg-sidebar p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">Welcome to Chat!</CardTitle>
-          <CardDescription>
-            You are successfully authenticated as {user.email}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            This is a placeholder for the chat interface. The authentication system is working correctly.
-          </p>
-          <Button onClick={handleSignOut} variant="outline" className="w-full">
-            Sign Out
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  )
+    <ChatLayout
+      conversations={conversations}
+      messages={messages}
+      selectedConversation={selectedConversation}
+      loading={loading}
+      error={error}
+      isSidebarCollapsed={isSidebarCollapsed}
+      onSendMessage={handleSendMessage}
+      onNewChat={handleNewChat}
+      onSelectConversation={handleSelectConversation}
+      onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      newConversationId={newConversationId}
+    />
+  );
 }
