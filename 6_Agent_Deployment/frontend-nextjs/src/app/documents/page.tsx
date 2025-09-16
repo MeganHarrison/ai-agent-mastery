@@ -58,7 +58,7 @@ export default function DocumentsPage() {
       const { data, error } = await supabase
         .from('document_metadata')
         .select('*')
-        .or('type.is.null,type.not.in.("SOPs","documents")')
+        .or('type.is.null,and(type.not.ilike.%sop%,type.not.ilike.%document%)')
         .order('date', { ascending: false })
 
       if (error) throw error
@@ -283,7 +283,7 @@ export default function DocumentsPage() {
                           {editingId === doc.id ? (
                             <Input
                               type="date"
-                              value={editedDoc.date || ''}
+                              value={editedDoc.date ? editedDoc.date.split('T')[0] : ''}
                               onChange={(e) => setEditedDoc({ ...editedDoc, date: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
                               className="bg-gray-700 border-gray-600 text-white"
