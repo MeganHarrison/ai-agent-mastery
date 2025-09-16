@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Message } from '@/types/database.types';
@@ -11,6 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function Chat() {
   const { user, session } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(isMobile);
@@ -25,14 +27,23 @@ export default function Chat() {
   }, [isMobile]);
   
   // Ref to track if component is mounted
-  const isMounted = useRef(true);
+  const isMounted = useRef(false);
   
   useEffect(() => {
+    isMounted.current = true;
     return () => {
       // When component unmounts
       isMounted.current = false;
     };
   }, []);
+  
+  // Redirect unauthenticated users to /login
+  useEffect(() => {
+    // Only redirect if auth has resolved (session is not undefined) and user is not authenticated
+    if (session === null) {
+      router.replace('/login');
+    }
+  }, [session, router]);
   
   // Use our extracted conversation management hook
   const {
@@ -70,7 +81,18 @@ export default function Chat() {
     } else {
       setMessages([]);
     }
-  }, [selectedConversation, loadMessages]);
+  }, [selectedConversation]); // Removed loadMessages from dependencies to prevent infinite loop
+  
+  // Display errors using toast notifications
+  useEffect(() => {
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error,
+      });
+    }
+  }, [error, toast]);
 
   // No longer needed since we're simplifying the UI to just disable the send button during loading
 
@@ -85,7 +107,7 @@ export default function Chat() {
       onSendMessage={handleSendMessage}
       onNewChat={handleNewChat}
       onSelectConversation={handleSelectConversation}
-      onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      onToggleSidebar={() => setIsSidebarCollapsed(prev => !prev)}
       newConversationId={newConversationId}
     />
   );
