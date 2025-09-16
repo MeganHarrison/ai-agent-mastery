@@ -4,9 +4,11 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Loader } from 'lucide-react'
+import { useToast } from '@/components/ui/use-toast'
 
 export default function AuthCallback() {
   const router = useRouter()
+  const { toast } = useToast()
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -14,19 +16,33 @@ export default function AuthCallback() {
       
       if (error) {
         console.error('Error during auth callback:', error)
+        toast({
+          title: "Authentication Failed",
+          description: error.message || "An error occurred during authentication. Please try again.",
+          variant: "destructive",
+        })
         router.push('/login')
         return
       }
 
       if (data.session) {
+        toast({
+          title: "Authentication Successful",
+          description: "You have been successfully authenticated.",
+        })
         router.push('/chat')
       } else {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to continue.",
+          variant: "default",
+        })
         router.push('/login')
       }
     }
 
     handleAuthCallback()
-  }, [router])
+  }, [router, toast])
 
   return (
     <div className="flex min-h-screen items-center justify-center">
