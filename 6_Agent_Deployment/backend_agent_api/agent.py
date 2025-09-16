@@ -34,7 +34,11 @@ from tools import (
     execute_safe_code_tool,
     semantic_search_tool,
     hybrid_search_tool,
-    get_recent_documents_tool
+    get_recent_documents_tool,
+    generate_meeting_insights_tool,
+    get_project_insights_tool,
+    get_insights_summary_tool,
+    search_insights_tool
 )
 
 # ========== Helper function to get model configuration ==========
@@ -257,3 +261,106 @@ async def get_recent_documents(ctx: RunContext[AgentDeps], days_back: int = 7, m
     """
     print("Calling get_recent_documents tool")
     return await get_recent_documents_tool(ctx.deps.supabase, days_back, None, match_count)
+
+@agent.tool
+async def generate_meeting_insights(ctx: RunContext[AgentDeps], document_id: str, force_reprocess: bool = False) -> str:
+    """
+    Extract and store AI-generated insights from a meeting transcript.
+    Use this tool to analyze meeting content and extract actionable insights like action items,
+    decisions, risks, blockers, and opportunities. Perfect for processing new meeting transcripts.
+    
+    Args:
+        ctx: The context including the Supabase client and OpenAI client
+        document_id: ID of the document to process for insights
+        force_reprocess: Whether to reprocess even if insights already exist (default False)
+        
+    Returns:
+        Summary of extracted insights with priorities and assignments
+    """
+    print("Calling generate_meeting_insights tool")
+    return await generate_meeting_insights_tool(ctx.deps.supabase, ctx.deps.embedding_client, document_id, force_reprocess)
+
+@agent.tool
+async def get_project_insights(
+    ctx: RunContext[AgentDeps], 
+    project_name: str = None,
+    insight_types: List[str] = None,
+    priorities: List[str] = None,
+    status_filter: List[str] = None,
+    days_back: int = 30,
+    limit: int = 20
+) -> str:
+    """
+    Retrieve and display project insights with comprehensive filtering options.
+    Perfect for getting status updates, tracking action items, and monitoring project health.
+    
+    Args:
+        ctx: The context including the Supabase client
+        project_name: Filter by project name (partial match, optional)
+        insight_types: Filter by types like 'action_item', 'decision', 'risk', 'blocker' (optional)
+        priorities: Filter by 'critical', 'high', 'medium', 'low' (optional)
+        status_filter: Filter by 'open', 'in_progress', 'completed', 'cancelled' (optional)
+        days_back: Number of days to look back (default 30)
+        limit: Maximum number of insights to return (default 20)
+        
+    Returns:
+        Formatted list of insights matching the specified criteria
+    """
+    print("Calling get_project_insights tool")
+    return await get_project_insights_tool(
+        ctx.deps.supabase,
+        project_name,
+        insight_types,
+        priorities,
+        status_filter,
+        days_back,
+        limit
+    )
+
+@agent.tool
+async def get_insights_summary(ctx: RunContext[AgentDeps], days_back: int = 30) -> str:
+    """
+    Generate a comprehensive summary of project insights over a specified period.
+    Provides statistics, trending issues, active projects, and key decisions.
+    Perfect for executive reports and project health overviews.
+    
+    Args:
+        ctx: The context including the Supabase client
+        days_back: Number of days to include in summary (default 30)
+        
+    Returns:
+        Comprehensive insights summary with statistics and key findings
+    """
+    print("Calling get_insights_summary tool")
+    return await get_insights_summary_tool(ctx.deps.supabase, days_back)
+
+@agent.tool
+async def search_insights(
+    ctx: RunContext[AgentDeps],
+    search_query: str,
+    insight_types: List[str] = None,
+    priorities: List[str] = None,
+    limit: int = 15
+) -> str:
+    """
+    Search project insights using full-text search with optional filters.
+    Great for finding specific topics, issues, or themes across all meeting insights.
+    
+    Args:
+        ctx: The context including the Supabase client
+        search_query: Text to search in insight titles and descriptions
+        insight_types: Filter by insight types (optional)
+        priorities: Filter by priority levels (optional)
+        limit: Maximum number of results (default 15)
+        
+    Returns:
+        Ranked search results with relevance scores
+    """
+    print("Calling search_insights tool")
+    return await search_insights_tool(
+        ctx.deps.supabase,
+        search_query,
+        insight_types,
+        priorities,
+        limit
+    )

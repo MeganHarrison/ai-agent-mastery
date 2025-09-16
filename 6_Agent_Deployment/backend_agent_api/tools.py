@@ -13,6 +13,13 @@ import sys
 import os
 import re
 
+# Import insights service
+from insights_service import (
+    MeetingInsightsGenerator,
+    process_meeting_document_for_insights,
+    get_insights_generator
+)
+
 embedding_model = os.getenv('EMBEDDING_MODEL_CHOICE') or 'text-embedding-3-small'
 
 async def brave_web_search(query: str, http_client: AsyncClient, brave_api_key: str) -> str:
@@ -839,3 +846,356 @@ def execute_safe_code_tool(code: str) -> str:
         return ''.join(output)
     except Exception as e:
         return f"Error executing code: {str(e)}"
+
+# ========== PROJECT INSIGHTS TOOLS ==========
+
+async def generate_meeting_insights_tool(
+    supabase: Client, 
+    embedding_client: AsyncOpenAI, 
+    document_id: str,
+    force_reprocess: bool = False
+) -> str:
+    """
+    Extract and store AI-generated insights from a meeting transcript.
+    
+    Args:
+        supabase: Supabase client
+        embedding_client: OpenAI client for LLM processing
+        document_id: ID of the document to process
+        force_reprocess: Whether to reprocess even if insights already exist
+        
+    Returns:
+        Summary of extracted insights
+    """
+    try:
+        # Process the document for insights
+        stored_ids = await process_meeting_document_for_insights(
+            supabase, embedding_client, document_id, force_reprocess
+        )
+        
+        if not stored_ids:
+            return f"No insights could be extracted from document {document_id}. This may not be a meeting transcript or the content may not contain actionable information."
+        
+        # Retrieve and format the generated insights
+        insights = []
+        for insight_id in stored_ids:
+            result = supabase.table('project_insights').select('*').eq('id', insight_id).execute()
+            if result.data:
+                insights.append(result.data[0])
+        
+        # Format response
+        summary = f"""# Meeting Insights Generated
+
+**Document ID:** {document_id}
+**Total Insights:** {len(insights)}
+
+## Extracted Insights:
+
+"""
+        
+        for insight in insights:
+            priority_emoji = {
+                'critical': '🔴',
+                'high': '🟠', 
+                'medium': '🟡',
+                'low': '🟢'
+            }.get(insight.get('priority', 'medium'), '🟡')
+            
+            type_emoji = {
+                'action_item': '✅',
+                'decision': '📋',
+                'risk': '⚠️',
+                'blocker': '🚫',
+                'opportunity': '💡',
+                'concern': '😟'
+            }.get(insight.get('insight_type', 'action_item'), '📝')
+            
+            summary += f"""### {type_emoji} {insight.get('title', 'Untitled')}
+**Type:** {insight.get('insight_type', 'N/A').replace('_', ' ').title()}
+**Priority:** {priority_emoji} {insight.get('priority', 'medium').title()}
+**Confidence:** {insight.get('confidence_score', 0.0):.1%}
+
+{insight.get('description', 'No description available')}
+
+"""
+            
+            if insight.get('assigned_to'):
+                summary += f"**Assigned to:** {insight.get('assigned_to')}\n"
+            if insight.get('due_date'):
+                summary += f"**Due date:** {insight.get('due_date')}\n"
+            if insight.get('keywords'):
+                summary += f"**Keywords:** {', '.join(insight.get('keywords', []))}\n"
+                
+            summary += "\n---\n\n"
+        
+        return summary
+        
+    except Exception as e:
+        return f"Error generating insights for document {document_id}: {str(e)}"
+
+async def get_project_insights_tool(
+    supabase: Client,
+    project_name: Optional[str] = None,
+    insight_types: Optional[List[str]] = None,
+    priorities: Optional[List[str]] = None,
+    status_filter: Optional[List[str]] = None,
+    days_back: int = 30,
+    limit: int = 20
+) -> str:
+    """
+    Retrieve and display project insights with filtering options.
+    
+    Args:
+        supabase: Supabase client
+        project_name: Filter by project name (partial match)
+        insight_types: Filter by types (action_item, decision, risk, etc.)
+        priorities: Filter by priorities (critical, high, medium, low)
+        status_filter: Filter by status (open, in_progress, completed, cancelled)
+        days_back: Number of days to look back
+        limit: Maximum number of insights to return
+        
+    Returns:
+        Formatted list of insights
+    """
+    try:
+        generator = get_insights_generator(supabase, None)  # Don't need OpenAI for retrieval
+        
+        # Calculate date range
+        from datetime import datetime, timedelta
+        date_from = (datetime.now() - timedelta(days=days_back)).isoformat()
+        
+        # Get insights with filters
+        insights = await generator.get_insights_for_project(
+            project_name=project_name,
+            insight_types=insight_types,
+            priorities=priorities,
+            status_filter=status_filter,
+            date_from=date_from,
+            limit=limit
+        )
+        
+        if not insights:
+            return f"No insights found matching the specified criteria in the last {days_back} days."
+        
+        # Format response
+        header = f"""# Project Insights ({len(insights)} results)
+
+**Time Period:** Last {days_back} days
+**Filters Applied:**
+"""
+        
+        if project_name:
+            header += f"- **Project:** {project_name}\n"
+        if insight_types:
+            header += f"- **Types:** {', '.join(insight_types)}\n"
+        if priorities:
+            header += f"- **Priorities:** {', '.join(priorities)}\n"
+        if status_filter:
+            header += f"- **Status:** {', '.join(status_filter)}\n"
+        
+        header += "\n## Insights:\n\n"
+        
+        insights_text = ""
+        for insight in insights:
+            priority_emoji = {
+                'critical': '🔴',
+                'high': '🟠',
+                'medium': '🟡', 
+                'low': '🟢'
+            }.get(insight.get('priority', 'medium'), '🟡')
+            
+            status_emoji = {
+                'open': '📋',
+                'in_progress': '⏳',
+                'completed': '✅',
+                'cancelled': '❌'
+            }.get(insight.get('status', 'open'), '📋')
+            
+            insights_text += f"""### {priority_emoji} {insight.get('title', 'Untitled')}
+
+**Status:** {status_emoji} {insight.get('status', 'open').replace('_', ' ').title()}
+**Type:** {insight.get('insight_type', 'N/A').replace('_', ' ').title()}
+**Source:** {insight.get('source_meeting_title', 'Unknown')}
+
+{insight.get('description', 'No description available')}
+
+"""
+            
+            if insight.get('project_name'):
+                insights_text += f"**Project:** {insight.get('project_name')}\n"
+            if insight.get('assigned_to'):
+                insights_text += f"**Assigned to:** {insight.get('assigned_to')}\n"
+            if insight.get('due_date'):
+                insights_text += f"**Due date:** {insight.get('due_date')[:10]}\n"  # Just date part
+                
+            insights_text += "\n---\n\n"
+        
+        return header + insights_text
+        
+    except Exception as e:
+        return f"Error retrieving project insights: {str(e)}"
+
+async def get_insights_summary_tool(
+    supabase: Client,
+    days_back: int = 30
+) -> str:
+    """
+    Generate a comprehensive summary of project insights over a specified period.
+    
+    Args:
+        supabase: Supabase client
+        days_back: Number of days to include in summary
+        
+    Returns:
+        Formatted insights summary with statistics and key findings
+    """
+    try:
+        generator = get_insights_generator(supabase, None)
+        summary_data = await generator.get_insights_summary(days_back)
+        
+        if 'error' in summary_data:
+            return f"Error generating insights summary: {summary_data['error']}"
+        
+        # Format the summary
+        report = f"""# Project Insights Summary
+**Period:** Last {days_back} days
+**Generated:** {summary_data.get('generated_at', 'Unknown')[:16]}
+
+## 📊 Overview
+
+**Total Insights:** {summary_data.get('total_insights', 0)}
+
+### By Type:
+"""
+        
+        insights_by_type = summary_data.get('insights_by_type', {})
+        for insight_type, count in sorted(insights_by_type.items(), key=lambda x: x[1], reverse=True):
+            type_display = insight_type.replace('_', ' ').title()
+            report += f"- **{type_display}:** {count}\n"
+        
+        report += "\n### By Priority:\n"
+        
+        insights_by_priority = summary_data.get('insights_by_priority', {})
+        priority_order = ['critical', 'high', 'medium', 'low']
+        for priority in priority_order:
+            count = insights_by_priority.get(priority, 0)
+            priority_emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🟢'}.get(priority, '⚪')
+            report += f"- {priority_emoji} **{priority.title()}:** {count}\n"
+        
+        report += "\n### By Status:\n"
+        
+        insights_by_status = summary_data.get('insights_by_status', {})
+        status_emojis = {'open': '📋', 'in_progress': '⏳', 'completed': '✅', 'cancelled': '❌'}
+        for status, count in sorted(insights_by_status.items(), key=lambda x: x[1], reverse=True):
+            emoji = status_emojis.get(status, '📝')
+            status_display = status.replace('_', ' ').title()
+            report += f"- {emoji} **{status_display}:** {count}\n"
+        
+        # Active projects
+        active_projects = summary_data.get('active_projects', [])
+        if active_projects:
+            report += "\n## 🏗️ Most Active Projects:\n"
+            for project, count in active_projects[:5]:
+                report += f"- **{project}:** {count} insights\n"
+        
+        # Top concerns
+        top_concerns = summary_data.get('top_concerns', [])
+        if top_concerns:
+            report += "\n## ⚠️ Top Concerns & Risks:\n"
+            for concern in top_concerns[:3]:
+                report += f"- **{concern.get('title', 'Untitled')}** ({concern.get('priority', 'medium')} priority)\n"
+        
+        # Recent decisions
+        recent_decisions = summary_data.get('recent_decisions', [])
+        if recent_decisions:
+            report += "\n## 📋 Recent Key Decisions:\n"
+            for decision in recent_decisions[:3]:
+                report += f"- **{decision.get('title', 'Untitled')}**\n"
+                if decision.get('description'):
+                    report += f"  {decision.get('description')[:100]}...\n"
+        
+        return report
+        
+    except Exception as e:
+        return f"Error generating insights summary: {str(e)}"
+
+async def search_insights_tool(
+    supabase: Client,
+    search_query: str,
+    insight_types: Optional[List[str]] = None,
+    priorities: Optional[List[str]] = None,
+    limit: int = 15
+) -> str:
+    """
+    Search project insights using full-text search and filters.
+    
+    Args:
+        supabase: Supabase client
+        search_query: Text to search in titles and descriptions
+        insight_types: Filter by insight types
+        priorities: Filter by priority levels
+        limit: Maximum number of results
+        
+    Returns:
+        Formatted search results
+    """
+    try:
+        # Use the advanced search SQL function
+        result = supabase.rpc(
+            'search_project_insights',
+            {
+                'search_query': search_query,
+                'insight_types': insight_types,
+                'priorities': priorities,
+                'match_count': limit
+            }
+        ).execute()
+        
+        if not result.data:
+            return f"No insights found matching '{search_query}' with the specified filters."
+        
+        insights = result.data
+        
+        # Format results
+        response = f"""# Insights Search Results
+**Query:** "{search_query}"
+**Results:** {len(insights)}
+
+"""
+        
+        for insight in insights:
+            priority_emoji = {
+                'critical': '🔴',
+                'high': '🟠',
+                'medium': '🟡',
+                'low': '🟢'
+            }.get(insight.get('priority', 'medium'), '🟡')
+            
+            search_rank = insight.get('search_rank', 0)
+            relevance = "⭐" * min(5, int(search_rank * 10)) if search_rank > 0 else ""
+            
+            response += f"""### {priority_emoji} {insight.get('title', 'Untitled')} {relevance}
+
+**Type:** {insight.get('insight_type', 'N/A').replace('_', ' ').title()}
+**Status:** {insight.get('status', 'open').replace('_', ' ').title()}
+**Source:** {insight.get('source_meeting_title', 'Unknown')}
+
+{insight.get('description', 'No description available')}
+
+"""
+            
+            if insight.get('assigned_to'):
+                response += f"**Assigned to:** {insight.get('assigned_to')}\n"
+            if insight.get('project_name'):
+                response += f"**Project:** {insight.get('project_name')}\n"
+            if insight.get('keywords'):
+                keywords = insight.get('keywords', [])
+                if keywords:
+                    response += f"**Keywords:** {', '.join(keywords)}\n"
+                    
+            response += "\n---\n\n"
+        
+        return response
+        
+    except Exception as e:
+        return f"Error searching insights: {str(e)}"

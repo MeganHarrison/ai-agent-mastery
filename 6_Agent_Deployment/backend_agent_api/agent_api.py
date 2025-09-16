@@ -43,6 +43,7 @@ from pydantic_ai.messages import (
 
 from agent import agent, AgentDeps, get_model
 from clients import get_agent_clients, get_mem0_client_async
+from insights_worker import managed_worker
 
 # Check if we're in production
 is_production = os.getenv("ENVIRONMENT") == "production"
@@ -83,7 +84,11 @@ async def lifespan(app: FastAPI):
     # mem0_client = await get_mem0_client_async()  # Temporarily disabled for testing
     mem0_client = None  # Mock for testing
     
-    yield  # This is where the app runs
+    # Start the insights worker alongside the main application
+    async with managed_worker(polling_interval=30) as insights_worker:
+        print("✅ Insights worker started successfully")
+        yield  # This is where the app runs
+        print("🔄 Shutting down insights worker...")
     
     # Shutdown: Clean up resources
     if http_client:
@@ -441,6 +446,51 @@ async def health_check():
         raise HTTPException(status_code=503, detail=health_status)
     
     return health_status
+
+@app.get("/api/insights/queue/stats")
+async def get_insights_queue_stats():
+    """Get current insights processing queue statistics."""
+    try:
+        result = supabase.rpc('get_insights_queue_stats').execute()
+        if result.data and len(result.data) > 0:
+            return result.data[0]
+        return {
+            "pending_count": 0,
+            "processing_count": 0,
+            "completed_count": 0,
+            "failed_count": 0,
+            "total_count": 0,
+            "oldest_pending_age": None
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching queue stats: {str(e)}")
+
+@app.post("/api/insights/process/retroactive")
+async def trigger_retroactive_processing():
+    """Trigger retroactive processing of all unprocessed documents."""
+    try:
+        from insights_worker import InsightsWorker
+        worker = InsightsWorker()
+        result = await worker.process_all_retroactively()
+        return {
+            "message": "Retroactive processing completed",
+            "result": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in retroactive processing: {str(e)}")
+
+@app.post("/api/insights/queue/reset-failed")
+async def reset_failed_processing():
+    """Reset failed processing attempts to allow retry."""
+    try:
+        result = supabase.rpc('reset_failed_processing').execute()
+        reset_count = result.data if isinstance(result.data, int) else 0
+        return {
+            "message": f"Reset {reset_count} failed processing attempts",
+            "reset_count": reset_count
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error resetting failed processing: {str(e)}")
 
 
 if __name__ == "__main__":
