@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import Chat from "./pages/Chat";
 import Admin from "./pages/Admin";
+import Documents from "./pages/Documents";
 import NotFound from "./pages/NotFound";
 import { AuthCallback } from "./components/auth/AuthCallback";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -58,6 +59,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Admin />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/documents" 
+        element={
+          <ProtectedRoute>
+            <Documents />
           </ProtectedRoute>
         } 
       />

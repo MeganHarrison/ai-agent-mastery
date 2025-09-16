@@ -13,7 +13,8 @@ import {
   Menu,
   Settings,
   MessageSquare,
-  Users
+  Users,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -81,6 +82,16 @@ export const ChatSidebar = ({
             </Link>
           </Button>
         )}
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="mb-2 text-purple-500 border-purple-500"
+          asChild
+        >
+          <Link to="/documents">
+            <FileText className="h-5 w-5" />
+          </Link>
+        </Button>
         <Button variant="outline" size="icon" onClick={onNewChat} className="mb-6">
           <Plus className="h-5 w-5" />
         </Button>
@@ -121,6 +132,19 @@ export const ChatSidebar = ({
             </Button>
           </div>
         )}
+        
+        <div className="mb-3">
+          <Button 
+            variant="outline"
+            className="w-full justify-start bg-purple-500 text-white hover:bg-purple-600"
+            asChild
+          >
+            <Link to="/documents">
+              <FileText className="mr-2 h-5 w-5" />
+              Documents
+            </Link>
+          </Button>
+        </div>
       
         <Button 
           onClick={onNewChat} 

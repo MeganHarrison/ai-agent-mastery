@@ -8,6 +8,50 @@ export interface FileAttachment {
 export interface Database {
   public: {
     Tables: {
+      document_metadata: {
+        Row: {
+          id: string;
+          title: string | null;
+          url: string | null;
+          created_at: string | null;
+          schema: string | null;
+          type?: string | null;
+          project?: string | null;
+          date?: string | null;
+          summary?: string | null;
+          fireflies_link?: string | null;
+          speakers?: string | null;
+          transcript?: string | null;
+        };
+        Insert: {
+          id: string;
+          title?: string | null;
+          url?: string | null;
+          created_at?: string | null;
+          schema?: string | null;
+          type?: string | null;
+          project?: string | null;
+          date?: string | null;
+          summary?: string | null;
+          fireflies_link?: string | null;
+          speakers?: string | null;
+          transcript?: string | null;
+        };
+        Update: {
+          id?: string;
+          title?: string | null;
+          url?: string | null;
+          created_at?: string | null;
+          schema?: string | null;
+          type?: string | null;
+          project?: string | null;
+          date?: string | null;
+          summary?: string | null;
+          fireflies_link?: string | null;
+          speakers?: string | null;
+          transcript?: string | null;
+        };
+      };
       conversations: {
         Row: {
           id: string;
@@ -96,3 +140,4 @@ export interface Database {
 export type Conversation = Database['public']['Tables']['conversations']['Row'];
 export type Message = Database['public']['Tables']['messages']['Row'];
 export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type DocumentMetadata = Database['public']['Tables']['document_metadata']['Row'];
