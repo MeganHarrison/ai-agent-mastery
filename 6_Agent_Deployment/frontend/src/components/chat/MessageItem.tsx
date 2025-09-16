@@ -78,34 +78,56 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
         remarkPlugins={[remarkGfm, breaks]} // Add GFM support and preserve line breaks
         rehypePlugins={[rehypeRaw]} // Allow HTML in markdown
         components={{
-          // Add proper paragraph handling with increased spacing
-          p: ({children}) => <p className="mb-4 last:mb-0">{children}</p>,
-          // Handle headers with proper spacing
-          h1: ({children}) => <h1 className="text-2xl font-bold mt-6 mb-4 first:mt-0">{children}</h1>,
-          h2: ({children}) => <h2 className="text-xl font-bold mt-5 mb-3 first:mt-0">{children}</h2>,
-          h3: ({children}) => <h3 className="text-lg font-bold mt-4 mb-2 first:mt-0">{children}</h3>,
-          h4: ({children}) => <h4 className="text-base font-bold mt-3 mb-2 first:mt-0">{children}</h4>,
-          h5: ({children}) => <h5 className="text-sm font-bold mt-3 mb-2 first:mt-0">{children}</h5>,
-          h6: ({children}) => <h6 className="text-sm font-bold mt-3 mb-2 first:mt-0">{children}</h6>,
-          // Ensure proper link styling with a distinct color
-          a: ({href, children}) => <a href={href} className="text-blue-400 hover:text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+          // Enhanced paragraph handling with better spacing
+          p: ({children}) => <p className="mb-4 last:mb-0 leading-relaxed">{children}</p>,
+          // Enhanced headers with better typography and spacing
+          h1: ({children}) => <h1 className="text-2xl font-bold mt-8 mb-4 first:mt-0 text-foreground border-b border-border pb-2">{children}</h1>,
+          h2: ({children}) => <h2 className="text-xl font-bold mt-6 mb-3 first:mt-0 text-foreground">{children}</h2>,
+          h3: ({children}) => <h3 className="text-lg font-semibold mt-5 mb-3 first:mt-0 text-foreground">{children}</h3>,
+          h4: ({children}) => <h4 className="text-base font-semibold mt-4 mb-2 first:mt-0 text-foreground">{children}</h4>,
+          h5: ({children}) => <h5 className="text-sm font-semibold mt-3 mb-2 first:mt-0 text-foreground">{children}</h5>,
+          h6: ({children}) => <h6 className="text-xs font-semibold mt-3 mb-2 first:mt-0 text-muted-foreground uppercase tracking-wide">{children}</h6>,
+          // Enhanced link styling
+          a: ({href, children}) => <a href={href} className="text-blue-500 hover:text-blue-600 hover:underline underline-offset-2 font-medium transition-colors" target="_blank" rel="noopener noreferrer">{children}</a>,
+          // Enhanced list styling
+          ul: ({children}) => <ul className="mb-4 ml-4 space-y-1 list-disc marker:text-muted-foreground">{children}</ul>,
+          ol: ({children}) => <ol className="mb-4 ml-4 space-y-1 list-decimal marker:text-muted-foreground">{children}</ol>,
+          li: ({children}) => <li className="leading-relaxed pl-1">{children}</li>,
+          // Enhanced blockquote styling
+          blockquote: ({children}) => <blockquote className="border-l-4 border-blue-500 pl-4 my-4 italic text-muted-foreground bg-muted/30 py-2 rounded-r">{children}</blockquote>,
+          // Enhanced strong and emphasis
+          strong: ({children}) => <strong className="font-semibold text-foreground">{children}</strong>,
+          em: ({children}) => <em className="italic text-foreground">{children}</em>,
+          // Enhanced horizontal rule
+          hr: () => <hr className="my-6 border-border" />,
           // Ensure proper line break handling
           br: () => <br className="mb-2" />,
           // Handle code blocks with syntax highlighting
           code({node, inline, className, children, ...props}: CodeProps) {
             const match = /language-(\w+)/.exec(className || '');
             return !inline && match ? (
-              <SyntaxHighlighter
-                style={atomDark}
-                language={match[1]}
-                PreTag="div"
-                className="rounded-md !bg-gray-900 !p-4 !my-2"
-                {...props}
-              >
-                {String(children).replace(/\n$/, '')}
-              </SyntaxHighlighter>
+              <div className="my-4 relative">
+                <div className="absolute top-0 right-0 bg-muted px-2 py-1 text-xs text-muted-foreground rounded-bl">
+                  {match[1]}
+                </div>
+                <SyntaxHighlighter
+                  style={atomDark}
+                  language={match[1]}
+                  PreTag="div"
+                  className="rounded-lg !bg-gray-900 border border-border overflow-hidden"
+                  customStyle={{
+                    margin: 0,
+                    padding: '16px',
+                    fontSize: '14px',
+                    lineHeight: '1.5',
+                  }}
+                  {...props}
+                >
+                  {String(children).replace(/\n$/, '')}
+                </SyntaxHighlighter>
+              </div>
             ) : (
-              <code className={cn("bg-gray-800 px-1 py-0.5 rounded text-gray-200", className)} {...props}>
+              <code className={cn("bg-muted px-2 py-1 rounded font-mono text-sm border", className)} {...props}>
                 {children}
               </code>
             );
@@ -144,9 +166,11 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
           </div>
           
           <div className={cn(
-            "rounded-lg px-4 py-3 break-words",
+            "rounded-xl px-5 py-4 break-words shadow-sm",
             "overflow-x-auto", // Add horizontal scrolling for code blocks if needed
-            isUser ? "bg-chat-user text-white" : "bg-chat-assistant text-foreground"
+            isUser 
+              ? "bg-chat-user text-white ml-auto max-w-[85%]" 
+              : "bg-chat-assistant text-foreground border border-border/50 max-w-full"
           )}>
             {/* File attachments */}
             {hasFiles && (
@@ -165,7 +189,7 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
                 ))}
               </div>
             )}
-            <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:mb-4">
+            <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
               {memoizedMarkdown}
             </div>
           </div>

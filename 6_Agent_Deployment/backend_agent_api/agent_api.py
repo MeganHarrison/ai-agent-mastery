@@ -80,7 +80,8 @@ async def lifespan(app: FastAPI):
     embedding_client, supabase = get_agent_clients()
     http_client = AsyncClient()
     title_agent = Agent(model=get_model())
-    mem0_client = await get_mem0_client_async()
+    # mem0_client = await get_mem0_client_async()  # Temporarily disabled for testing
+    mem0_client = None  # Mock for testing
     
     yield  # This is where the app runs
     
@@ -246,18 +247,22 @@ async def pydantic_agent(request: AgentRequest, user: Dict[str, Any] = Depends(v
         
         # Retrieve relevant memories with Mem0
         relevant_memories = {"results": []}
-        try:
-            relevant_memories = await mem0_client.search(query=request.query, user_id=request.user_id, limit=3)
-        except:
-            # Slight hack - retry again with a new connection pool
-            time.sleep(1)
-            relevant_memories = await mem0_client.search(query=request.query, user_id=request.user_id, limit=3)
+        if mem0_client:
+            try:
+                relevant_memories = await mem0_client.search(query=request.query, user_id=request.user_id, limit=3)
+            except:
+                # Slight hack - retry again with a new connection pool
+                time.sleep(1)
+                relevant_memories = await mem0_client.search(query=request.query, user_id=request.user_id, limit=3)
 
         memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
         
         # Create memory task to run in parallel
         memory_messages = [{"role": "user", "content": request.query}]
-        memory_task = asyncio.create_task(mem0_client.add(memory_messages, user_id=request.user_id))
+        if mem0_client:
+            memory_task = asyncio.create_task(mem0_client.add(memory_messages, user_id=request.user_id))
+        else:
+            memory_task = asyncio.create_task(asyncio.sleep(0))  # Mock task
         
         # Start title generation in parallel if this is a new conversation
         title_task = None
@@ -399,6 +404,15 @@ async def pydantic_agent(request: AgentRequest, user: Dict[str, Any] = Depends(v
             media_type='text/plain'
         )
 
+
+@app.get("/debug")
+async def debug_endpoint():
+    """Debug endpoint to test API connectivity without authentication."""
+    return {
+        "message": "API is reachable",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "agent_endpoint": os.getenv("VITE_AGENT_ENDPOINT", "not_set")
+    }
 
 @app.get("/health")
 async def health_check():

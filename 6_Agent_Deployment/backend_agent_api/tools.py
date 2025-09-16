@@ -158,7 +158,427 @@ async def retrieve_relevant_documents_tool(supabase: Client, embedding_client: A
         
     except Exception as e:
         print(f"Error retrieving documents: {e}")
-        return f"Error retrieving documents: {str(e)}" 
+        return f"Error retrieving documents: {str(e)}"
+
+async def semantic_search_tool(supabase: Client, embedding_client: AsyncOpenAI, user_query: str, match_count: int = 6, similarity_threshold: float = 0.7) -> str:
+    """
+    Advanced semantic search with similarity filtering and query expansion.
+    Optimized for conceptual queries and business insights.
+    
+    Args:
+        user_query: The user's search query
+        match_count: Number of documents to retrieve
+        similarity_threshold: Minimum similarity score to include results
+        
+    Returns:
+        Formatted search results with similarity scores and metadata
+    """
+    try:
+        # Expand query with synonyms and related terms for better matching
+        expanded_query = await _expand_query_semantically(user_query, embedding_client)
+        
+        # Get embeddings for both original and expanded queries
+        original_embedding = await get_embedding(user_query, embedding_client)
+        expanded_embedding = await get_embedding(expanded_query, embedding_client) if expanded_query != user_query else original_embedding
+        
+        # Search with original query
+        result = supabase.rpc(
+            'match_documents_with_score',
+            {
+                'query_embedding': original_embedding,
+                'match_count': match_count * 2,  # Get more results for filtering
+                'similarity_threshold': similarity_threshold
+            }
+        ).execute()
+        
+        # If expanded query is different, also search with expanded query
+        expanded_results = []
+        if expanded_query != user_query:
+            expanded_result = supabase.rpc(
+                'match_documents_with_score',
+                {
+                    'query_embedding': expanded_embedding,
+                    'match_count': match_count,
+                    'similarity_threshold': similarity_threshold * 0.9  # Slightly lower threshold for expanded
+                }
+            ).execute()
+            expanded_results = expanded_result.data or []
+        
+        # Combine and deduplicate results
+        all_results = (result.data or []) + expanded_results
+        seen_ids = set()
+        unique_results = []
+        
+        for doc in all_results:
+            doc_id = doc.get('id')
+            if doc_id not in seen_ids:
+                seen_ids.add(doc_id)
+                unique_results.append(doc)
+        
+        # Sort by similarity score and take top results
+        unique_results.sort(key=lambda x: x.get('similarity', 0), reverse=True)
+        unique_results = unique_results[:match_count]
+        
+        if not unique_results:
+            return f"No documents found matching '{user_query}' with similarity >= {similarity_threshold}"
+        
+        # Format results with enhanced metadata
+        formatted_chunks = []
+        for i, doc in enumerate(unique_results, 1):
+            similarity_score = doc.get('similarity', 0)
+            metadata = doc.get('metadata', {})
+            
+            # Determine content type from metadata
+            content_type = _determine_content_type(doc.get('content', ''), metadata)
+            
+            chunk_text = f"""
+## Result {i} (Similarity: {similarity_score:.3f}) - {content_type}
+
+**Document:** {metadata.get('file_title', 'Unknown Document')}
+**ID:** {metadata.get('file_id', 'unknown')}
+**URL:** {metadata.get('file_url', 'N/A')}
+**Speakers:** {metadata.get('speakers', 'N/A')}
+**Date:** {metadata.get('created_at', 'Unknown')}
+
+**Content:**
+{doc['content']}
+"""
+            formatted_chunks.append(chunk_text)
+        
+        summary_header = f"""# Semantic Search Results for: "{user_query}"
+
+Found {len(unique_results)} relevant documents (similarity >= {similarity_threshold})
+{f"Query expanded to: \"{expanded_query}\"" if expanded_query != user_query else ""}
+
+"""
+        
+        return summary_header + "\n\n---\n\n".join(formatted_chunks)
+        
+    except Exception as e:
+        print(f"Error in semantic search: {e}")
+        return f"Error in semantic search: {str(e)}"
+
+async def hybrid_search_tool(supabase: Client, embedding_client: AsyncOpenAI, user_query: str, match_count: int = 8) -> str:
+    """
+    Hybrid search combining semantic similarity with keyword matching.
+    Best for specific technical details, names, dates, and exact matches.
+    
+    Args:
+        user_query: The search query
+        match_count: Number of results to return
+        
+    Returns:
+        Formatted hybrid search results with both semantic and keyword matches
+    """
+    try:
+        # Extract keywords and key phrases from query
+        keywords = _extract_keywords(user_query)
+        
+        # Semantic search
+        semantic_embedding = await get_embedding(user_query, embedding_client)
+        semantic_result = supabase.rpc(
+            'match_documents',
+            {
+                'query_embedding': semantic_embedding,
+                'match_count': match_count
+            }
+        ).execute()
+        
+        # Keyword/full-text search
+        keyword_result = supabase.rpc(
+            'search_documents_by_keywords',
+            {
+                'search_terms': keywords,
+                'match_count': match_count
+            }
+        ).execute()
+        
+        # Combine results with scoring
+        semantic_docs = {doc['id']: {'doc': doc, 'semantic_score': doc.get('similarity', 0), 'keyword_score': 0} 
+                        for doc in (semantic_result.data or [])}
+        
+        for doc in (keyword_result.data or []):
+            doc_id = doc['id']
+            keyword_score = doc.get('keyword_match_score', 0)
+            
+            if doc_id in semantic_docs:
+                semantic_docs[doc_id]['keyword_score'] = keyword_score
+            else:
+                semantic_docs[doc_id] = {'doc': doc, 'semantic_score': 0, 'keyword_score': keyword_score}
+        
+        # Calculate hybrid scores (weighted combination)
+        semantic_weight = 0.6
+        keyword_weight = 0.4
+        
+        for doc_data in semantic_docs.values():
+            doc_data['hybrid_score'] = (
+                semantic_weight * doc_data['semantic_score'] + 
+                keyword_weight * doc_data['keyword_score']
+            )
+        
+        # Sort by hybrid score and take top results
+        sorted_results = sorted(semantic_docs.values(), key=lambda x: x['hybrid_score'], reverse=True)
+        top_results = sorted_results[:match_count]
+        
+        if not top_results:
+            return f"No documents found for query: '{user_query}'"
+        
+        # Format results
+        formatted_chunks = []
+        for i, result in enumerate(top_results, 1):
+            doc = result['doc']
+            metadata = doc.get('metadata', {})
+            
+            chunk_text = f"""
+## Hybrid Result {i} (Score: {result['hybrid_score']:.3f})
+**Semantic:** {result['semantic_score']:.3f} | **Keyword:** {result['keyword_score']:.3f}
+
+**Document:** {metadata.get('file_title', 'Unknown')}
+**ID:** {metadata.get('file_id', 'unknown')}
+**Type:** {_determine_content_type(doc.get('content', ''), metadata)}
+
+**Content:**
+{doc['content']}
+"""
+            formatted_chunks.append(chunk_text)
+        
+        header = f"""# Hybrid Search Results: "{user_query}"
+
+Combining semantic similarity + keyword matching
+Keywords extracted: {', '.join(keywords)}
+Found {len(top_results)} relevant documents
+
+"""
+        
+        return header + "\n\n---\n\n".join(formatted_chunks)
+        
+    except Exception as e:
+        print(f"Error in hybrid search: {e}")
+        return f"Error in hybrid search: {str(e)}"
+
+async def get_recent_documents_tool(supabase: Client, days_back: int = 7, document_types: List[str] = None, match_count: int = 10) -> str:
+    """
+    Retrieve recent documents for timeline-based queries and status updates.
+    
+    Args:
+        days_back: Number of days to look back
+        document_types: Filter by document types (e.g., ['meeting', 'transcript', 'report'])
+        match_count: Maximum number of documents to return
+        
+    Returns:
+        Formatted list of recent documents with metadata
+    """
+    try:
+        # Calculate date threshold
+        from datetime import datetime, timedelta
+        date_threshold = (datetime.now() - timedelta(days=days_back)).isoformat()
+        
+        # Build query with filters
+        query = supabase.from_('documents') \
+            .select('id, content, metadata, created_at') \
+            .gte('created_at', date_threshold) \
+            .order('created_at', desc=True) \
+            .limit(match_count)
+        
+        # Apply document type filter if specified
+        if document_types:
+            # This would need to be implemented based on how document types are stored
+            # For now, we'll filter based on filename patterns
+            pass
+        
+        result = query.execute()
+        
+        if not result.data:
+            return f"No documents found in the last {days_back} days"
+        
+        # Group by date and format
+        documents_by_date = {}
+        for doc in result.data:
+            doc_date = doc['created_at'][:10]  # YYYY-MM-DD
+            if doc_date not in documents_by_date:
+                documents_by_date[doc_date] = []
+            documents_by_date[doc_date].append(doc)
+        
+        # Format results by date
+        formatted_sections = []
+        for date, docs in sorted(documents_by_date.items(), reverse=True):
+            date_section = f"## {date} ({len(docs)} documents)\n"
+            
+            for doc in docs:
+                metadata = doc.get('metadata', {})
+                content_preview = doc.get('content', '')[:200] + "..." if len(doc.get('content', '')) > 200 else doc.get('content', '')
+                
+                doc_summary = f"""
+### {metadata.get('file_title', 'Untitled Document')}
+**ID:** {metadata.get('file_id', doc['id'])}
+**Type:** {_determine_content_type(doc.get('content', ''), metadata)}
+**Preview:** {content_preview}
+
+"""
+                date_section += doc_summary
+            
+            formatted_sections.append(date_section)
+        
+        header = f"""# Recent Documents (Last {days_back} Days)
+
+Total documents found: {len(result.data)}
+Date range: {date_threshold[:10]} to {datetime.now().strftime('%Y-%m-%d')}
+
+"""
+        
+        return header + "\n".join(formatted_sections)
+        
+    except Exception as e:
+        print(f"Error retrieving recent documents: {e}")
+        return f"Error retrieving recent documents: {str(e)}"
+
+async def smart_document_search_tool(supabase: Client, embedding_client: AsyncOpenAI, user_query: str, search_strategy: str = "auto") -> str:
+    """
+    Intelligent document search that automatically chooses the best strategy.
+    
+    Args:
+        user_query: The search query
+        search_strategy: "auto", "semantic", "hybrid", "recent", or "keyword"
+        
+    Returns:
+        Search results using the optimal strategy
+    """
+    try:
+        # Auto-detect best search strategy if not specified
+        if search_strategy == "auto":
+            search_strategy = _detect_optimal_search_strategy(user_query)
+        
+        if search_strategy == "semantic":
+            return await semantic_search_tool(supabase, embedding_client, user_query)
+        elif search_strategy == "hybrid":
+            return await hybrid_search_tool(supabase, embedding_client, user_query)
+        elif search_strategy == "recent":
+            # Extract time context from query
+            days_back = _extract_time_context(user_query)
+            return await get_recent_documents_tool(supabase, days_back)
+        else:
+            # Default to semantic search
+            return await semantic_search_tool(supabase, embedding_client, user_query)
+            
+    except Exception as e:
+        print(f"Error in smart document search: {e}")
+        return f"Error in smart document search: {str(e)}"
+
+# Helper functions for advanced RAG
+
+async def _expand_query_semantically(query: str, embedding_client: AsyncOpenAI) -> str:
+    """Expand query with related terms for better semantic matching."""
+    try:
+        # Simple query expansion using business context
+        business_synonyms = {
+            'project': ['initiative', 'effort', 'work', 'task'],
+            'issue': ['problem', 'challenge', 'concern', 'blocker'],
+            'budget': ['cost', 'expense', 'financial', 'money'],
+            'timeline': ['schedule', 'deadline', 'timeframe', 'duration'],
+            'client': ['customer', 'stakeholder', 'user'],
+            'meeting': ['discussion', 'call', 'session', 'conference'],
+            'ASRS': ['automated storage', 'warehouse automation', 'retrieval system'],
+            'sprinkler': ['fire protection', 'suppression system', 'safety system']
+        }
+        
+        expanded_terms = []
+        query_lower = query.lower()
+        
+        for key, synonyms in business_synonyms.items():
+            if key.lower() in query_lower:
+                expanded_terms.extend(synonyms[:2])  # Add top 2 synonyms
+        
+        if expanded_terms:
+            return query + " " + " ".join(expanded_terms)
+        
+        return query
+        
+    except Exception:
+        return query
+
+def _extract_keywords(query: str) -> List[str]:
+    """Extract important keywords from query for hybrid search."""
+    import re
+    
+    # Remove common stop words
+    stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'}
+    
+    # Extract words and phrases
+    words = re.findall(r'\b\w+\b', query.lower())
+    keywords = [word for word in words if len(word) > 2 and word not in stop_words]
+    
+    # Add quoted phrases
+    phrases = re.findall(r'"([^"]+)"', query)
+    keywords.extend(phrases)
+    
+    return keywords
+
+def _determine_content_type(content: str, metadata: Dict[str, Any]) -> str:
+    """Determine the type of content for better categorization."""
+    file_title = metadata.get('file_title', '').lower()
+    
+    if 'transcript' in file_title or 'meeting' in file_title:
+        return 'Meeting Transcript'
+    elif 'report' in file_title:
+        return 'Report'
+    elif any(term in content.lower()[:500] for term in ['speaker', ':', 'said', 'discussion']):
+        return 'Conversational Content'
+    elif metadata.get('mime_type', '').startswith('image'):
+        return 'Image Document'
+    elif 'table' in content.lower()[:200] or '|' in content[:200]:
+        return 'Structured Data'
+    else:
+        return 'Text Document'
+
+def _detect_optimal_search_strategy(query: str) -> str:
+    """Automatically detect the best search strategy for a given query."""
+    query_lower = query.lower()
+    
+    # Time-based queries
+    time_indicators = ['recent', 'last', 'yesterday', 'today', 'this week', 'past', 'latest', 'current']
+    if any(indicator in query_lower for indicator in time_indicators):
+        return 'recent'
+    
+    # Specific technical queries (names, IDs, exact terms)
+    if any(char in query for char in ['"', "'", '#']) or len(query.split()) <= 2:
+        return 'hybrid'
+    
+    # Conceptual or business insight queries
+    conceptual_indicators = ['why', 'how', 'what', 'impact', 'analysis', 'trend', 'pattern', 'strategy']
+    if any(indicator in query_lower for indicator in conceptual_indicators):
+        return 'semantic'
+    
+    # Default to hybrid for balanced results
+    return 'hybrid'
+
+def _extract_time_context(query: str) -> int:
+    """Extract time context from query to determine how far back to search."""
+    import re
+    
+    query_lower = query.lower()
+    
+    # Look for specific time mentions
+    if 'today' in query_lower or 'yesterday' in query_lower:
+        return 2
+    elif 'this week' in query_lower or 'last week' in query_lower:
+        return 7
+    elif 'this month' in query_lower or 'last month' in query_lower:
+        return 30
+    
+    # Look for number + time unit patterns
+    time_patterns = [
+        (r'(\d+)\s*days?', 1),
+        (r'(\d+)\s*weeks?', 7),
+        (r'(\d+)\s*months?', 30)
+    ]
+    
+    for pattern, multiplier in time_patterns:
+        match = re.search(pattern, query_lower)
+        if match:
+            return int(match.group(1)) * multiplier
+    
+    # Default to last week
+    return 7 
 
 async def list_documents_tool(supabase: Client) -> List[str]:
     """

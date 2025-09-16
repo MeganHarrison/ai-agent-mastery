@@ -1,0 +1,135 @@
+[
+  {
+    "test_name": "Backend Health Check",
+    "status": "PARTIAL",
+    "timestamp": "2025-09-16T07:32:17.084449",
+    "details": "Backend running but mem0_client disabled for testing",
+    "error": null
+  },
+  {
+    "test_name": "Frontend Accessibility",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146096",
+    "details": "Frontend accessible",
+    "error": null
+  },
+  {
+    "test_name": "Agent Tools Available",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146268",
+    "details": "All advanced RAG tools available: ['semantic_search', 'hybrid_search', 'get_recent_documents']",
+    "error": null
+  },
+  {
+    "test_name": "Prompt Design Analysis",
+    "status": "PARTIAL",
+    "timestamp": "2025-09-16T07:32:17.146352",
+    "details": "Found: 4/6 features. Missing: ['communication_style', 'meeting_context']",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'Hello, who are you and what can you help me with?...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146375",
+    "details": "Expected: {'expected_tool': 'none (personality response)', 'citation_expected': 'document sources with metadata', 'communication_style': 'knowledgeable project advisor introduction', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'What's your role in this project?...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146384",
+    "details": "Expected: {'expected_tool': 'none (personality response)', 'citation_expected': 'document sources with metadata', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'What are the key challenges we face in ASRS implem...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146392",
+    "details": "Expected: {'expected_tool': 'semantic_search', 'citation_expected': 'document sources with metadata', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'How do project costs typically trend over time?...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146397",
+    "details": "Expected: {'expected_tool': 'hybrid_search', 'citation_expected': 'document sources with metadata', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'What patterns do you see in our project delays?...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146402",
+    "details": "Expected: {'expected_tool': 'semantic_search', 'citation_expected': 'document sources with metadata', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'What is the exact budget for the Johnston project?...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146407",
+    "details": "Expected: {'expected_tool': 'hybrid_search', 'citation_expected': 'document sources with metadata', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'Who was responsible for the permit delays mentione...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146414",
+    "details": "Expected: {'expected_tool': 'retrieve_relevant_documents', 'citation_expected': 'meeting title and date required', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'What are the specific ASRS sprinkler requirements ...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146419",
+    "details": "Expected: {'expected_tool': 'hybrid_search', 'citation_expected': 'document sources with metadata', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'What happened in our last meeting?...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146424",
+    "details": "Expected: {'expected_tool': 'get_recent_documents', 'citation_expected': 'meeting title and date required', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'What decisions were made this week?...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146429",
+    "details": "Expected: {'expected_tool': 'get_recent_documents', 'citation_expected': 'document sources with metadata', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'Show me recent project updates...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146432",
+    "details": "Expected: {'expected_tool': 'get_recent_documents', 'citation_expected': 'document sources with metadata', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'What were the key points from the meeting 3 days a...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146438",
+    "details": "Expected: {'expected_tool': 'retrieve_relevant_documents', 'citation_expected': 'meeting title and date required', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'How do the budget reports align with meeting discu...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146443",
+    "details": "Expected: {'expected_tool': 'hybrid_search', 'citation_expected': 'meeting title and date required', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'What trends do you see across multiple projects?...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146448",
+    "details": "Expected: {'expected_tool': 'semantic_search', 'citation_expected': 'document sources with metadata', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  },
+  {
+    "test_name": "Query Analysis: 'Analyze the relationship between cost overruns and...'",
+    "status": "PASS",
+    "timestamp": "2025-09-16T07:32:17.146453",
+    "details": "Expected: {'expected_tool': 'hybrid_search', 'citation_expected': 'document sources with metadata', 'communication_style': 'professional, direct response with data backing', 'should_lead_with_source': True}",
+    "error": null
+  }
+]

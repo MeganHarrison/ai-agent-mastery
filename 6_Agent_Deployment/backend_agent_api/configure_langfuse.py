@@ -39,7 +39,11 @@ def configure_langfuse():
     os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {LANGFUSE_AUTH}"
 
     # Configure Logfire to work with Langfuse
-    nest_asyncio.apply()
+    try:
+        nest_asyncio.apply()
+    except ValueError as e:
+        print(f"Warning: Could not apply nest_asyncio: {e}")
+    
     logfire.configure(
         service_name='pydantic_ai_agent',
         send_to_logfire=False,

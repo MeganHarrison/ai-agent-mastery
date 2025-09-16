@@ -31,7 +31,10 @@ from tools import (
     list_documents_tool,
     get_document_content_tool,
     execute_sql_query_tool,
-    execute_safe_code_tool
+    execute_safe_code_tool,
+    semantic_search_tool,
+    hybrid_search_tool,
+    get_recent_documents_tool
 )
 
 # ========== Helper function to get model configuration ==========
@@ -202,3 +205,55 @@ async def execute_code(ctx: RunContext[AgentDeps], code: str) -> str:
     print(f"executing code: {code}")
     print(f"Result is: {execute_safe_code_tool(code)}")
     return execute_safe_code_tool(code)
+
+@agent.tool
+async def semantic_search(ctx: RunContext[AgentDeps], user_query: str, match_count: int = 6, similarity_threshold: float = 0.7) -> str:
+    """
+    Advanced semantic search for conceptual queries and business insights.
+    Best for exploring themes, patterns, and strategic questions.
+    
+    Args:
+        ctx: The context including the Supabase client and OpenAI client
+        user_query: The search query
+        match_count: Number of results to return (default 6)
+        similarity_threshold: Minimum similarity score (default 0.7)
+        
+    Returns:
+        Formatted search results with similarity scores and metadata
+    """
+    print("Calling semantic_search tool")
+    return await semantic_search_tool(ctx.deps.supabase, ctx.deps.embedding_client, user_query, match_count, similarity_threshold)
+
+@agent.tool
+async def hybrid_search(ctx: RunContext[AgentDeps], user_query: str, match_count: int = 8) -> str:
+    """
+    Hybrid search combining semantic similarity with keyword matching.
+    Best for specific technical details, names, dates, and exact matches.
+    
+    Args:
+        ctx: The context including the Supabase client and OpenAI client
+        user_query: The search query
+        match_count: Number of results to return (default 8)
+        
+    Returns:
+        Formatted hybrid search results with both semantic and keyword matches
+    """
+    print("Calling hybrid_search tool")
+    return await hybrid_search_tool(ctx.deps.supabase, ctx.deps.embedding_client, user_query, match_count)
+
+@agent.tool
+async def get_recent_documents(ctx: RunContext[AgentDeps], days_back: int = 7, match_count: int = 10) -> str:
+    """
+    Retrieve recent documents for timeline-based queries and status updates.
+    Perfect for "last meeting", "recent updates", and time-sensitive queries.
+    
+    Args:
+        ctx: The context including the Supabase client
+        days_back: Number of days to look back (default 7)
+        match_count: Maximum number of documents to return (default 10)
+        
+    Returns:
+        Formatted list of recent documents with metadata and dates
+    """
+    print("Calling get_recent_documents tool")
+    return await get_recent_documents_tool(ctx.deps.supabase, days_back, None, match_count)
