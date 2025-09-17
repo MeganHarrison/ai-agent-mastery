@@ -493,6 +493,118 @@ async def reset_failed_processing():
         raise HTTPException(status_code=500, detail=f"Error resetting failed processing: {str(e)}")
 
 
+class FileUploadRequest(BaseModel):
+    """Request model for processing uploaded files."""
+    document_id: str
+    file_path: str
+    file_name: str
+    mime_type: str
+
+
+@app.post("/api/process-upload")
+async def process_upload(
+    request: FileUploadRequest,
+    credentials: HTTPAuthorizationCredentials = Security(security)
+):
+    """
+    Process an uploaded file by downloading it from Supabase storage,
+    generating embeddings, and storing them in the documents table.
+    
+    Args:
+        request: FileUploadRequest with file details
+        credentials: Authorization credentials
+        
+    Returns:
+        Success response with processing status
+    """
+    try:
+        # Validate authorization
+        if not credentials:
+            raise HTTPException(status_code=401, detail="Authorization required")
+        
+        # Download file from Supabase storage
+        file_response = supabase.storage.from_('documents').download(request.file_path)
+        
+        if not file_response:
+            raise HTTPException(status_code=404, detail="File not found in storage")
+        
+        # Convert bytes to string for text processing
+        file_content = file_response.decode('utf-8') if request.mime_type.startswith('text/') else str(file_response)
+        
+        # Import text processing utilities
+        sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend_rag_pipeline', 'common'))
+        from text_processor import chunk_text, create_embeddings
+        
+        # Process the document based on mime type
+        if request.mime_type in ['text/csv', 'application/vnd.ms-excel', 
+                                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']:
+            # For CSV/Excel files, extract schema and rows
+            from text_processor import extract_schema_from_csv, extract_rows_from_csv
+            import io
+            
+            # Extract schema
+            schema = extract_schema_from_csv(io.BytesIO(file_response))
+            
+            # Extract rows
+            rows = extract_rows_from_csv(io.BytesIO(file_response))
+            
+            # Store rows in document_rows table
+            for row in rows:
+                supabase.table("document_rows").insert({
+                    "dataset_id": request.document_id,
+                    "row_data": row
+                }).execute()
+            
+            # Create text representation for embeddings
+            file_content = f"Schema: {', '.join(schema)}\n\nSample rows:\n"
+            for i, row in enumerate(rows[:10]):  # Include first 10 rows as sample
+                file_content += f"{row}\n"
+        
+        # Chunk the text
+        chunks = chunk_text(file_content)
+        
+        # Generate embeddings for each chunk
+        embeddings = []
+        for chunk in chunks:
+            embedding = create_embeddings(chunk)
+            embeddings.append(embedding)
+        
+        # Store chunks and embeddings in documents table
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            document_data = {
+                "content": chunk,
+                "metadata": {
+                    "file_id": request.document_id,
+                    "file_url": f"storage/documents/{request.file_path}",
+                    "file_title": request.file_name,
+                    "mime_type": request.mime_type,
+                    "chunk_index": i,
+                    "uploaded_via": "web_interface"
+                },
+                "embedding": embedding
+            }
+            
+            supabase.table("documents").insert(document_data).execute()
+        
+        # Update document metadata to mark as processed
+        supabase.table("document_metadata").update({
+            "processed": True,
+            "chunks_count": len(chunks),
+            "processing_date": datetime.now(timezone.utc).isoformat()
+        }).eq("id", request.document_id).execute()
+        
+        return {
+            "status": "success",
+            "message": f"Successfully processed {request.file_name}",
+            "chunks_created": len(chunks),
+            "document_id": request.document_id
+        }
+        
+    except Exception as e:
+        print(f"Error processing upload: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     # Feel free to change the port here if you need
