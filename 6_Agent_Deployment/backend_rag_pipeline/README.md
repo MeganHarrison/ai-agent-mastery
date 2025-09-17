@@ -1,14 +1,15 @@
-# RAG Pipeline (Google Drive & Local Files)
+# RAG Pipeline (Google Drive, Local Files & Supabase Storage)
 
-This RAG (Retrieval Augmented Generation) pipeline processes files from either Google Drive or a local directory. It automatically extracts text content, generates embeddings, and stores this information in a Supabase database with PGVector support, enabling semantic search and retrieval for your applications.
+This RAG (Retrieval Augmented Generation) pipeline processes files from Google Drive, a local directory, or Supabase Storage buckets. It automatically extracts text content, generates embeddings, and stores this information in a Supabase database with PGVector support, enabling semantic search and retrieval for your applications.
 
 The pipeline supports both local development (individual scripts) and production deployment (unified Docker entrypoint with database state management).
 
 ## Features
 
-- **Dual Data Source Support:**
+- **Triple Data Source Support:**
     - Monitors Google Drive for file changes (creation, updates, deletion) in a specified folder or entire drive.
     - Monitors a local directory for file changes (creation, updates, deletion).
+    - Monitors Supabase Storage buckets (meetings and documents) for new uploads and modifications.
 - **Versatile File Processing:** Processes various document types including PDFs, text documents, HTML, CSVs, and more (see Supported File Types).
 - **Automated Text Extraction & Chunking:** Extracts text content and intelligently splits it into manageable chunks (default: 400 characters, configurable).
 - **Embedding Generation:** Creates embeddings using OpenAI's embedding model (configurable via environment variables).
@@ -40,7 +41,7 @@ The pipeline supports both local development (individual scripts) and production
    ENVIRONMENT=development
    
    # Pipeline Configuration
-   RAG_PIPELINE_TYPE=local  # or google_drive
+   RAG_PIPELINE_TYPE=local  # or google_drive or supabase_storage
    RUN_MODE=continuous      # or single
    RAG_PIPELINE_ID=dev-local-pipeline  # Required for database state management
    
@@ -59,6 +60,11 @@ The pipeline supports both local development (individual scripts) and production
    
    # Local Files Configuration (optional)
    RAG_WATCH_DIRECTORY=           # Override watch directory
+   
+   # Supabase Storage Configuration (for supabase_storage pipeline)
+   SUPABASE_MEETINGS_BUCKET=meetings      # Bucket name for meeting files
+   SUPABASE_DOCUMENTS_BUCKET=documents    # Bucket name for document files
+   SUPABASE_SUPPORTED_MIME_TYPES=         # JSON array of MIME types (optional)
    ```
 
 2. **Build and run with Docker:**
@@ -82,6 +88,13 @@ The pipeline supports both local development (individual scripts) and production
      --name rag-pipeline \
      -v $(pwd)/credentials:/app/Google_Drive/credentials \
      --env-file .env \
+     rag-pipeline
+   
+   # For Supabase Storage pipeline
+   docker run -d \
+     --name rag-pipeline \
+     --env-file .env \
+     -e RAG_PIPELINE_TYPE=supabase_storage \
      rag-pipeline
    ```
 
