@@ -504,8 +504,12 @@ class FileUploadRequest(BaseModel):
 @app.post("/api/process-upload")
 async def process_upload(
     request: FileUploadRequest,
-    credentials: HTTPAuthorizationCredentials = Security(security)
+    user: Dict[str, Any] = Depends(verify_token),
 ):
+    # Enforce per-user path ownership (defense-in-depth)
+    user_id = user.get("id")
+    if not user_id or not request.file_path.startswith(f"{user_id}/"):
+        raise HTTPException(status_code=403, detail="Forbidden: file path not owned by user")
     """
     Process an uploaded file by downloading it from Supabase storage,
     generating embeddings, and storing them in the documents table.
