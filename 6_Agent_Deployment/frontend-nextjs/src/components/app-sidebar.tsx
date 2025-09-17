@@ -18,48 +18,48 @@ import {
 const data = {
   navMain: [
     {
-      title: "Getting Started",
+      title: "Navigation",
       url: "#",
       items: [
         {
-          title: "Installation",
-          url: "#",
+          title: "Dashboard",
+          url: "/",
         },
         {
-          title: "Project Structure",
-          url: "#",
+          title: "Projects",
+          url: "/projects",
+        },
+        {
+          title: "Meetings",
+          url: "/meetings",
         },
       ],
     },
     {
-      title: "Building Your Application",
+      title: "Tables",
       url: "#",
       items: [
         {
-          title: "Routing",
+          title: "Clients",
           url: "#",
         },
         {
-          title: "Data Fetching",
+          title: "Prospects",
           url: "#",
           isActive: true,
         },
         {
-          title: "Rendering",
+          title: "Contacts",
           url: "#",
         },
         {
-          title: "Caching",
-          url: "#",
-        },
-        {
-          title: "Examples",
+          title: "Team",
           url: "#",
         },
       ],
     },
     {
-      title: "API Reference",
+      title: "FM Global",
       url: "#",
       items: [
         {
@@ -89,7 +89,7 @@ const data = {
       ],
     },
     {
-      title: "Architecture",
+      title: "Account",
       url: "#",
       items: [
         {
@@ -102,16 +102,6 @@ const data = {
         },
         {
           title: "Next.js Compiler",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Community",
-      url: "#",
-      items: [
-        {
-          title: "Contribution Guide",
           url: "#",
         },
       ],

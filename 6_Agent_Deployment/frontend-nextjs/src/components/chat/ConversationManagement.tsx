@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchConversations } from '@/lib/api';
 import { Conversation, Profile } from '@/types/database.types';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { User } from '@supabase/supabase-js';
 
 interface ConversationManagementProps {
