@@ -9,6 +9,8 @@ import Login from "./pages/Login";
 import Chat from "./pages/Chat";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import Projects from "./pages/projects/Projects";
+import ProjectDetail from "./pages/projects/ProjectDetail";
 import { AuthCallback } from "./components/auth/AuthCallback";
 import { ThemeProvider } from "@/components/theme-provider";
 import { useEffect } from "react";
@@ -58,6 +60,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Admin />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/projects" 
+        element={
+          <ProtectedRoute>
+            <Projects />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/projects/:id" 
+        element={
+          <ProtectedRoute>
+            <ProjectDetail />
           </ProtectedRoute>
         } 
       />
