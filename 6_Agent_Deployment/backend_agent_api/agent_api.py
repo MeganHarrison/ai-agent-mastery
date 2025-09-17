@@ -572,12 +572,10 @@ async def process_upload(
         # Chunk the text
         chunks = chunk_text(file_content)
         
-        # Generate embeddings for each chunk
-        embeddings = []
-        for chunk in chunks:
-            embedding = create_embeddings(chunk)
-            embeddings.append(embedding)
-        
+        # Generate embeddings for all chunks in one call
+        embeddings = create_embeddings(chunks)
+        if len(embeddings) != len(chunks):
+            raise HTTPException(status_code=500, detail="Embedding count mismatch")
         # Store chunks and embeddings in documents table
         for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
             document_data = {
