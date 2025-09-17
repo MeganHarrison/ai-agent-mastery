@@ -506,25 +506,22 @@ async def process_upload(
     request: FileUploadRequest,
     user: Dict[str, Any] = Depends(verify_token),
 ):
-    # Enforce per-user path ownership (defense-in-depth)
-    user_id = user.get("id")
-    if not user_id or not request.file_path.startswith(f"{user_id}/"):
-        raise HTTPException(status_code=403, detail="Forbidden: file path not owned by user")
     """
     Process an uploaded file by downloading it from Supabase storage,
     generating embeddings, and storing them in the documents table.
     
     Args:
         request: FileUploadRequest with file details
-        credentials: Authorization credentials
+        user: Authenticated user from token
         
     Returns:
         Success response with processing status
     """
     try:
-        # Validate authorization
-        if not credentials:
-            raise HTTPException(status_code=401, detail="Authorization required")
+        # Enforce per-user path ownership (defense-in-depth)
+        user_id = user.get("id")
+        if not user_id or not request.file_path.startswith(f"{user_id}/"):
+            raise HTTPException(status_code=403, detail="Forbidden: file path not owned by user")
         
         # Download file from Supabase storage (sync call -> offload)
         file_bytes = await asyncio.to_thread(
@@ -545,53 +542,62 @@ async def process_upload(
         from text_processor import chunk_text, create_embeddings
         
         # Process the document based on mime type
-        if request.mime_type in ['text/csv', 'application/vnd.ms-excel', 
-                                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']:
-            # For CSV/Excel files, extract schema and rows
+        if request.mime_type == 'text/csv':
+            # For CSV files, extract schema and rows
             from text_processor import extract_schema_from_csv, extract_rows_from_csv
-            import io
             
-            # Extract schema
-            schema = extract_schema_from_csv(io.BytesIO(file_response))
+            # Extract schema and rows from raw bytes
+            schema = extract_schema_from_csv(file_bytes)
+            rows = extract_rows_from_csv(file_bytes)
             
-            # Extract rows
-            rows = extract_rows_from_csv(io.BytesIO(file_response))
-            
-            # Store rows in document_rows table
-            for row in rows:
-                supabase.table("document_rows").insert({
-                    "dataset_id": request.document_id,
-                    "row_data": row
-                }).execute()
+            # Batch insert rows for better performance
+            if rows:
+                rows_payload = [
+                    {"dataset_id": request.document_id, "row_data": row}
+                    for row in rows
+                ]
+                supabase.table("document_rows").insert(rows_payload).execute()
             
             # Create text representation for embeddings
             file_content = f"Schema: {', '.join(schema)}\n\nSample rows:\n"
-            for i, row in enumerate(rows[:10]):  # Include first 10 rows as sample
+            for row in rows[:10]:  # Include first 10 rows as sample
                 file_content += f"{row}\n"
+        elif request.mime_type in [
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ]:
+            # TODO: Implement proper Excel parsing (e.g., pandas/openpyxl) and row extraction
+            # For now, treat as generic binary file
+            file_content = f"Binary spreadsheet: {request.file_name} ({len(file_bytes)} bytes)"
         
         # Chunk the text
         chunks = chunk_text(file_content)
         
         # Generate embeddings for all chunks in one call
-        embeddings = create_embeddings(chunks)
-        if len(embeddings) != len(chunks):
+        embeddings = create_embeddings(chunks) if chunks else []
+        if chunks and len(embeddings) != len(chunks):
             raise HTTPException(status_code=500, detail="Embedding count mismatch")
+        
         # Store chunks and embeddings in documents table
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-            document_data = {
-                "content": chunk,
-                "metadata": {
-                    "file_id": request.document_id,
-                    "file_url": f"storage/documents/{request.file_path}",
-                    "file_title": request.file_name,
-                    "mime_type": request.mime_type,
-                    "chunk_index": i,
-                    "uploaded_via": "web_interface"
-                },
-                "embedding": embedding
-            }
-            
-            supabase.table("documents").insert(document_data).execute()
+        if chunks:
+            # Batch insert all document chunks for better performance
+            documents_to_insert = [
+                {
+                    "content": chunk,
+                    "metadata": {
+                        "file_id": request.document_id,
+                        "storage_bucket": "documents",
+                        "storage_path": request.file_path,
+                        "file_title": request.file_name,
+                        "mime_type": request.mime_type,
+                        "chunk_index": i,
+                        "uploaded_via": "web_interface"
+                    },
+                    "embedding": embedding
+                }
+                for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+            ]
+            supabase.table("documents").insert(documents_to_insert).execute()
         
         # Update document metadata to mark as processed
         supabase.table("document_metadata").update({
@@ -607,9 +613,11 @@ async def process_upload(
             "document_id": request.document_id
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error processing upload: {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+        print(f"Error processing upload: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Error processing file: {e!s}") from e
 
 
 if __name__ == "__main__":

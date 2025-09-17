@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 import { toast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,7 +15,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Loader2,
-  File
+  File as FileIcon
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -42,7 +41,6 @@ export default function UploadPage() {
     documentId?: string
   } | null>(null)
   const [processingEmbeddings, setProcessingEmbeddings] = useState(false)
-  const router = useRouter()
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0]
@@ -137,19 +135,27 @@ export default function UploadPage() {
 
       setUploadProgress(50)
 
-      // Get public URL for the uploaded file
-      const { data: { publicUrl } } = supabase.storage
+      // For private buckets, create a signed URL for viewing (7-day expiry)
+      const { data: signedData, error: signedUrlError } = await supabase.storage
         .from('documents')
-        .getPublicUrl(filePath)
+        .createSignedUrl(filePath, 60 * 60 * 24 * 7)
+      
+      if (signedUrlError) {
+        throw signedUrlError
+      }
+      
+      const signedUrl = signedData?.signedUrl
 
-      // Create metadata entry
+      // Create metadata entry with both signed URL and storage path
       const documentId = crypto.randomUUID()
       const { error: metadataError } = await supabase
         .from('document_metadata')
         .insert({
           id: documentId,
           title: file.name,
-          url: publicUrl,
+          url: signedUrl,
+          storage_bucket: 'documents',
+          storage_path: filePath,
           type: 'uploaded',
           project: 'User Upload',
           date: new Date().toISOString(),
@@ -265,7 +271,7 @@ export default function UploadPage() {
 
               {file && (
                 <div className="mt-4 flex items-center justify-center gap-2 text-purple-400">
-                  <File className="h-5 w-5" />
+                  <FileIcon className="h-5 w-5" />
                   <span className="text-sm">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
                 </div>
               )}
