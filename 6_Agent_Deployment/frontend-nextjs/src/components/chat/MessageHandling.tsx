@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { Message, FileAttachment, Conversation } from '@/types/database.types';
 import { sendMessage, fetchMessages } from '@/lib/api';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Session, User } from '@supabase/supabase-js';
 
 interface MessageHandlingProps {

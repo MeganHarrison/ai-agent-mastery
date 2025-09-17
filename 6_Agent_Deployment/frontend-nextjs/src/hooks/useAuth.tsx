@@ -3,7 +3,7 @@
 import { useEffect, useState, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 interface AuthProviderProps {
   children: ReactNode;

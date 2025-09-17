@@ -14,11 +14,16 @@ import {
   ExternalLink,
   ArrowLeft,
   Video,
-  User
+  User,
+  Search,
+  Filter,
+  Grid,
+  List,
+  LayoutGrid
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { toast } from '@/hooks/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
 
 // Input sanitization utility
@@ -44,14 +49,38 @@ const isValidUrl = (url: string): boolean => {
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentMetadata[]>([])
+  const [filteredDocuments, setFilteredDocuments] = useState<DocumentMetadata[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editedDoc, setEditedDoc] = useState<Partial<DocumentMetadata>>({})
   const [selectedDoc, setSelectedDoc] = useState<DocumentMetadata | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedProject, setSelectedProject] = useState('')
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
+  const [showFilters, setShowFilters] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchDocuments()
   }, [])
+
+  useEffect(() => {
+    let filtered = documents
+    
+    if (searchTerm) {
+      filtered = filtered.filter(doc => 
+        doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.summary?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.project?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+    
+    if (selectedProject && selectedProject !== 'all') {
+      filtered = filtered.filter(doc => doc.project === selectedProject)
+    }
+    
+    setFilteredDocuments(filtered)
+  }, [documents, searchTerm, selectedProject])
 
   const fetchDocuments = async () => {
     try {
@@ -63,6 +92,7 @@ export default function DocumentsPage() {
 
       if (error) throw error
       setDocuments(data || [])
+      setFilteredDocuments(data || [])
     } catch (error) {
       console.error('Error fetching documents:', error)
       toast({
@@ -186,10 +216,18 @@ export default function DocumentsPage() {
     }
   }
 
-  const truncateSummary = (summary?: string, maxLength = 100) => {
+  const truncateSummary = (summary?: string, maxLength = 80) => {
     if (!summary) return 'No summary available'
     if (summary.length <= maxLength) return summary
     return summary.substring(0, maxLength) + '...'
+  }
+
+  const getUniqueProjects = () => {
+    const projects = documents
+      .map(doc => doc.project)
+      .filter(Boolean)
+      .filter((project, index, arr) => arr.indexOf(project) === index)
+    return projects
   }
 
   if (loading) {
@@ -204,7 +242,7 @@ export default function DocumentsPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
             Documents
           </h1>
@@ -216,25 +254,96 @@ export default function DocumentsPage() {
           </Link>
         </div>
 
+        {/* Search and Filters */}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search documents..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-gray-800/50 border-gray-600 text-white placeholder-gray-400"
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                Filters
+              </Button>
+              
+              <div className="flex items-center bg-gray-800/50 rounded-lg p-1">
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="h-8 w-8 p-0"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'card' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('card')}
+                  className="h-8 w-8 p-0"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {showFilters && (
+            <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
+              <div className="flex flex-wrap gap-4">
+                <div className="min-w-[200px]">
+                  <label className="text-sm font-medium text-gray-300 mb-2 block">Project</label>
+                  <select
+                    value={selectedProject}
+                    onChange={(e) => setSelectedProject(e.target.value)}
+                    className="w-full bg-gray-700 border-gray-600 text-white rounded-md px-3 py-2 text-sm"
+                  >
+                    <option value="">All Projects</option>
+                    {getUniqueProjects().map(project => (
+                      <option key={project} value={project}>{project}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Main Content */}
         <div className={`flex gap-6 ${selectedDoc ? 'flex-row' : ''}`}>
-          {/* Table View */}
+          {/* Content View */}
           <div className={`${selectedDoc ? 'w-1/2' : 'w-full'} transition-all duration-300`}>
-            <div className="bg-gray-800/50 backdrop-blur rounded-lg border border-gray-700 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-white">
-                  <thead className="bg-gray-800/80 border-b border-gray-700">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Title</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Project</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Date</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Summary</th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-300">Recording</th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-300">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-700">
-                    {documents.map((doc) => (
+            
+            {viewMode === 'list' ? (
+              /* List View */
+              <div className="bg-gray-800/50 backdrop-blur rounded-lg border border-gray-700 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-white">
+                    <thead className="bg-gray-800/80 border-b border-gray-700">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Title</th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Project</th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Date</th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-300">Summary</th>
+                        <th className="px-6 py-4 text-center text-sm font-semibold text-gray-300">Fireflies</th>
+                        <th className="px-6 py-4 text-center text-sm font-semibold text-gray-300">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                      {filteredDocuments.map((doc) => (
                       <tr
                         key={doc.id}
                         className={`hover:bg-gray-700/50 cursor-pointer transition-colors ${
@@ -255,10 +364,7 @@ export default function DocumentsPage() {
                               placeholder="Document title"
                             />
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-purple-400" />
-                              <span className="text-sm">{doc.title}</span>
-                            </div>
+                            <span className="text-sm font-medium">{doc.title}</span>
                           )}
                         </td>
                         <td className="px-6 py-4">
@@ -273,10 +379,7 @@ export default function DocumentsPage() {
                               placeholder="Project name"
                             />
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <Folder className="h-4 w-4 text-blue-400" />
-                              <span className="text-sm">{doc.project || 'N/A'}</span>
-                            </div>
+                            <span className="text-sm">{doc.project || ''}</span>
                           )}
                         </td>
                         <td className="px-6 py-4">
@@ -308,7 +411,7 @@ export default function DocumentsPage() {
                               placeholder="Brief summary"
                             />
                           ) : (
-                            <span className="text-sm text-gray-300">
+                            <span className="text-xs text-gray-400">
                               {truncateSummary(doc.summary)}
                             </span>
                           )}
@@ -382,10 +485,105 @@ export default function DocumentsPage() {
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                /* Card View */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredDocuments.map((doc) => (
+                    <div
+                      key={doc.id}
+                      onClick={() => handleRowClick(doc)}
+                      className={`bg-gray-800/50 backdrop-blur rounded-lg border border-gray-700 p-4 hover:bg-gray-700/50 cursor-pointer transition-all duration-200 ${
+                        selectedDoc?.id === doc.id ? 'border-purple-500 bg-purple-900/20' : ''
+                      }`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <h3 className="text-sm font-medium text-white line-clamp-2 flex-1">
+                            {doc.title}
+                          </h3>
+                          <div className="flex items-center gap-1 ml-2">
+                            {editingId === doc.id ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleSave()
+                                  }}
+                                  className="text-green-400 hover:text-green-300 h-6 w-6 p-0"
+                                >
+                                  <Save className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleCancel()
+                                  }}
+                                  className="text-red-400 hover:text-red-300 h-6 w-6 p-0"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleEdit(doc)
+                                }}
+                                className="text-blue-400 hover:text-blue-300 h-6 w-6 p-0"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-400">Project:</span>
+                            <span className="text-gray-300">{doc.project || ''}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-400">Date:</span>
+                            <span className="text-gray-300">{formatDate(doc.date)}</span>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <p className="text-xs text-gray-400 line-clamp-3">
+                            {truncateSummary(doc.summary, 120)}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          {doc.fireflies_link && (
+                            <a
+                              href={doc.fireflies_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 text-xs transition-colors"
+                            >
+                              <Video className="h-3 w-3" />
+                              Fireflies
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            }
           </div>
 
           {/* Detail View */}
@@ -483,7 +681,7 @@ export default function DocumentsPage() {
         </div>
 
         {/* Empty State */}
-        {documents.length === 0 && (
+        {filteredDocuments.length === 0 && (
           <div className="text-center py-12">
             <FileText className="h-16 w-16 text-gray-600 mx-auto mb-4" />
             <p className="text-gray-400 text-lg">No documents found</p>
