@@ -526,14 +526,19 @@ async def process_upload(
         if not credentials:
             raise HTTPException(status_code=401, detail="Authorization required")
         
-        # Download file from Supabase storage
-        file_response = supabase.storage.from_('documents').download(request.file_path)
-        
-        if not file_response:
+        # Download file from Supabase storage (sync call -> offload)
+        file_bytes = await asyncio.to_thread(
+            lambda: supabase.storage.from_("documents").download(request.file_path)
+        )
+        if not file_bytes:
             raise HTTPException(status_code=404, detail="File not found in storage")
         
         # Convert bytes to string for text processing
-        file_content = file_response.decode('utf-8') if request.mime_type.startswith('text/') else str(file_response)
+        file_content = (
+            file_bytes.decode("utf-8", errors="replace")
+            if request.mime_type.startswith("text/")
+            else ""
+        )
         
         # Import text processing utilities
         sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend_rag_pipeline', 'common'))
