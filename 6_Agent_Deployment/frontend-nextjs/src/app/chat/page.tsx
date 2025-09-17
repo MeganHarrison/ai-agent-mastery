@@ -41,7 +41,7 @@ export default function Chat() {
   useEffect(() => {
     // Only redirect if auth has resolved (session is not undefined) and user is not authenticated
     if (session === null) {
-      router.replace('/login');
+      router.replace('/auth/login');
     }
   }, [session, router]);
   

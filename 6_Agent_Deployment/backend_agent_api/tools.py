@@ -252,10 +252,13 @@ async def semantic_search_tool(supabase: Client, embedding_client: AsyncOpenAI, 
 """
             formatted_chunks.append(chunk_text)
         
+        # Create the expansion text separately to avoid backslash in f-string
+        expansion_text = f'Query expanded to: "{expanded_query}"' if expanded_query != user_query else ""
+        
         summary_header = f"""# Semantic Search Results for: "{user_query}"
 
 Found {len(unique_results)} relevant documents (similarity >= {similarity_threshold})
-{f"Query expanded to: \"{expanded_query}\"" if expanded_query != user_query else ""}
+{expansion_text}
 
 """
         

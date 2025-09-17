@@ -43,16 +43,16 @@ const data = {
       items: [
         {
           title: "Clients",
-          url: "#",
+          url: "/clients",
         },
         {
           title: "Prospects",
-          url: "#",
+          url: "/prospects",
           isActive: true,
         },
         {
           title: "Contacts",
-          url: "#",
+          url: "/contacts",
         },
         {
           title: "Team",
@@ -109,6 +109,11 @@ const data = {
       ],
     },
   ],
+  user: {
+    name: "John Doe",
+    email: "john.doe@example.com", 
+    avatar: "/avatars/default.jpg",
+  },
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
