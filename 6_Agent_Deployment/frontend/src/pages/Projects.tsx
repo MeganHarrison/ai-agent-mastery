@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,7 +11,8 @@ import {
   MoreVertical,
   Edit,
   Trash2,
-  Eye
+  Eye,
+  Loader2
 } from 'lucide-react';
 import {
   Card,
@@ -45,147 +46,134 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: 'active' | 'inactive' | 'completed';
-  createdAt: string;
-  lastModified: string;
-  owner: string;
-  priority: 'low' | 'medium' | 'high';
-  progress: number;
-}
-
-const mockProjects: Project[] = [
-  {
-    id: '1',
-    name: 'AI Agent Development',
-    description: 'Building advanced AI agents with Pydantic and LangChain',
-    status: 'active',
-    createdAt: '2024-01-15',
-    lastModified: '2024-01-20',
-    owner: 'John Doe',
-    priority: 'high',
-    progress: 75
-  },
-  {
-    id: '2',
-    name: 'RAG Pipeline Implementation',
-    description: 'Implementing retrieval augmented generation for document processing',
-    status: 'active',
-    createdAt: '2024-01-10',
-    lastModified: '2024-01-18',
-    owner: 'Jane Smith',
-    priority: 'medium',
-    progress: 50
-  },
-  {
-    id: '3',
-    name: 'Frontend Dashboard',
-    description: 'Creating React-based dashboard with real-time data visualization',
-    status: 'completed',
-    createdAt: '2023-12-20',
-    lastModified: '2024-01-05',
-    owner: 'Mike Johnson',
-    priority: 'low',
-    progress: 100
-  },
-  {
-    id: '4',
-    name: 'Docker Deployment',
-    description: 'Containerizing applications for production deployment',
-    status: 'inactive',
-    createdAt: '2023-11-15',
-    lastModified: '2023-12-10',
-    owner: 'Sarah Wilson',
-    priority: 'medium',
-    progress: 30
-  }
-];
+import { Project, ProjectStatus, ProjectPriority } from '@/types/project.types';
+import { 
+  useProjects, 
+  useCreateProject, 
+  useUpdateProject, 
+  useDeleteProject 
+} from '@/hooks/useProjects';
 
 export const Projects = () => {
   const [viewMode, setViewMode] = useState<'card' | 'list' | 'table'>('card');
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    status: 'active' as Project['status'],
-    priority: 'medium' as Project['priority'],
-    owner: ''
+    status: 'active' as ProjectStatus,
+    priority: 'medium' as ProjectPriority,
+    progress: 0,
+    team_members: [] as string[],
+    technologies: [] as string[],
+    start_date: '',
+    end_date: '',
+    budget: 0
   });
+  
   const { toast } = useToast();
+  const { projects, loading, error, refetch } = useProjects();
+  const { createProject, loading: createLoading } = useCreateProject();
+  const { updateProject, loading: updateLoading } = useUpdateProject();
+  const { deleteProject, loading: deleteLoading } = useDeleteProject();
 
-  const handleCreate = () => {
-    const newProject: Project = {
-      id: String(projects.length + 1),
-      name: formData.name,
-      description: formData.description,
-      status: formData.status,
-      priority: formData.priority,
-      owner: formData.owner || 'Current User',
-      createdAt: new Date().toISOString().split('T')[0],
-      lastModified: new Date().toISOString().split('T')[0],
-      progress: 0
-    };
+  const handleCreate = async () => {
+    if (!formData.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Project name is required",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setProjects([...projects, newProject]);
-    setIsCreateDialogOpen(false);
-    setFormData({
-      name: '',
-      description: '',
-      status: 'active',
-      priority: 'medium',
-      owner: ''
-    });
-    toast({
-      title: "Project created",
-      description: "New project has been successfully created.",
-    });
+    const result = await createProject(formData);
+    if (result) {
+      setIsCreateDialogOpen(false);
+      setFormData({
+        name: '',
+        description: '',
+        status: 'active',
+        priority: 'medium',
+        progress: 0,
+        team_members: [],
+        technologies: [],
+        start_date: '',
+        end_date: '',
+        budget: 0
+      });
+      refetch();
+    }
   };
 
-  const handleEdit = (project: Project) => {
-    const updatedProjects = projects.map(p => 
-      p.id === project.id 
-        ? { ...project, lastModified: new Date().toISOString().split('T')[0] }
-        : p
-    );
-    setProjects(updatedProjects);
-    setEditingProject(null);
-    toast({
-      title: "Project updated",
-      description: "Project has been successfully updated.",
+  const handleEdit = async (project: Project) => {
+    if (!editingProject) return;
+    
+    const result = await updateProject(project.id, {
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      priority: project.priority,
+      progress: project.progress,
+      team_members: project.team_members,
+      technologies: project.technologies,
+      start_date: project.start_date,
+      end_date: project.end_date,
+      budget: project.budget
     });
+    
+    if (result) {
+      setEditingProject(null);
+      refetch();
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setProjects(projects.filter(p => p.id !== id));
-    toast({
-      title: "Project deleted",
-      description: "Project has been successfully deleted.",
-    });
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this project?')) return;
+    
+    const result = await deleteProject(id);
+    if (result) {
+      refetch();
+    }
   };
 
-  const getStatusColor = (status: Project['status']) => {
+  const getStatusColor = (status: ProjectStatus) => {
     switch(status) {
       case 'active': return 'bg-green-500';
       case 'inactive': return 'bg-gray-500';
       case 'completed': return 'bg-blue-500';
+      case 'on_hold': return 'bg-yellow-500';
+      case 'planning': return 'bg-purple-500';
       default: return 'bg-gray-500';
     }
   };
 
-  const getPriorityColor = (priority: Project['priority']) => {
+  const getPriorityColor = (priority: ProjectPriority) => {
     switch(priority) {
+      case 'critical': return 'destructive';
       case 'high': return 'destructive';
       case 'medium': return 'secondary';
       case 'low': return 'outline';
       default: return 'outline';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-red-500 mb-4">Error loading projects: {error}</p>
+        <Button onClick={refetch}>Retry</Button>
+      </div>
+    );
+  }
 
   const CardView = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -251,8 +239,8 @@ export const Projects = () => {
           </CardContent>
           <CardFooter>
             <div className="flex justify-between w-full text-sm text-muted-foreground">
-              <span>Owner: {project.owner}</span>
-              <span>{project.lastModified}</span>
+              <span>Owner: {project.owner_name}</span>
+              <span>{new Date(project.updated_at).toLocaleDateString()}</span>
             </div>
           </CardFooter>
         </Card>
@@ -303,9 +291,9 @@ export const Projects = () => {
               </div>
             </div>
             <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
-              <span>Owner: {project.owner}</span>
+              <span>Owner: {project.owner_name}</span>
               <span>Progress: {project.progress}%</span>
-              <span>Modified: {project.lastModified}</span>
+              <span>Modified: {new Date(project.updated_at).toLocaleDateString()}</span>
             </div>
           </CardHeader>
         </Card>
@@ -346,9 +334,9 @@ export const Projects = () => {
                 {project.priority}
               </Badge>
             </TableCell>
-            <TableCell>{project.owner}</TableCell>
+            <TableCell>{project.owner_name}</TableCell>
             <TableCell>{project.progress}%</TableCell>
-            <TableCell>{project.lastModified}</TableCell>
+            <TableCell>{new Date(project.updated_at).toLocaleDateString()}</TableCell>
             <TableCell className="text-right">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -613,13 +601,16 @@ export const Projects = () => {
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-owner" className="text-right">
-                  Owner
+                <Label htmlFor="edit-progress" className="text-right">
+                  Progress (%)
                 </Label>
                 <Input
-                  id="edit-owner"
-                  value={editingProject.owner}
-                  onChange={(e) => setEditingProject({...editingProject, owner: e.target.value})}
+                  id="edit-progress"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editingProject.progress || 0}
+                  onChange={(e) => setEditingProject({...editingProject, progress: parseInt(e.target.value) || 0})}
                   className="col-span-3"
                 />
               </div>
