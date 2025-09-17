@@ -1,20 +1,18 @@
+import { createClient } from '@supabase/supabase-js'
 
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '../types/database.types';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Get environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Check if environment variables are defined
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase URL or Anon Key is missing. Please check your .env file.');
+  const missingVars = []
+  if (!supabaseUrl) missingVars.push('NEXT_PUBLIC_SUPABASE_URL')
+  if (!supabaseAnonKey) missingVars.push('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  
+  throw new Error(
+    `Missing required environment variables: ${missingVars.join(', ')}. ` +
+    'Please check your .env.local file and ensure these variables are set.'
+  )
 }
 
-// Initialize Supabase client
-export const supabase = createClient<Database>(
-  supabaseUrl || '',
-  supabaseAnonKey || ''
-);
 
-export type SupabaseClient = typeof supabase;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)

@@ -1,4 +1,3 @@
-
 import { useCallback, useRef } from 'react';
 import { Message, FileAttachment, Conversation } from '@/types/database.types';
 import { sendMessage, fetchMessages } from '@/lib/api';

@@ -1,3 +1,4 @@
+'use client'
 
 import { useEffect, useState, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
@@ -84,28 +85,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Update user profile with Google information after successful authentication
   useEffect(() => {
     const updateProfileWithGoogleInfo = async () => {
-      if (user && user.app_metadata.provider === 'google') {
+      if (user && user.app_metadata.provider === 'google' && user.user_metadata.full_name) {
         try {
-          // Check if user profile has a full name already
-          const { data: profile, error: profileError } = await supabase
+          // Use upsert to create or update the profile in a single operation
+          const { error } = await supabase
             .from('user_profiles')
-            .select('full_name')
-            .eq('id', user.id)
-            .single();
-
-          if (profileError) throw profileError;
-
-          // Only update if full_name is not set
-          if (!profile.full_name && user.user_metadata.full_name) {
-            const { error: updateError } = await supabase
-              .from('user_profiles')
-              .update({ 
+            .upsert(
+              { 
+                id: user.id,
                 full_name: user.user_metadata.full_name,
                 updated_at: new Date().toISOString() 
-              })
-              .eq('id', user.id);
+              },
+              { 
+                onConflict: 'id',
+                ignoreDuplicates: false 
+              }
+            );
 
-            if (updateError) throw updateError;
+          if (error) {
+            console.error('Error updating profile with Google info:', error);
           }
         } catch (error) {
           console.error('Error updating profile with Google info:', error);
@@ -116,7 +114,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (user) {
       updateProfileWithGoogleInfo();
     }
-  }, [user]);
+  }, [user?.id, user?.app_metadata?.provider]);
 
   const signUp = async (email: string, password: string) => {
     try {

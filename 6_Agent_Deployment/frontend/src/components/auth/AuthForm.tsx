@@ -1,7 +1,9 @@
+'use client'
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
@@ -56,9 +58,9 @@ export const AuthForm = () => {
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4 pt-4">
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium">
+                <Label htmlFor="email">
                   Email
-                </label>
+                </Label>
                 <Input
                   id="email"
                   type="email"
@@ -69,9 +71,9 @@ export const AuthForm = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">
+                <Label htmlFor="password">
                   Password
-                </label>
+                </Label>
                 <Input
                   id="password"
                   type="password"
@@ -138,9 +140,9 @@ export const AuthForm = () => {
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4 pt-4">
               <div className="space-y-2">
-                <label htmlFor="register-email" className="text-sm font-medium">
+                <Label htmlFor="register-email">
                   Email
-                </label>
+                </Label>
                 <Input
                   id="register-email"
                   type="email"
@@ -151,9 +153,9 @@ export const AuthForm = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label htmlFor="register-password" className="text-sm font-medium">
+                <Label htmlFor="register-password">
                   Password
-                </label>
+                </Label>
                 <Input
                   id="register-password"
                   type="password"

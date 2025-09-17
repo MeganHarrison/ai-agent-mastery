@@ -3,8 +3,8 @@ import { supabase } from './supabase';
 import { Message, FileAttachment } from '@/types/database.types';
 
 // Environment variable to determine if streaming is enabled
-const ENABLE_STREAMING = import.meta.env.VITE_ENABLE_STREAMING === 'true';
-const AGENT_ENDPOINT = import.meta.env.VITE_AGENT_ENDPOINT;
+const ENABLE_STREAMING = process.env.NEXT_PUBLIC_ENABLE_STREAMING === 'true';
+const AGENT_ENDPOINT = process.env.NEXT_PUBLIC_AGENT_ENDPOINT;
 
 interface ApiResponse {
   title?: string;
@@ -40,7 +40,7 @@ export const sendMessage = async (
       files
     };
 
-    const response = await fetch(AGENT_ENDPOINT, {
+    const response = await fetch(AGENT_ENDPOINT!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -202,7 +202,7 @@ export const sendMessage = async (
         return parsedData;
       } catch (jsonError) {
         console.error('Error parsing JSON response:', jsonError, 'Response text:', responseText);
-        throw new Error(`Invalid JSON response from API: ${jsonError.message}`);
+        throw new Error(`Invalid JSON response from API: ${(jsonError as Error).message}`);
       }
     }
   } catch (error) {

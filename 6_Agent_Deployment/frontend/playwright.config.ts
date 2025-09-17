@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined, // Allow 2 workers in CI for better parallelization
   reporter: process.env.CI ? [['github'], ['html']] : 'html',
   use: {
-    baseURL: 'http://localhost:8083',
+    baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
     actionTimeout: 10000,
     navigationTimeout: 30000,
@@ -23,8 +23,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev -- --port 8083',
-    url: 'http://localhost:8083',
+    command: 'npm run dev',
+    url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

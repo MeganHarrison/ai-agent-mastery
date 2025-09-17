@@ -1,65 +1,57 @@
-# Build stage
-FROM node:18-alpine as builder
-
-# Set working directory
+# Multi-stage build for Next.js application
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml* package-lock.json* yarn.lock* ./
+# Install dependencies
+RUN if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm install --frozen-lockfile; \
+  elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
+  elif [ -f package-lock.json ]; then npm ci; \
+  else npm install; fi
 
-# Install all dependencies (including dev dependencies for build)
-RUN npm ci
-
-# Copy source code
+# Rebuild the source code only when needed
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Accept build arguments for environment variables
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
-ARG VITE_AGENT_ENDPOINT
-ARG VITE_ENABLE_STREAMING
-ARG VITE_LANGFUSE_HOST_WITH_PROJECT
+# Set environment variables for build
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_AGENT_ENDPOINT
+ARG NEXT_PUBLIC_ENABLE_STREAMING
+ARG NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT
 
-# Set environment variables from build args
-ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
-ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
-ENV VITE_AGENT_ENDPOINT=${VITE_AGENT_ENDPOINT}
-ENV VITE_ENABLE_STREAMING=${VITE_ENABLE_STREAMING}
-ENV VITE_LANGFUSE_HOST_WITH_PROJECT=${VITE_LANGFUSE_HOST_WITH_PROJECT}
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_AGENT_ENDPOINT=$NEXT_PUBLIC_AGENT_ENDPOINT
+ENV NEXT_PUBLIC_ENABLE_STREAMING=$NEXT_PUBLIC_ENABLE_STREAMING
+ENV NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT=$NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT
 
 # Build the application
-RUN npm run build
+RUN if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm run build; \
+  elif [ -f yarn.lock ]; then yarn build; \
+  else npm run build; fi
 
-# Production stage
-# Note: nginx is used here to serve static files within the container
-# Caddy (or another reverse proxy) would sit in front of this container
-FROM nginx:alpine
+# Production image
+FROM node:20-alpine AS runner
+WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+ENV NODE_ENV production
+ENV PORT 8080
 
-# Create non-root user
-RUN addgroup -g 1001 -S appuser && \
-    adduser -S appuser -u 1001
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# Copy nginx configuration
-COPY --from=builder /app/nginx.conf /etc/nginx/nginx.conf
+# Copy necessary files
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy built application
-COPY --from=builder /app/dist /usr/share/nginx/html
+USER nextjs
 
-# Create nginx cache and run directories
-RUN mkdir -p /var/cache/nginx /var/run/nginx && \
-    chown -R appuser:appuser /var/cache/nginx /var/run/nginx /usr/share/nginx/html
-
-# Expose port
 EXPOSE 8080
 
-# Switch to non-root user
-USER appuser
-
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
-
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]

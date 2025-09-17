@@ -1,3 +1,4 @@
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,8 @@ import { useAdmin } from '@/hooks/useAdmin';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Conversation } from '@/types/database.types';
 import { cn } from '@/lib/utils';
-import { Link, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { SettingsModal } from './SettingsModal';
 import { TypewriterText } from '@/components/ui/TypewriterText';
 
@@ -47,7 +49,7 @@ export const ChatSidebar = ({
   const { isAdmin } = useAdmin();
   const [search, setSearch] = useState('');
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>(conversations);
-  const location = useLocation();
+  const pathname = usePathname();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Filter conversations based on search input
@@ -76,7 +78,7 @@ export const ChatSidebar = ({
             className="mb-2 text-blue-500 border-blue-500"
             asChild
           >
-            <Link to="/admin">
+            <Link href="/admin">
               <Users className="h-5 w-5" />
             </Link>
           </Button>
@@ -114,7 +116,7 @@ export const ChatSidebar = ({
               className="w-full justify-start bg-blue-500 text-white hover:bg-blue-600"
               asChild
             >
-              <Link to="/admin">
+              <Link href="/admin">
                 <Users className="mr-2 h-5 w-5" />
                 Admin Dashboard
               </Link>

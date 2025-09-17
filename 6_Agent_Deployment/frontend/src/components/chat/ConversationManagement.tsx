@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { fetchConversations } from '@/lib/api';
 import { Conversation, Profile } from '@/types/database.types';

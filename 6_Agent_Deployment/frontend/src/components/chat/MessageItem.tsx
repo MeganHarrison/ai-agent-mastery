@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useMemo } from 'react';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
