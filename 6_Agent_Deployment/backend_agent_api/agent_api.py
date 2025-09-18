@@ -493,6 +493,133 @@ async def reset_failed_processing():
         raise HTTPException(status_code=500, detail=f"Error resetting failed processing: {str(e)}")
 
 
+class FileUploadRequest(BaseModel):
+    """Request model for processing uploaded files."""
+    document_id: str
+    file_path: str
+    file_name: str
+    mime_type: str
+
+
+@app.post("/api/process-upload")
+async def process_upload(
+    request: FileUploadRequest,
+    user: Dict[str, Any] = Depends(verify_token),
+):
+    """
+    Process an uploaded file by downloading it from Supabase storage,
+    generating embeddings, and storing them in the documents table.
+    
+    Args:
+        request: FileUploadRequest with file details
+        user: Authenticated user from token
+        
+    Returns:
+        Success response with processing status
+    """
+    try:
+        # Enforce per-user path ownership (defense-in-depth)
+        user_id = user.get("id")
+        if not user_id or not request.file_path.startswith(f"{user_id}/"):
+            raise HTTPException(status_code=403, detail="Forbidden: file path not owned by user")
+        
+        # Download file from Supabase storage (sync call -> offload)
+        file_bytes = await asyncio.to_thread(
+            lambda: supabase.storage.from_("documents").download(request.file_path)
+        )
+        if not file_bytes:
+            raise HTTPException(status_code=404, detail="File not found in storage")
+        
+        # Convert bytes to string for text processing
+        file_content = (
+            file_bytes.decode("utf-8", errors="replace")
+            if request.mime_type.startswith("text/")
+            else ""
+        )
+        
+        # Import text processing utilities
+        sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend_rag_pipeline', 'common'))
+        from text_processor import chunk_text, create_embeddings
+        
+        # Process the document based on mime type
+        if request.mime_type == 'text/csv':
+            # For CSV files, extract schema and rows
+            from text_processor import extract_schema_from_csv, extract_rows_from_csv
+            
+            # Extract schema and rows from raw bytes
+            schema = extract_schema_from_csv(file_bytes)
+            rows = extract_rows_from_csv(file_bytes)
+            
+            # Batch insert rows for better performance
+            if rows:
+                rows_payload = [
+                    {"dataset_id": request.document_id, "row_data": row}
+                    for row in rows
+                ]
+                supabase.table("document_rows").insert(rows_payload).execute()
+            
+            # Create text representation for embeddings
+            file_content = f"Schema: {', '.join(schema)}\n\nSample rows:\n"
+            for row in rows[:10]:  # Include first 10 rows as sample
+                file_content += f"{row}\n"
+        elif request.mime_type in [
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ]:
+            # TODO: Implement proper Excel parsing (e.g., pandas/openpyxl) and row extraction
+            # For now, treat as generic binary file
+            file_content = f"Binary spreadsheet: {request.file_name} ({len(file_bytes)} bytes)"
+        
+        # Chunk the text
+        chunks = chunk_text(file_content)
+        
+        # Generate embeddings for all chunks in one call
+        embeddings = create_embeddings(chunks) if chunks else []
+        if chunks and len(embeddings) != len(chunks):
+            raise HTTPException(status_code=500, detail="Embedding count mismatch")
+        
+        # Store chunks and embeddings in documents table
+        if chunks:
+            # Batch insert all document chunks for better performance
+            documents_to_insert = [
+                {
+                    "content": chunk,
+                    "metadata": {
+                        "file_id": request.document_id,
+                        "storage_bucket": "documents",
+                        "storage_path": request.file_path,
+                        "file_title": request.file_name,
+                        "mime_type": request.mime_type,
+                        "chunk_index": i,
+                        "uploaded_via": "web_interface"
+                    },
+                    "embedding": embedding
+                }
+                for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+            ]
+            supabase.table("documents").insert(documents_to_insert).execute()
+        
+        # Update document metadata to mark as processed
+        supabase.table("document_metadata").update({
+            "processed": True,
+            "chunks_count": len(chunks),
+            "processing_date": datetime.now(timezone.utc).isoformat()
+        }).eq("id", request.document_id).execute()
+        
+        return {
+            "status": "success",
+            "message": f"Successfully processed {request.file_name}",
+            "chunks_created": len(chunks),
+            "document_id": request.document_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error processing upload: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Error processing file: {e!s}") from e
+
+
 if __name__ == "__main__":
     import uvicorn
     # Feel free to change the port here if you need

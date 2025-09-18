@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { FileText, Home } from 'lucide-react'
+import { FileText, Home, Upload } from 'lucide-react'
 
 export default function HomePage() {
   return (
@@ -24,6 +24,20 @@ export default function HomePage() {
               View and manage your meeting documents and transcripts
             </p>
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </Link>
+          
+          <Link 
+            href="/upload" 
+            className="group relative overflow-hidden rounded-lg bg-gray-800/50 backdrop-blur border border-gray-700 p-6 hover:border-green-500 transition-all duration-200"
+          >
+            <div className="flex items-center gap-4 mb-3">
+              <Upload className="h-8 w-8 text-green-400" />
+              <h2 className="text-2xl font-semibold">Upload</h2>
+            </div>
+            <p className="text-gray-300">
+              Upload documents to storage and generate embeddings
+            </p>
+            <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
           </Link>
           
           <div className="group relative overflow-hidden rounded-lg bg-gray-800/50 backdrop-blur border border-gray-700 p-6 hover:border-blue-500 transition-all duration-200">
