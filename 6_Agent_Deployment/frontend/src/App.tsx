@@ -11,7 +11,6 @@ import Admin from "./pages/Admin";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import NotFound from "./pages/NotFound";
-import ProjectDetail from "./pages/ProjectDetail";
 import { AuthCallback } from "./components/auth/AuthCallback";
 import { ThemeProvider } from "@/components/theme-provider";
 import { useEffect } from "react";
@@ -50,6 +49,14 @@ const AppRoutes = () => {
       />
       <Route 
         path="/" 
+        element={
+          <ProtectedRoute>
+            <Chat />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/chat" 
         element={
           <ProtectedRoute>
             <Chat />
