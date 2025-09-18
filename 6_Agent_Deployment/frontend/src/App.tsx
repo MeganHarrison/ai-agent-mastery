@@ -6,6 +6,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
+import SignUp from "./pages/SignUp";
+import ForgotPassword from "./pages/ForgotPassword";
+import UpdatePassword from "./pages/UpdatePassword";
 import Chat from "./pages/Chat";
 import Admin from "./pages/Admin";
 import Projects from "./pages/Projects";
@@ -43,10 +46,26 @@ const AppRoutes = () => {
   
   return (
     <Routes>
+      {/* Auth routes - not protected */}
       <Route 
         path="/login" 
         element={user ? <Navigate to="/" /> : <Login />} 
       />
+      <Route 
+        path="/sign-up" 
+        element={user ? <Navigate to="/" /> : <SignUp />} 
+      />
+      <Route 
+        path="/forgot-password" 
+        element={user ? <Navigate to="/" /> : <ForgotPassword />} 
+      />
+      <Route 
+        path="/update-password" 
+        element={<UpdatePassword />} 
+      />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      
+      {/* Protected routes */}
       <Route 
         path="/" 
         element={
@@ -87,8 +106,8 @@ const AppRoutes = () => {
           </ProtectedRoute>
         } 
       />
-      {/* OAuth callback route for handling authentication redirects */}
-      <Route path="/auth/callback" element={<AuthCallback />} />
+      
+      {/* 404 route */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

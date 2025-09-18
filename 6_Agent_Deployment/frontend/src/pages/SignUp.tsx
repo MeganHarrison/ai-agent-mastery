@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +7,8 @@ import { Loader } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Separator } from '@/components/ui/separator';
 
-const Login = () => {
-  const { signIn, signInWithGoogle } = useAuth();
+const SignUp = () => {
+  const { signUp, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,13 +18,13 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      await signUp(email, password);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignUp = async () => {
     setLoading(true);
     try {
       await signInWithGoogle();
@@ -38,14 +37,14 @@ const Login = () => {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background dark:bg-sidebar">
       <div className="mb-8 text-center">
         <h1 className="text-3xl font-bold text-foreground mb-2">AI Agent Dashboard</h1>
-        <p className="text-muted-foreground">Sign in to get started</p>
+        <p className="text-muted-foreground">Create your account to get started</p>
       </div>
       
       <Card className="w-[350px] mx-4">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold">Sign In</CardTitle>
+          <CardTitle className="text-2xl font-bold">Sign Up</CardTitle>
           <CardDescription>
-            Enter your credentials to access the dashboard
+            Create a new account to access the dashboard
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -64,17 +63,9 @@ const Login = () => {
               />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor="password" className="text-sm font-medium">
-                  Password
-                </label>
-                <Link 
-                  to="/forgot-password" 
-                  className="text-xs text-primary hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
+              <label htmlFor="password" className="text-sm font-medium">
+                Password
+              </label>
               <Input
                 id="password"
                 type="password"
@@ -90,10 +81,10 @@ const Login = () => {
               {loading ? (
                 <>
                   <Loader className="mr-2 h-4 w-4 animate-spin" />
-                  Signing In...
+                  Creating Account...
                 </>
               ) : (
-                'Sign In'
+                'Create Account'
               )}
             </Button>
             
@@ -107,7 +98,7 @@ const Login = () => {
               type="button" 
               variant="outline" 
               className="w-full" 
-              onClick={handleGoogleSignIn}
+              onClick={handleGoogleSignUp}
               disabled={loading}
             >
               {loading ? (
@@ -133,13 +124,13 @@ const Login = () => {
                   <path d="M1 1h22v22H1z" fill="none" />
                 </svg>
               )}
-              Sign in with Google
+              Sign up with Google
             </Button>
             
             <div className="text-sm text-center text-muted-foreground">
-              Don't have an account?{' '}
-              <Link to="/sign-up" className="text-primary hover:underline">
-                Sign Up
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary hover:underline">
+                Sign In
               </Link>
             </div>
           </CardFooter>
@@ -149,4 +140,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default SignUp;
