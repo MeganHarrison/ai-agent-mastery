@@ -28,7 +28,6 @@ export const useConversationManagement = ({
       }
       return data;
     } catch (err) {
-      console.error('Error loading conversations:', err);
       if (isMounted.current) {
         toast({
           title: 'Error loading conversations',

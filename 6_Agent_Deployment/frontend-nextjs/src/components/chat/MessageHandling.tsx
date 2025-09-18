@@ -271,7 +271,6 @@ export const useMessageHandling = ({
       }
       
     } catch (err) {
-      console.error('Error in chat flow:', err);
       if (isMounted.current) {
         // Create an error message for display
         const errorMessage = err instanceof Error ? err.message : 'Failed to process your message. Please try again.';
@@ -320,7 +319,6 @@ export const useMessageHandling = ({
         setMessages(data);
       }
     } catch (err) {
-      console.error('Error loading messages:', err);
       if (isMounted.current) {
         toast({
           title: 'Error loading messages',
