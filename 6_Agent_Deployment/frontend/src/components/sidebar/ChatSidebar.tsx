@@ -13,7 +13,8 @@ import {
   Menu,
   Settings,
   MessageSquare,
-  Users
+  Users,
+  LayoutDashboard
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -69,6 +70,16 @@ export const ChatSidebar = ({
         <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="mb-6">
           <Menu className="h-5 w-5" />
         </Button>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="mb-2"
+          asChild
+        >
+          <Link to="/dashboard">
+            <LayoutDashboard className="h-5 w-5" />
+          </Link>
+        </Button>
         {isAdmin && (
           <Button 
             variant="outline" 
@@ -107,6 +118,19 @@ export const ChatSidebar = ({
       <Separator />
       
       <div className="px-4 pt-4">
+        <div className="mb-3">
+          <Button 
+            variant="outline"
+            className="w-full justify-start bg-primary text-primary-foreground hover:bg-primary/90"
+            asChild
+          >
+            <Link to="/dashboard">
+              <LayoutDashboard className="mr-2 h-5 w-5" />
+              Executive Dashboard
+            </Link>
+          </Button>
+        </div>
+        
         {isAdmin && (
           <div className="mb-3">
             <Button 

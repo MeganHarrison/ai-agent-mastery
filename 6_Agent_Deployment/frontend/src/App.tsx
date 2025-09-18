@@ -13,6 +13,7 @@ import Chat from "./pages/Chat";
 import Admin from "./pages/Admin";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import { AuthCallback } from "./components/auth/AuthCallback";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -70,7 +71,7 @@ const AppRoutes = () => {
         path="/" 
         element={
           <ProtectedRoute>
-            <Chat />
+            <Dashboard />
           </ProtectedRoute>
         } 
       />
@@ -103,6 +104,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <ProjectDetail />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <Dashboard />
           </ProtectedRoute>
         } 
       />

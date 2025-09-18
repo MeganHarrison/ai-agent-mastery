@@ -8,6 +8,101 @@ export interface FileAttachment {
 export interface Database {
   public: {
     Tables: {
+      projects: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          status: 'active' | 'inactive' | 'completed' | 'on_hold' | 'planning';
+          priority: 'low' | 'medium' | 'high' | 'critical';
+          progress: number;
+          owner_id: string;
+          owner_name: string;
+          team_members: string[] | null;
+          start_date: string | null;
+          end_date: string | null;
+          budget: number | null;
+          spent: number | null;
+          technologies: string[] | null;
+          tags: string[] | null;
+          goals: string[] | null;
+          deliverables: string[] | null;
+          risks: string[] | null;
+          dependencies: string[] | null;
+          repository_url: string | null;
+          documentation_url: string | null;
+          demo_url: string | null;
+          metadata: Record<string, any> | null;
+          created_at: string;
+          updated_at: string;
+          last_modified_by: string | null;
+          is_archived: boolean;
+          archived_at: string | null;
+          archived_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          status?: 'active' | 'inactive' | 'completed' | 'on_hold' | 'planning';
+          priority?: 'low' | 'medium' | 'high' | 'critical';
+          progress?: number;
+          owner_id: string;
+          owner_name: string;
+          team_members?: string[] | null;
+          start_date?: string | null;
+          end_date?: string | null;
+          budget?: number | null;
+          spent?: number | null;
+          technologies?: string[] | null;
+          tags?: string[] | null;
+          goals?: string[] | null;
+          deliverables?: string[] | null;
+          risks?: string[] | null;
+          dependencies?: string[] | null;
+          repository_url?: string | null;
+          documentation_url?: string | null;
+          demo_url?: string | null;
+          metadata?: Record<string, any> | null;
+          created_at?: string;
+          updated_at?: string;
+          last_modified_by?: string | null;
+          is_archived?: boolean;
+          archived_at?: string | null;
+          archived_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          status?: 'active' | 'inactive' | 'completed' | 'on_hold' | 'planning';
+          priority?: 'low' | 'medium' | 'high' | 'critical';
+          progress?: number;
+          owner_id?: string;
+          owner_name?: string;
+          team_members?: string[] | null;
+          start_date?: string | null;
+          end_date?: string | null;
+          budget?: number | null;
+          spent?: number | null;
+          technologies?: string[] | null;
+          tags?: string[] | null;
+          goals?: string[] | null;
+          deliverables?: string[] | null;
+          risks?: string[] | null;
+          dependencies?: string[] | null;
+          repository_url?: string | null;
+          documentation_url?: string | null;
+          demo_url?: string | null;
+          metadata?: Record<string, any> | null;
+          created_at?: string;
+          updated_at?: string;
+          last_modified_by?: string | null;
+          is_archived?: boolean;
+          archived_at?: string | null;
+          archived_by?: string | null;
+        };
+      };
       document_metadata: {
         Row: {
           id: string;
