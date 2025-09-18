@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { Conversation, Message } from '@/types/database.types';
@@ -23,7 +23,7 @@ export const useConversations = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const { toast } = useToast();
 
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -35,7 +35,6 @@ export const useConversations = () => {
       setConversations(data || []);
       setFilteredConversations(data || []);
     } catch (error) {
-      console.error('Error fetching conversations:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch conversations',
@@ -44,11 +43,11 @@ export const useConversations = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sortOrder, toast]);
 
   useEffect(() => {
     fetchConversations();
-  }, [sortOrder]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchConversations]);
 
   // Filter conversations based on search query
   useEffect(() => {

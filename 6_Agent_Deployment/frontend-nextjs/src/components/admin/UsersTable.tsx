@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -34,7 +34,7 @@ export const UsersTable = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -45,7 +45,6 @@ export const UsersTable = () => {
       setUsers(data || []);
       setFilteredUsers(data || []);
     } catch (error) {
-      console.error('Error fetching users:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch users',
@@ -54,11 +53,11 @@ export const UsersTable = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchUsers();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchUsers]);
 
   // Filter users based on search query
   useEffect(() => {

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { Conversation, Message } from '@/types/database.types';
@@ -22,7 +22,7 @@ export const useConversations = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const { toast } = useToast();
 
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -34,7 +34,6 @@ export const useConversations = () => {
       setConversations(data || []);
       setFilteredConversations(data || []);
     } catch (error) {
-      console.error('Error fetching conversations:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch conversations',
@@ -43,11 +42,11 @@ export const useConversations = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sortOrder, toast]);
 
   useEffect(() => {
     fetchConversations();
-  }, [sortOrder]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchConversations]);
 
   // Filter conversations based on search query
   useEffect(() => {
@@ -88,9 +87,7 @@ export const useConversations = () => {
       setSelectedConversation(conversationClone);
       setOpenDialog(true);
       
-      console.log('Fetching messages for session:', conversation.session_id);
       const messages = await fetchMessages(conversation.session_id, conversation.user_id);
-      console.log('Fetched messages:', messages);
       
       // Use the functional update to ensure we're working with the most current state
       setSelectedConversation((prev) => {
