@@ -1,4 +1,3 @@
-
 export interface FileAttachment {
   fileName: string;
   content: string; // Base64 encoded content
@@ -8,120 +7,6 @@ export interface FileAttachment {
 export interface Database {
   public: {
     Tables: {
-      document_metadata: {
-        Row: {
-          id: string;
-          title: string;
-          url: string | null;
-          created_at: string;
-          schema: string | null;
-          project_name?: string | null;
-          meeting_type?: string | null;
-        };
-        Insert: {
-          id: string;
-          title: string;
-          url?: string | null;
-          created_at?: string;
-          schema?: string | null;
-          project_name?: string | null;
-          meeting_type?: string | null;
-        };
-        Update: {
-          id?: string;
-          title?: string;
-          url?: string | null;
-          created_at?: string;
-          schema?: string | null;
-          project_name?: string | null;
-          meeting_type?: string | null;
-        };
-      };
-      documents: {
-        Row: {
-          id: number;
-          content: string;
-          metadata: any;
-          embedding: number[] | null;
-        };
-        Insert: {
-          id?: number;
-          content: string;
-          metadata?: any;
-          embedding?: number[] | null;
-        };
-        Update: {
-          id?: number;
-          content?: string;
-          metadata?: any;
-          embedding?: number[] | null;
-        };
-      };
-      project_insights: {
-        Row: {
-          id: number;
-          insight_type: 'action_item' | 'decision' | 'risk' | 'milestone' | 'opportunity' | 'issue' | 'follow_up' | 'requirement';
-          title: string;
-          description: string;
-          confidence_score: number | null;
-          priority: 'critical' | 'high' | 'medium' | 'low';
-          status: 'open' | 'in_progress' | 'completed' | 'cancelled';
-          project_name: string | null;
-          assigned_to: string | null;
-          due_date: string | null;
-          source_document_id: string | null;
-          source_meeting_title: string | null;
-          source_date: string | null;
-          speakers: string[] | null;
-          keywords: string[] | null;
-          metadata: any;
-          related_insights: string[] | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: number;
-          insight_type: 'action_item' | 'decision' | 'risk' | 'milestone' | 'opportunity' | 'issue' | 'follow_up' | 'requirement';
-          title: string;
-          description: string;
-          confidence_score?: number | null;
-          priority?: 'critical' | 'high' | 'medium' | 'low';
-          status?: 'open' | 'in_progress' | 'completed' | 'cancelled';
-          project_name?: string | null;
-          assigned_to?: string | null;
-          due_date?: string | null;
-          source_document_id?: string | null;
-          source_meeting_title?: string | null;
-          source_date?: string | null;
-          speakers?: string[] | null;
-          keywords?: string[] | null;
-          metadata?: any;
-          related_insights?: string[] | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: number;
-          insight_type?: 'action_item' | 'decision' | 'risk' | 'milestone' | 'opportunity' | 'issue' | 'follow_up' | 'requirement';
-          title?: string;
-          description?: string;
-          confidence_score?: number | null;
-          priority?: 'critical' | 'high' | 'medium' | 'low';
-          status?: 'open' | 'in_progress' | 'completed' | 'cancelled';
-          project_name?: string | null;
-          assigned_to?: string | null;
-          due_date?: string | null;
-          source_document_id?: string | null;
-          source_meeting_title?: string | null;
-          source_date?: string | null;
-          speakers?: string[] | null;
-          keywords?: string[] | null;
-          metadata?: any;
-          related_insights?: string[] | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
       conversations: {
         Row: {
           id: string;
@@ -203,6 +88,91 @@ export interface Database {
           updated_at?: string | null;
         };
       };
+      projects: {
+        Row: {
+          id: number;
+          name: string;
+          description: string | null;
+          category: string | null;
+          phase: string | null;
+          budget: number | null;
+          start_date: string | null;
+          end_date: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          name: string;
+          description?: string | null;
+          category?: string | null;
+          phase?: string | null;
+          budget?: number | null;
+          start_date?: string | null;
+          end_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: number;
+          name?: string;
+          description?: string | null;
+          category?: string | null;
+          phase?: string | null;
+          budget?: number | null;
+          start_date?: string | null;
+          end_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      ai_insights: {
+        Row: {
+          id: number;
+          type: string;
+          priority: string;
+          status: string;
+          resolution: string | null;
+          title: string;
+          description: string;
+          project_id: number | null;
+          source_document: string | null;
+          confidence_score: number | null;
+          metadata: any | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          type: string;
+          priority: string;
+          status: string;
+          resolution?: string | null;
+          title: string;
+          description: string;
+          project_id?: number | null;
+          source_document?: string | null;
+          confidence_score?: number | null;
+          metadata?: any | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: number;
+          type?: string;
+          priority?: string;
+          status?: string;
+          resolution?: string | null;
+          title?: string;
+          description?: string;
+          project_id?: number | null;
+          source_document?: string | null;
+          confidence_score?: number | null;
+          metadata?: any | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
   };
 }
@@ -210,6 +180,5 @@ export interface Database {
 export type Conversation = Database['public']['Tables']['conversations']['Row'];
 export type Message = Database['public']['Tables']['messages']['Row'];
 export type Profile = Database['public']['Tables']['profiles']['Row'];
-export type DocumentMetadata = Database['public']['Tables']['document_metadata']['Row'];
-export type Document = Database['public']['Tables']['documents']['Row'];
-export type ProjectInsight = Database['public']['Tables']['project_insights']['Row'];
+export type Project = Database['public']['Tables']['projects']['Row'];
+export type AIInsight = Database['public']['Tables']['ai_insights']['Row'];

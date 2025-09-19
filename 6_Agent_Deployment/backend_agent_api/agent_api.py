@@ -43,7 +43,7 @@ from pydantic_ai.messages import (
 
 from agent import agent, AgentDeps, get_model
 from clients import get_agent_clients, get_mem0_client_async
-from insights_worker import managed_worker
+# from insights_worker import managed_worker  # Disabled for now
 
 # Check if we're in production
 is_production = os.getenv("ENVIRONMENT") == "production"
@@ -84,11 +84,13 @@ async def lifespan(app: FastAPI):
     # mem0_client = await get_mem0_client_async()  # Temporarily disabled for testing
     mem0_client = None  # Mock for testing
     
-    # Start the insights worker alongside the main application
-    async with managed_worker(polling_interval=30) as insights_worker:
-        print("✅ Insights worker started successfully")
-        yield  # This is where the app runs
-        print("🔄 Shutting down insights worker...")
+    # Start the insights worker alongside the main application (disabled)
+    # async with managed_worker(polling_interval=30) as insights_worker:
+    #     print("✅ Insights worker started successfully")
+    #     yield  # This is where the app runs
+    #     print("🔄 Shutting down insights worker...")
+    print("✅ Agent API started (insights worker disabled)")
+    yield  # This is where the app runs
     
     # Shutdown: Clean up resources
     if http_client:

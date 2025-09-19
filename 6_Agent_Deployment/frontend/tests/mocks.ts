@@ -198,9 +198,9 @@ export async function setupAgentAPIMocks(page: Page) {
   });
 }
 
-// Override module imports with proper ES module mocking
+// Override module imports with proper ES module mocking for Next.js
 export async function setupModuleMocks(page: Page) {
-  // Intercept all imports of the supabase lib
+  // Intercept all imports of the supabase lib for Next.js structure
   await page.route('**/src/lib/supabase.ts', async (route) => {
     const mockCode = `
       // Export the mock supabase client that was set up in __supabaseMock__
@@ -215,8 +215,22 @@ export async function setupModuleMocks(page: Page) {
     });
   });
 
-  // Also intercept the compiled version that might be used
+  // Also intercept the compiled version that might be used in Next.js
   await page.route('**/lib/supabase*', async (route) => {
+    const mockCode = `
+      export const supabase = window.__supabaseMock__;
+      export default window.__supabaseMock__;
+    `;
+    
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: mockCode
+    });
+  });
+
+  // Intercept Next.js specific paths
+  await page.route('**/_next/**/*supabase*', async (route) => {
     const mockCode = `
       export const supabase = window.__supabaseMock__;
       export default window.__supabaseMock__;

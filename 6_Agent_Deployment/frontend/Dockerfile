@@ -1,65 +1,79 @@
-# Build stage
-FROM node:18-alpine as builder
+# Use the official Node.js 18 image as the base image
+FROM node:18-alpine AS base
 
-# Set working directory
+# Install dependencies only when needed
+FROM base AS deps
+# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Install dependencies based on the preferred package manager
+COPY package.json pnpm-lock.yaml* ./
+RUN \
+  if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
+  else echo "Lockfile not found." && exit 1; \
+  fi
 
-# Install all dependencies (including dev dependencies for build)
-RUN npm ci
-
-# Copy source code
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Accept build arguments for environment variables
-ARG VITE_SUPABASE_URL
-ARG VITE_SUPABASE_ANON_KEY
-ARG VITE_AGENT_ENDPOINT
-ARG VITE_ENABLE_STREAMING
-ARG VITE_LANGFUSE_HOST_WITH_PROJECT
+# Build args for environment variables
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_AGENT_ENDPOINT
+ARG NEXT_PUBLIC_ENABLE_STREAMING
+ARG NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT
 
-# Set environment variables from build args
-ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
-ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
-ENV VITE_AGENT_ENDPOINT=${VITE_AGENT_ENDPOINT}
-ENV VITE_ENABLE_STREAMING=${VITE_ENABLE_STREAMING}
-ENV VITE_LANGFUSE_HOST_WITH_PROJECT=${VITE_LANGFUSE_HOST_WITH_PROJECT}
+# Set environment variables for build
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_AGENT_ENDPOINT=$NEXT_PUBLIC_AGENT_ENDPOINT
+ENV NEXT_PUBLIC_ENABLE_STREAMING=$NEXT_PUBLIC_ENABLE_STREAMING
+ENV NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT=$NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT
 
-# Build the application
-RUN npm run build
+# Next.js collects completely anonymous telemetry data about general usage.
+# Learn more here: https://nextjs.org/telemetry
+# Uncomment the following line in case you want to disable telemetry during the build.
+ENV NEXT_TELEMETRY_DISABLED 1
 
-# Production stage
-# Note: nginx is used here to serve static files within the container
-# Caddy (or another reverse proxy) would sit in front of this container
-FROM nginx:alpine
+RUN \
+  if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm build; \
+  else echo "Lockfile not found." && exit 1; \
+  fi
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Production image, copy all the files and run next
+FROM base AS runner
+WORKDIR /app
 
-# Create non-root user
-RUN addgroup -g 1001 -S appuser && \
-    adduser -S appuser -u 1001
+ENV NODE_ENV production
+# Uncomment the following line in case you want to disable telemetry during runtime.
+ENV NEXT_TELEMETRY_DISABLED 1
 
-# Copy nginx configuration
-COPY --from=builder /app/nginx.conf /etc/nginx/nginx.conf
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# Copy built application
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/public ./public
 
-# Create nginx cache and run directories
-RUN mkdir -p /var/cache/nginx /var/run/nginx && \
-    chown -R appuser:appuser /var/cache/nginx /var/run/nginx /usr/share/nginx/html
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
 
-# Expose port
-EXPOSE 8080
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/advanced-features/output-file-tracing
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Switch to non-root user
-USER appuser
+USER nextjs
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
+EXPOSE 3000
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+ENV PORT 3000
+# set hostname to localhost
+ENV HOSTNAME "0.0.0.0"
+
+# server.js is created by next build from the standalone output
+# https://nextjs.org/docs/pages/api-reference/next-config-js/output
+CMD ["node", "server.js"]

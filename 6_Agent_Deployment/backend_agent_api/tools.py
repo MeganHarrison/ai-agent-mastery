@@ -13,12 +13,12 @@ import sys
 import os
 import re
 
-# Import insights service
-from insights_service import (
-    MeetingInsightsGenerator,
-    process_meeting_document_for_insights,
-    get_insights_generator
-)
+# Import insights service (disabled for now)
+# from insights_service import (
+#     MeetingInsightsGenerator,
+#     process_meeting_document_for_insights,
+#     get_insights_generator
+# )
 
 embedding_model = os.getenv('EMBEDDING_MODEL_CHOICE') or 'text-embedding-3-small'
 
@@ -871,10 +871,11 @@ async def generate_meeting_insights_tool(
         Summary of extracted insights
     """
     try:
-        # Process the document for insights
-        stored_ids = await process_meeting_document_for_insights(
-            supabase, embedding_client, document_id, force_reprocess
-        )
+        # Process the document for insights (disabled)
+        # stored_ids = await process_meeting_document_for_insights(
+        #     supabase, embedding_client, document_id, force_reprocess
+        # )
+        stored_ids = []  # Placeholder
         
         if not stored_ids:
             return f"No insights could be extracted from document {document_id}. This may not be a meeting transcript or the content may not contain actionable information."
@@ -961,7 +962,8 @@ async def get_project_insights_tool(
         Formatted list of insights
     """
     try:
-        generator = get_insights_generator(supabase, None)  # Don't need OpenAI for retrieval
+        # generator = get_insights_generator(supabase, None)  # Don't need OpenAI for retrieval (disabled)
+        return "Insights retrieval is currently disabled for Agent API"
         
         # Calculate date range
         from datetime import datetime, timedelta
@@ -1053,8 +1055,9 @@ async def get_insights_summary_tool(
         Formatted insights summary with statistics and key findings
     """
     try:
-        generator = get_insights_generator(supabase, None)
-        summary_data = await generator.get_insights_summary(days_back)
+        # generator = get_insights_generator(supabase, None)
+        # summary_data = await generator.get_insights_summary(days_back)
+        return "Insights summary is currently disabled for Agent API"
         
         if 'error' in summary_data:
             return f"Error generating insights summary: {summary_data['error']}"

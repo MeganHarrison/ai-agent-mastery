@@ -1,18 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { setupUnauthenticatedMocks, setupAgentAPIMocks, setupModuleMocks } from './mocks';
 
 test.describe('Authentication Flow', () => {
+  // These tests run without authentication state (unauthenticated project)
   test.beforeEach(async ({ page }) => {
-    await setupUnauthenticatedMocks(page);
-    await setupAgentAPIMocks(page);
-    await setupModuleMocks(page);
+    // No auth mocking needed - these tests specifically test the login flow
   });
 
   test('should redirect to login when not authenticated', async ({ page }) => {
     await page.goto('/');
     
-    // Should redirect to /login
-    await expect(page).toHaveURL('/login');
+    // Should redirect to /auth/login  
+    await expect(page).toHaveURL('/auth/login');
     
     // Should see the login form
     await expect(page.locator('h1, h2')).toContainText('AI Agent Dashboard');
@@ -23,7 +21,7 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should login successfully with valid credentials', async ({ page }) => {
-    await page.goto('/login');
+    await page.goto('/auth/login');
     
     // Should see the page title
     await expect(page.locator('h1, h2')).toContainText('AI Agent Dashboard');
@@ -41,7 +39,7 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should show register tab when clicking Register', async ({ page }) => {
-    await page.goto('/login');
+    await page.goto('/auth/login');
     
     // Click Register tab
     await page.locator('button:has-text("Register")').click();
@@ -52,7 +50,7 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should sign up successfully with valid credentials', async ({ page }) => {
-    await page.goto('/login');
+    await page.goto('/auth/login');
     
     // Go to register tab
     await page.locator('button:has-text("Register")').click();
@@ -69,7 +67,7 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should show Google sign in option', async ({ page }) => {
-    await page.goto('/login');
+    await page.goto('/auth/login');
     
     // Should see Google sign in button (use more specific selector)
     await expect(page.locator('button[type="button"]:has-text("Sign in with Google")')).toBeVisible();

@@ -1,0 +1,100 @@
+{
+  "timestamp": "2025-09-18T01:39:30.218983",
+  "frontend_accessible": true,
+  "authentication_working": false,
+  "chat_functional": true,
+  "rag_retrieval_working": true,
+  "seminole_2025_data_accessible": false,
+  "api_responses": [
+    {
+      "query": "Tell me about the Seminole Collective project from September 2025",
+      "result": {
+        "error": "HTTP 403",
+        "response": "{\"detail\":\"Not authenticated\"}"
+      }
+    },
+    {
+      "query": "What was the budget for the Seminole Collective parking lot project?",
+      "result": {
+        "error": "HTTP 403",
+        "response": "{\"detail\":\"Not authenticated\"}"
+      }
+    },
+    {
+      "query": "What technical discussions happened in the recent Seminole meeting?",
+      "result": {
+        "error": "HTTP 403",
+        "response": "{\"detail\":\"Not authenticated\"}"
+      }
+    },
+    {
+      "query": "What was discussed about site grading and stormwater management in the 2025 Seminole project?",
+      "result": {
+        "error": "HTTP 403",
+        "response": "{\"detail\":\"Not authenticated\"}"
+      }
+    },
+    {
+      "query": "Tell me about the $1.8 million parking lot project",
+      "result": {
+        "error": "HTTP 403",
+        "response": "{\"detail\":\"Not authenticated\"}"
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "filename": "01_frontend_loaded.png",
+      "description": "Frontend successfully loaded",
+      "timestamp": "2025-09-18T01:39:37.085747"
+    },
+    {
+      "filename": "04_chat_interface.png",
+      "description": "Chat interface loaded",
+      "timestamp": "2025-09-18T01:39:43.887668"
+    },
+    {
+      "filename": "05_final_state.png",
+      "description": "Final application state",
+      "timestamp": "2025-09-18T01:39:49.048199"
+    },
+    {
+      "filename": "06_network_activity.png",
+      "description": "Final frontend state",
+      "timestamp": "2025-09-18T01:39:49.664927"
+    }
+  ],
+  "test_queries_results": [
+    {
+      "query": "Tell me about the Seminole Collective project from September 2025",
+      "response_length": 67,
+      "contains_seminole_data": false,
+      "response_preview": "{'error': 'HTTP 403', 'response': '{\"detail\":\"Not authenticated\"}'}"
+    },
+    {
+      "query": "What was the budget for the Seminole Collective parking lot project?",
+      "response_length": 67,
+      "contains_seminole_data": false,
+      "response_preview": "{'error': 'HTTP 403', 'response': '{\"detail\":\"Not authenticated\"}'}"
+    },
+    {
+      "query": "What technical discussions happened in the recent Seminole meeting?",
+      "response_length": 67,
+      "contains_seminole_data": false,
+      "response_preview": "{'error': 'HTTP 403', 'response': '{\"detail\":\"Not authenticated\"}'}"
+    },
+    {
+      "query": "What was discussed about site grading and stormwater management in the 2025 Seminole project?",
+      "response_length": 67,
+      "contains_seminole_data": false,
+      "response_preview": "{'error': 'HTTP 403', 'response': '{\"detail\":\"Not authenticated\"}'}"
+    },
+    {
+      "query": "Tell me about the $1.8 million parking lot project",
+      "response_length": 67,
+      "contains_seminole_data": false,
+      "response_preview": "{'error': 'HTTP 403', 'response': '{\"detail\":\"Not authenticated\"}'}"
+    }
+  ],
+  "errors": []
+}

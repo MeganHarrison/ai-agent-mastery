@@ -1,26 +1,20 @@
 import { test, expect } from '@playwright/test';
-import { setupAllMocks } from './mocks';
 
 test.describe('Chat Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await setupAllMocks(page);
-    
-    // Mock the authentication state
-    await page.addInitScript(() => {
-      // Set up authenticated user state
-      window.mockUser = {
-        id: 'test-user-123',
-        email: 'test@example.com',
-        user_metadata: { full_name: 'Test User' }
-      };
-      
-      window.mockSession = {
-        access_token: 'mock-access-token',
-        refresh_token: 'mock-refresh-token',
-        expires_in: 3600,
-        token_type: 'bearer',
-        user: window.mockUser
-      };
+    // Mock the agent API with proper streaming format
+    await page.route('**/api/pydantic-agent', async (route) => {
+      const mockResponse = `{"text": "Hello! I'm a mock AI assistant."}
+{"complete": true, "session_id": "session-new", "conversation_title": "New Chat"}`;
+
+      await route.fulfill({
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain',
+          'Cache-Control': 'no-cache',
+        },
+        body: mockResponse
+      });
     });
   });
 

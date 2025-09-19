@@ -1,7 +1,8 @@
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Conversation, Message } from '@/types/database.types';
 import { fetchMessages } from '@/lib/api';
 
@@ -87,7 +88,9 @@ export const useConversations = () => {
       setSelectedConversation(conversationClone);
       setOpenDialog(true);
       
+      console.log('Fetching messages for session:', conversation.session_id);
       const messages = await fetchMessages(conversation.session_id, conversation.user_id);
+      console.log('Fetched messages:', messages);
       
       // Use the functional update to ensure we're working with the most current state
       setSelectedConversation((prev) => {

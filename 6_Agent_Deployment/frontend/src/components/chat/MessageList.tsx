@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef } from 'react';
 import { Message } from '@/types/database.types';
 import { MessageItem } from './MessageItem';

@@ -9,9 +9,19 @@ from supabase import create_client, Client
 import base64
 import sys
 from pathlib import Path
+import asyncio
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from text_processor import chunk_text, create_embeddings, is_tabular_file, extract_schema_from_csv, extract_rows_from_csv
+
+# Import insights module (optional, fails gracefully if not available)
+try:
+    sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+    from insights.insights_processor import InsightsProcessor
+    from openai import AsyncOpenAI
+    INSIGHTS_AVAILABLE = True
+except ImportError:
+    INSIGHTS_AVAILABLE = False
 
 # Check if we're in production
 is_production = os.getenv("ENVIRONMENT") == "production"
@@ -29,6 +39,21 @@ else:
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
+
+# Initialize insights processor (optional)
+insights_processor = None
+if INSIGHTS_AVAILABLE:
+    try:
+        openai_api_key = os.getenv('OPENAI_API_KEY')
+        if openai_api_key:
+            openai_client = AsyncOpenAI(api_key=openai_api_key)
+            insights_processor = InsightsProcessor(
+                supabase_client=supabase,
+                openai_client=openai_client
+            )
+    except Exception as e:
+        print(f"Warning: Failed to initialize insights processor: {e}")
+        insights_processor = None
 
 def delete_document_by_file_id(file_id: str) -> None:
     """
@@ -161,7 +186,8 @@ def insert_document_rows(file_id: str, rows: List[Dict[str, Any]]) -> None:
         print(f"Error inserting document rows: {e}")
 
 def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url: str, 
-                        file_title: str, mime_type: str = None, config: Dict[str, Any] = None) -> None:
+                        file_title: str, mime_type: str = None, config: Dict[str, Any] = None, 
+                        user_id: str = None) -> None:
     """
     Process a file for the RAG pipeline - delete existing records and insert new ones.
     
@@ -173,6 +199,7 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
         file_title: The title of the file
         mime_type: Mime type of the file
         config: Configuration for things like the chunk size and overlap
+        user_id: User ID for insights processing
     """
     try:
         # First, delete any existing records for this file
@@ -214,15 +241,60 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
         embeddings = create_embeddings(chunks)  
 
         # For images, don't chunk the image, just store the title for RAG and include the binary in the metadata
-        if mime_type.startswith("image"):
+        if mime_type and mime_type.startswith("image"):
             insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type, file_content)
-            return True
-        
-        # Insert the chunks with their embeddings
-        insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type)
+        else:
+            # Insert the chunks with their embeddings
+            insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type)
+
+        # Process insights if enabled and user_id provided
+        if insights_processor and user_id and text:
+            try:
+                # Trigger insights processing asynchronously
+                asyncio.create_task(process_insights_for_document(
+                    document_id=file_id,
+                    content=text,
+                    metadata={
+                        'title': file_title,
+                        'file_url': file_url,
+                        'mime_type': mime_type,
+                        'content_length': len(text),
+                        'file_type': mime_type.split('/')[-1] if mime_type else 'unknown',
+                        'processed_at': datetime.now().isoformat()
+                    },
+                    user_id=user_id
+                ))
+                print(f"Triggered insights processing for document: {file_title}")
+            except Exception as e:
+                print(f"Warning: Failed to trigger insights processing for {file_title}: {e}")
 
         return True
     except Exception as e:
         traceback.print_exc()
         print(f"Error processing file for RAG: {e}")
         return False
+
+
+async def process_insights_for_document(document_id: str, content: str, metadata: Dict[str, Any], user_id: str):
+    """
+    Asynchronously process insights for a document.
+    
+    Args:
+        document_id: Document identifier
+        content: Document content
+        metadata: Document metadata
+        user_id: User ID
+    """
+    if not insights_processor:
+        return
+    
+    try:
+        result = await insights_processor.process_document_insights(
+            document_id=document_id,
+            content=content,
+            metadata=metadata,
+            user_id=user_id
+        )
+        print(f"Insights processing result for {document_id}: {result.get('insights_saved', 0)} insights created")
+    except Exception as e:
+        print(f"Error processing insights for document {document_id}: {e}")

@@ -16,10 +16,10 @@ on:
 
 env:
   # Mock environment variables for E2E testing
-  VITE_SUPABASE_URL: https://mock-project.supabase.co
-  VITE_SUPABASE_ANON_KEY: mock-anon-key-for-testing
-  VITE_AGENT_ENDPOINT: http://localhost:8001/api/pydantic-agent
-  VITE_ENABLE_STREAMING: true
+  NEXT_PUBLIC_SUPABASE_URL: https://mock-project.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: mock-anon-key-for-testing
+  NEXT_PUBLIC_AGENT_ENDPOINT: http://localhost:8001/api/pydantic-agent
+  NEXT_PUBLIC_ENABLE_STREAMING: true
 
 jobs:
   playwright-tests:
@@ -34,39 +34,44 @@ jobs:
       with:
         node-version: ${{ inputs.node-version || '18' }}
         cache: 'npm'
-        cache-dependency-path: '6_Agent_Deployment/frontend/package-lock.json'
+        cache-dependency-path: '6_Agent_Deployment/frontend-nextjs/pnpm-lock.yaml'
+        
+    - name: Install pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
         
     - name: Install dependencies
       run: |
-        cd 6_Agent_Deployment/frontend
-        npm ci
+        cd 6_Agent_Deployment/frontend-nextjs
+        pnpm install
         
     - name: Install Playwright browsers
       run: |
-        cd 6_Agent_Deployment/frontend
+        cd 6_Agent_Deployment/frontend-nextjs
         npx playwright install --with-deps
         
     - name: Create test environment file
       run: |
-        cd 6_Agent_Deployment/frontend
+        cd 6_Agent_Deployment/frontend-nextjs
         cat > .env.test << EOF
-        VITE_SUPABASE_URL=${{ env.VITE_SUPABASE_URL }}
-        VITE_SUPABASE_ANON_KEY=${{ env.VITE_SUPABASE_ANON_KEY }}
-        VITE_AGENT_ENDPOINT=${{ env.VITE_AGENT_ENDPOINT }}
-        VITE_ENABLE_STREAMING=${{ env.VITE_ENABLE_STREAMING }}
+        NEXT_PUBLIC_SUPABASE_URL=${{ env.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        NEXT_PUBLIC_AGENT_ENDPOINT=${{ env.NEXT_PUBLIC_AGENT_ENDPOINT }}
+        NEXT_PUBLIC_ENABLE_STREAMING=${{ env.NEXT_PUBLIC_ENABLE_STREAMING }}
         EOF
         
     - name: Run Playwright tests
       run: |
-        cd 6_Agent_Deployment/frontend
-        npm run test
+        cd 6_Agent_Deployment/frontend-nextjs
+        pnpm run test
         
     - name: Upload Playwright report
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: playwright-report
-        path: 6_Agent_Deployment/frontend/playwright-report/
+        path: 6_Agent_Deployment/frontend-nextjs/playwright-report/
         retention-days: 30
         
     - name: Upload test results
@@ -74,5 +79,5 @@ jobs:
       if: always()
       with:
         name: playwright-test-results
-        path: 6_Agent_Deployment/frontend/test-results/
+        path: 6_Agent_Deployment/frontend-nextjs/test-results/
         retention-days: 30

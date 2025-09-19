@@ -1,17 +1,15 @@
 """
-Project Insights Service for PM RAG Agent
+Insights Service for RAG Pipeline
 
-This service generates AI-driven insights from meeting transcripts and project documents,
-automatically extracting actionable intelligence for project management.
-
-Adapted from alleato-rag-vectorize insights service for Agent Deployment module.
+Generates AI-driven insights from meeting transcripts and project documents,
+integrated with the document processing pipeline.
 """
 
 import os
 import re
 import json
 import logging
-from typing import List, Dict, Any, Optional, Tuple, Union
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from enum import Enum
@@ -20,19 +18,6 @@ from pathlib import Path
 
 from openai import AsyncOpenAI
 from supabase import Client
-from dotenv import load_dotenv
-
-# Check if we're in production
-is_production = os.getenv("ENVIRONMENT") == "production"
-
-if not is_production:
-    # Development: prioritize .env file
-    project_root = Path(__file__).resolve().parent
-    dotenv_path = project_root / '.env'
-    load_dotenv(dotenv_path, override=True)
-else:
-    # Production: use cloud platform env vars only
-    load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -202,83 +187,71 @@ class MeetingInsightsGenerator:
         # Extract date from metadata or title
         if 'created_at' in metadata:
             meeting_info['date'] = metadata['created_at']
-        elif 'file_title' in metadata:
-            # Try to extract date from title
-            date_patterns = [
-                r'(\d{4}-\d{2}-\d{2})',
-                r'(\d{1,2}/\d{1,2}/\d{4})',
-                r'(\w+ \d{1,2}, \d{4})'
-            ]
-            for pattern in date_patterns:
-                match = re.search(pattern, title)
-                if match:
-                    meeting_info['date'] = match.group(1)
-                    break
+        elif 'modified_at' in metadata:
+            meeting_info['date'] = metadata['modified_at']
         
-        # Extract speakers from metadata
-        if 'speakers' in metadata and metadata['speakers']:
-            if isinstance(metadata['speakers'], str):
-                meeting_info['speakers'] = [s.strip() for s in metadata['speakers'].split(',')]
-            elif isinstance(metadata['speakers'], list):
-                meeting_info['speakers'] = metadata['speakers']
+        # Extract speakers from content patterns
+        meeting_info['speakers'] = self._extract_speakers_from_content(title + "\n" + str(metadata))
         
-        # Extract project hints from title
+        # Extract project hints from title and metadata
         project_patterns = [
-            r'(\w+\s+project)',
-            r'(project\s+\w+)',
-            r'(\w+\s+warehouse)',
-            r'(ASRS\s+\w+)',
-            r'(\w+\s+construction)'
+            r'project\s+([a-z0-9_-]+)',
+            r'([A-Z][A-Z0-9_-]+)\s+project',
+            r'#([a-z0-9_-]+)',
         ]
         
+        text_to_search = f"{title} {json.dumps(metadata)}"
         for pattern in project_patterns:
-            matches = re.findall(pattern, title, re.IGNORECASE)
+            matches = re.findall(pattern, text_to_search, re.IGNORECASE)
             meeting_info['project_hints'].extend(matches)
         
         return meeting_info
 
-    async def _generate_insights_with_llm(
-        self,
-        content: str,
-        meeting_info: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """Generate insights using LLM analysis."""
+    def _extract_speakers_from_content(self, content: str) -> List[str]:
+        """Extract speaker names from meeting content."""
+        speaker_patterns = [
+            r'\b([A-Z][a-zA-Z\s]{2,30}):\s',  # "John Doe: "
+            r'\b([A-Z_]+\d*):\s',              # "SPEAKER_1: "
+            r'>\s*([A-Z][a-zA-Z\s]+):',        # "> John Doe:"
+        ]
         
-        # Prepare the system prompt for insight extraction
-        system_prompt = """You are an expert project management AI that extracts actionable insights from meeting transcripts.
+        speakers = set()
+        for pattern in speaker_patterns:
+            matches = re.findall(pattern, content)
+            for match in matches:
+                speaker = match.strip()
+                if len(speaker) > 1 and speaker not in ['THE', 'AND', 'FOR']:
+                    speakers.add(speaker)
+        
+        return list(speakers)[:10]  # Limit to 10 speakers
 
-Your task is to analyze meeting content and identify:
-1. Action items with owners and due dates
-2. Decisions made and their implications
-3. Risks, blockers, and dependencies identified
-4. Budget updates and timeline changes
-5. Technical issues and opportunities
-6. Stakeholder feedback and concerns
+    async def _generate_insights_with_llm(self, content: str, meeting_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Generate insights using LLM."""
+        
+        system_prompt = """You are an expert project manager and meeting analyst. Extract actionable insights from meeting transcripts.
 
 For each insight, provide:
-- type: One of [action_item, decision, risk, milestone, blocker, dependency, budget_update, timeline_change, stakeholder_feedback, technical_issue, opportunity, concern]
-- title: Clear, concise summary (max 100 chars)
-- description: Detailed explanation with context
-- confidence: Float 0.0-1.0 indicating confidence in extraction
-- priority: One of [critical, high, medium, low]
-- project_name: If identifiable from context
-- assigned_to: Person responsible (if mentioned)
-- due_date: ISO date format if mentioned
-- keywords: Relevant terms for searchability
+- type: one of [action_item, decision, risk, milestone, blocker, dependency, budget_update, timeline_change, stakeholder_feedback, technical_issue, opportunity, concern]
+- title: brief descriptive title (max 100 chars)
+- description: detailed description (max 500 chars)
+- confidence: float 0.0-1.0 indicating extraction confidence
+- priority: one of [critical, high, medium, low]
+- project_name: inferred project name if mentioned
+- assigned_to: person assigned (if mentioned)
+- due_date: ISO date if mentioned (YYYY-MM-DD)
+- keywords: relevant keywords for searching
 
-Focus on actionable, specific insights that would be valuable for project tracking and management.
+Focus on actionable items, decisions made, risks identified, and project milestones.
+Return as JSON array."""
 
-Return ONLY a JSON array of insight objects. No additional text or formatting."""
-
-        user_prompt = f"""Meeting Information:
-Title: {meeting_info.get('title', 'Unknown')}
+        user_prompt = f"""Meeting: {meeting_info.get('title', 'Unknown')}
 Date: {meeting_info.get('date', 'Unknown')}
 Speakers: {', '.join(meeting_info.get('speakers', []))}
 
-Meeting Transcript:
+Content:
 {content[:8000]}  # Limit content to avoid token limits
 
-Please extract actionable project insights from this meeting transcript."""
+Extract all actionable insights from this meeting transcript."""
 
         try:
             response = await self.openai_client.chat.completions.create(
@@ -287,293 +260,136 @@ Please extract actionable project insights from this meeting transcript."""
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.3,
-                max_tokens=2000
+                temperature=0.1,
+                max_tokens=4000
             )
             
             response_text = response.choices[0].message.content.strip()
             
-            # Parse JSON response
+            # Try to parse JSON response
             try:
                 insights_data = json.loads(response_text)
-                if not isinstance(insights_data, list):
-                    logger.warning("LLM returned non-list response, wrapping in list")
-                    insights_data = [insights_data] if insights_data else []
-                    
-                return insights_data
-                
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse LLM JSON response: {e}")
-                logger.debug(f"Response text: {response_text}")
-                
-                # Attempt to extract JSON from response
-                json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+                if isinstance(insights_data, list):
+                    return insights_data
+                else:
+                    logger.warning(f"Expected list, got {type(insights_data)}")
+                    return []
+            except json.JSONDecodeError:
+                # Try to extract JSON from markdown code blocks
+                json_match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', response_text, re.DOTALL)
                 if json_match:
-                    try:
-                        return json.loads(json_match.group())
-                    except json.JSONDecodeError:
-                        pass
-                
-                return []
-                
+                    insights_data = json.loads(json_match.group(1))
+                    return insights_data if isinstance(insights_data, list) else []
+                else:
+                    logger.warning(f"Could not parse insights JSON: {response_text[:200]}...")
+                    return []
+                    
         except Exception as e:
             logger.error(f"Failed to generate insights with LLM: {e}")
             return []
 
-    async def store_insights(self, insights: List[ProjectInsight]) -> List[str]:
+    async def save_insights_to_database(self, insights: List[ProjectInsight], user_id: str) -> List[str]:
         """
-        Store insights in the database.
+        Save insights to the database.
         
         Args:
             insights: List of ProjectInsight objects
+            user_id: User ID for row-level security
             
         Returns:
-            List of stored insight IDs
+            List of created insight IDs
         """
-        stored_ids = []
+        created_ids = []
         
         for insight in insights:
             try:
-                # Prepare insight data for storage
+                # Prepare data for database - map to ai_insights schema
                 insight_data = {
                     'insight_type': insight.insight_type,
                     'title': insight.title,
                     'description': insight.description,
                     'confidence_score': insight.confidence_score,
-                    'priority': insight.priority,
+                    'severity': insight.priority,  # Map priority to severity
                     'status': insight.status,
                     'project_name': insight.project_name,
                     'assigned_to': insight.assigned_to,
                     'due_date': insight.due_date,
-                    'source_document_id': insight.source_document_id,
-                    'source_meeting_title': insight.source_meeting_title,
-                    'source_date': insight.source_date,
-                    'speakers': insight.speakers,
-                    'keywords': insight.keywords,
+                    'document_id': insight.source_document_id,  # Map to document_id
+                    'meeting_name': insight.source_meeting_title,
+                    'meeting_date': insight.source_date,
                     'metadata': insight.metadata,
                     'created_at': datetime.now().isoformat(),
-                    'updated_at': datetime.now().isoformat()
+                    'resolved': False,
+                    'assignee': insight.assigned_to  # Duplicate for compatibility
                 }
                 
-                # Insert into project_insights table
-                result = self.supabase.table('project_insights').insert(insight_data).execute()
+                # Insert into database
+                result = self.supabase.table('ai_insights').insert(insight_data).execute()
                 
                 if result.data:
-                    insight_id = result.data[0]['id']
-                    stored_ids.append(insight_id)
-                    logger.info(f"Stored insight: {insight.title} (ID: {insight_id})")
-                
+                    created_ids.append(result.data[0]['id'])
+                    logger.info(f"Created insight: {insight.title}")
+                else:
+                    logger.warning(f"Failed to create insight: {insight.title}")
+                    
             except Exception as e:
-                logger.error(f"Failed to store insight '{insight.title}': {e}")
+                logger.error(f"Failed to save insight {insight.title}: {e}")
                 continue
         
-        return stored_ids
+        return created_ids
 
-    async def get_insights_for_project(
-        self,
-        project_name: Optional[str] = None,
-        insight_types: Optional[List[str]] = None,
-        priorities: Optional[List[str]] = None,
-        status_filter: Optional[List[str]] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        limit: int = 50
-    ) -> List[Dict[str, Any]]:
+    async def process_document_for_insights(
+        self, 
+        document_id: str, 
+        user_id: str,
+        content: str = None
+    ) -> List[str]:
         """
-        Retrieve insights with filters.
+        Process a document and extract insights if it's a meeting transcript.
         
         Args:
-            project_name: Filter by project name
-            insight_types: Filter by insight types
-            priorities: Filter by priority levels
-            status_filter: Filter by status
-            date_from: Filter from date (ISO format)
-            date_to: Filter to date (ISO format)
-            limit: Maximum results to return
+            document_id: Document ID to process
+            user_id: User ID for database operations
+            content: Optional pre-loaded content
             
         Returns:
-            List of insight dictionaries
+            List of created insight IDs
         """
-        query = self.supabase.table('project_insights').select('*')
-        
-        # Apply filters
-        if project_name:
-            query = query.ilike('project_name', f'%{project_name}%')
-        
-        if insight_types:
-            query = query.in_('insight_type', insight_types)
-        
-        if priorities:
-            query = query.in_('priority', priorities)
-            
-        if status_filter:
-            query = query.in_('status', status_filter)
-        
-        if date_from:
-            query = query.gte('source_date', date_from)
-            
-        if date_to:
-            query = query.lte('source_date', date_to)
-        
-        # Order by creation date and limit
-        query = query.order('created_at', desc=True).limit(limit)
-        
         try:
-            result = query.execute()
-            return result.data if result.data else []
-        except Exception as e:
-            logger.error(f"Failed to retrieve insights: {e}")
-            return []
-
-    async def get_insights_summary(
-        self,
-        days_back: int = 30
-    ) -> Dict[str, Any]:
-        """
-        Generate a summary of insights over the specified period.
-        
-        Args:
-            days_back: Number of days to look back
+            # Get document details if content not provided
+            if content is None:
+                doc_result = self.supabase.table('documents').select('*').eq('id', document_id).single().execute()
+                if not doc_result.data:
+                    logger.warning(f"Document {document_id} not found")
+                    return []
+                
+                document = doc_result.data
+                content = document.get('content', '')
+                title = document.get('title', 'Untitled')
+                metadata = document.get('metadata', {})
+            else:
+                # Use provided content with minimal metadata
+                title = f"Document {document_id}"
+                metadata = {}
             
-        Returns:
-            Summary statistics and key insights
-        """
-        date_from = (datetime.now() - timedelta(days=days_back)).isoformat()
-        
-        try:
-            # Get all insights in the period
-            insights = await self.get_insights_for_project(date_from=date_from, limit=1000)
+            # Extract insights
+            insights = await self.extract_insights_from_meeting(
+                document_id=document_id,
+                title=title,
+                content=content,
+                metadata=metadata
+            )
             
             if not insights:
-                return {
-                    'period_days': days_back,
-                    'total_insights': 0,
-                    'insights_by_type': {},
-                    'insights_by_priority': {},
-                    'insights_by_status': {},
-                    'active_projects': [],
-                    'top_concerns': [],
-                    'recent_decisions': []
-                }
+                logger.info(f"No insights extracted from document {document_id}")
+                return []
             
-            # Calculate statistics
-            total_insights = len(insights)
-            insights_by_type = {}
-            insights_by_priority = {}
-            insights_by_status = {}
-            project_counts = {}
+            # Save insights to database
+            created_ids = await self.save_insights_to_database(insights, user_id)
             
-            for insight in insights:
-                # By type
-                insight_type = insight.get('insight_type', 'unknown')
-                insights_by_type[insight_type] = insights_by_type.get(insight_type, 0) + 1
-                
-                # By priority
-                priority = insight.get('priority', 'medium')
-                insights_by_priority[priority] = insights_by_priority.get(priority, 0) + 1
-                
-                # By status
-                status = insight.get('status', 'open')
-                insights_by_status[status] = insights_by_status.get(status, 0) + 1
-                
-                # By project
-                project_name = insight.get('project_name')
-                if project_name:
-                    project_counts[project_name] = project_counts.get(project_name, 0) + 1
-            
-            # Get top concerns and recent decisions
-            top_concerns = [
-                insight for insight in insights 
-                if insight.get('insight_type') in ['risk', 'blocker', 'concern']
-                and insight.get('priority') in ['critical', 'high']
-            ][:5]
-            
-            recent_decisions = [
-                insight for insight in insights 
-                if insight.get('insight_type') == 'decision'
-            ][:5]
-            
-            return {
-                'period_days': days_back,
-                'total_insights': total_insights,
-                'insights_by_type': insights_by_type,
-                'insights_by_priority': insights_by_priority,
-                'insights_by_status': insights_by_status,
-                'active_projects': sorted(project_counts.items(), key=lambda x: x[1], reverse=True)[:10],
-                'top_concerns': top_concerns,
-                'recent_decisions': recent_decisions,
-                'generated_at': datetime.now().isoformat()
-            }
+            logger.info(f"Processed document {document_id}: created {len(created_ids)} insights")
+            return created_ids
             
         except Exception as e:
-            logger.error(f"Failed to generate insights summary: {e}")
-            return {'error': str(e)}
-
-
-async def process_meeting_document_for_insights(
-    supabase: Client,
-    openai_client: AsyncOpenAI,
-    document_id: str,
-    force_reprocess: bool = False
-) -> List[str]:
-    """
-    Process a single document for insights extraction.
-    
-    Args:
-        supabase: Supabase client
-        openai_client: OpenAI client
-        document_id: ID of document to process
-        force_reprocess: Whether to reprocess even if already processed
-        
-    Returns:
-        List of stored insight IDs
-    """
-    generator = MeetingInsightsGenerator(supabase, openai_client)
-    
-    try:
-        # Get document from database
-        result = supabase.table('documents').select('*').eq('id', document_id).execute()
-        
-        if not result.data:
-            logger.warning(f"Document {document_id} not found")
+            logger.error(f"Failed to process document {document_id} for insights: {e}")
             return []
-        
-        doc = result.data[0]
-        
-        # Check if already processed (unless forced)
-        if not force_reprocess:
-            existing_insights = supabase.table('project_insights') \
-                .select('id') \
-                .eq('source_document_id', document_id) \
-                .execute()
-            
-            if existing_insights.data:
-                logger.info(f"Document {document_id} already has {len(existing_insights.data)} insights")
-                return [insight['id'] for insight in existing_insights.data]
-        
-        # Extract insights
-        insights = await generator.extract_insights_from_meeting(
-            document_id=document_id,
-            title=doc['metadata'].get('file_title', 'Unknown Document'),
-            content=doc['content'],
-            metadata=doc['metadata']
-        )
-        
-        if not insights:
-            logger.info(f"No insights extracted from document {document_id}")
-            return []
-        
-        # Store insights
-        stored_ids = await generator.store_insights(insights)
-        logger.info(f"Processed document {document_id}: extracted {len(insights)} insights, stored {len(stored_ids)}")
-        
-        return stored_ids
-        
-    except Exception as e:
-        logger.error(f"Failed to process document {document_id} for insights: {e}")
-        return []
-
-
-def get_insights_generator(supabase: Client, openai_client: AsyncOpenAI) -> MeetingInsightsGenerator:
-    """Factory function to create insights generator."""
-    return MeetingInsightsGenerator(supabase, openai_client)

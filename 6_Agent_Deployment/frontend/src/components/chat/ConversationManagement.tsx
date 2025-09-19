@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { fetchConversations } from '@/lib/api';
 import { Conversation, Profile } from '@/types/database.types';
@@ -29,7 +28,6 @@ export const useConversationManagement = ({
       }
       return data;
     } catch (err) {
-      console.error('Error loading conversations:', err);
       if (isMounted.current) {
         toast({
           title: 'Error loading conversations',

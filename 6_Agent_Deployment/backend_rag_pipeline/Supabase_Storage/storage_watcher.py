@@ -112,13 +112,21 @@ class SupabaseStorageWatcher:
         if self.state_manager:
             # Use database state management
             state = self.state_manager.load_state()
-            self.last_check_time = state.get('last_check_time') or datetime.strptime('1970-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
+            last_check = state.get('last_check_time')
+            if isinstance(last_check, datetime):
+                self.last_check_time = last_check if last_check.tzinfo else last_check.replace(tzinfo=timezone.utc)
+            else:
+                self.last_check_time = datetime.strptime('1970-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone.utc)
             self.known_files = state.get('known_files', {})
             print(f"Loaded state from database - last check: {self.last_check_time}, known files: {len(self.known_files)}")
         else:
             # Use file-based state management (backward compatibility)
             state = load_state_from_config(self.config_path)
-            self.last_check_time = state.get('last_check_time') or datetime.strptime('1970-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ')
+            last_check = state.get('last_check_time')
+            if isinstance(last_check, datetime):
+                self.last_check_time = last_check if last_check.tzinfo else last_check.replace(tzinfo=timezone.utc)
+            else:
+                self.last_check_time = datetime.strptime('1970-01-01T00:00:00.000Z', '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=timezone.utc)
             self.known_files = {}  # File-based config doesn't store known_files
             print(f"Loaded state from config file - last check: {self.last_check_time}")
         
@@ -352,14 +360,21 @@ class SupabaseStorageWatcher:
                     print(f"Deleting old version of file: {file_path}")
                     delete_document_by_file_id(file_id)
                 
+                # Extract text from file content first
+                from common.text_processor import extract_text_from_file
+                text = extract_text_from_file(file_content, mime_type, file_path)
+                if not text:
+                    print(f"Failed to extract text from file: {file_path}")
+                    return False
+                
                 # Process the new version
                 success = process_file_for_rag(
                     file_content=file_content,
+                    text=text,
                     file_id=file_id,
                     file_url=file_url,
                     file_title=file_path,
                     mime_type=mime_type,
-                    additional_metadata=rag_metadata,
                     config=self.config.get('text_processing', {})
                 )
                 

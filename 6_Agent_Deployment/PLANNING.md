@@ -27,7 +27,7 @@ Module 6 transforms the AI agent system from a development prototype into a prod
 6_Agent_Deployment/
 ├── backend_agent_api/      # FastAPI agent with Pydantic AI
 ├── backend_rag_pipeline/   # Document processing with dual modes
-├── frontend/               # React application with auth
+├── frontend-nextjs/        # Next.js application with auth
 ├── sql/                    # Database schemas + state management
 ├── docker-compose.yml      # Orchestrated local deployment
 ├── deploy.py               # Script to help with cloud or local deployments

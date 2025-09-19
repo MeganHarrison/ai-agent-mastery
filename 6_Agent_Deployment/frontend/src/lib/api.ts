@@ -3,8 +3,9 @@ import { supabase } from './supabase';
 import { Message, FileAttachment } from '@/types/database.types';
 
 // Environment variable to determine if streaming is enabled
-const ENABLE_STREAMING = import.meta.env.VITE_ENABLE_STREAMING === 'true';
-const AGENT_ENDPOINT = import.meta.env.VITE_AGENT_ENDPOINT;
+const ENABLE_STREAMING = process.env.NEXT_PUBLIC_ENABLE_STREAMING === 'true';
+const AGENT_BASE_URL = process.env.NEXT_PUBLIC_AGENT_ENDPOINT;
+const AGENT_ENDPOINT = `${AGENT_BASE_URL}/api/pydantic-agent`;
 
 interface ApiResponse {
   title?: string;
@@ -36,11 +37,11 @@ export const sendMessage = async (
       query,
       user_id,
       request_id,
-      session_id,
-      files
+      session_id: session_id || '',
+      files: files || []
     };
 
-    const response = await fetch(AGENT_ENDPOINT, {
+    const response = await fetch(AGENT_ENDPOINT!, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -201,12 +202,10 @@ export const sendMessage = async (
         // Otherwise return the object directly
         return parsedData;
       } catch (jsonError) {
-        console.error('Error parsing JSON response:', jsonError, 'Response text:', responseText);
-        throw new Error(`Invalid JSON response from API: ${jsonError.message}`);
+        throw new Error(`Invalid JSON response from API: ${(jsonError as Error).message}`);
       }
     }
   } catch (error) {
-    console.error('Error sending message to API:', error);
     throw error;
   }
 };
@@ -222,7 +221,6 @@ export const fetchConversations = async (user_id: string) => {
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error fetching conversations:', error);
     throw error;
   }
 };
@@ -240,7 +238,6 @@ export const fetchMessages = async (session_id: string, user_id: string) => {
     if (error) throw error;
     return data as Message[];
   } catch (error) {
-    console.error('Error fetching messages:', error);
     throw error;
   }
 };

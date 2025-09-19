@@ -1,3 +1,4 @@
+'use client';
 
 import React from 'react';
 import { Copy, ExternalLink } from 'lucide-react';
@@ -28,7 +29,7 @@ export const ConversationRow = ({
   }, [conversation.created_at]);
 
   // Get LangFuse host with project from environment variable
-  const langfuseHost = import.meta.env.VITE_LANGFUSE_HOST_WITH_PROJECT;
+  const langfuseHost = process.env.NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT;
   const langfuseUrl = langfuseHost ? `${langfuseHost}/sessions/${conversation.session_id}` : null;
 
   return (
