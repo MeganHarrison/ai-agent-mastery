@@ -25,7 +25,18 @@ export async function getProjectDocuments(projectId: string) {
   }
 }
 
-export async function createProjectDocument(document: any) {
+interface ProjectDocument {
+  id?: string;
+  project_id: string;
+  title: string;
+  content?: string;
+  type?: string;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function createProjectDocument(document: ProjectDocument) {
   try {
     const supabase = createServiceClient()
     

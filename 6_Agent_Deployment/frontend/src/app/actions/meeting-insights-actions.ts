@@ -24,7 +24,19 @@ export async function getMeetingInsights() {
   }
 }
 
-export async function createMeetingInsight(insight: any) {
+interface MeetingInsight {
+  id?: number;
+  meeting_id?: string;
+  project_id?: string;
+  type: string;
+  description: string;
+  action_items?: string[];
+  attendees?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function createMeetingInsight(insight: MeetingInsight) {
   try {
     const supabase = createServiceClient()
     

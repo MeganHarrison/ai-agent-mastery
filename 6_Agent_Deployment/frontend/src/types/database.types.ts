@@ -138,7 +138,7 @@ export interface Database {
           project_id: number | null;
           source_document: string | null;
           confidence_score: number | null;
-          metadata: any | null;
+          metadata: Record<string, unknown> | null;
           created_at: string;
           updated_at: string;
         };
@@ -153,7 +153,7 @@ export interface Database {
           project_id?: number | null;
           source_document?: string | null;
           confidence_score?: number | null;
-          metadata?: any | null;
+          metadata?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -168,7 +168,7 @@ export interface Database {
           project_id?: number | null;
           source_document?: string | null;
           confidence_score?: number | null;
-          metadata?: any | null;
+          metadata?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
         };

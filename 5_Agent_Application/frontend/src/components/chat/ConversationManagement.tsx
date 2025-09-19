@@ -5,7 +5,7 @@ import { Conversation } from '@/types/database.types';
 import { useToast } from '@/hooks/use-toast';
 
 interface ConversationManagementProps {
-  user: any;
+  user: { id: string; email?: string } | null;
   isMounted: React.MutableRefObject<boolean>;
 }
 

@@ -10,7 +10,7 @@ export interface Document {
   date: string | null
   summary: string | null
   document_type: string | null
-  metadata: any | null
+  metadata: Record<string, unknown> | null
   created_at: string | null
   updated_at: string | null
 }

@@ -27,7 +27,7 @@ export interface AIInsightWithProject {
   resolved: boolean | null
   created_at: string
   updated_at: string | null
-  metadata: any
+  metadata: Record<string, unknown> | null
   project?: {
     id: number
     name: string | null

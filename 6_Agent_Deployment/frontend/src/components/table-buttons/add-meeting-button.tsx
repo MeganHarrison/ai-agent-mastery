@@ -36,7 +36,14 @@ const CATEGORIES = [
 export function AddMeetingButton() {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [projects, setProjects] = useState<any[]>([])
+  interface Project {
+    id: number;
+    name: string;
+    description?: string;
+    category?: string;
+    phase?: string;
+  }
+  const [projects, setProjects] = useState<Project[]>([])
   const [tagInput, setTagInput] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [formData, setFormData] = useState({

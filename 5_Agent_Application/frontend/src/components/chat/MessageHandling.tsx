@@ -1,21 +1,21 @@
 
 import { useCallback, useRef } from 'react';
-import { Message, FileAttachment } from '@/types/database.types';
+import { Message, FileAttachment, Conversation } from '@/types/database.types';
 import { sendMessage, fetchMessages } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Session } from '@supabase/supabase-js';
 
 interface MessageHandlingProps {
-  user: any;
+  user: { id: string; email?: string } | null;
   session: Session | null;
-  selectedConversation: any;
+  selectedConversation: Conversation | null;
   setMessages: (messages: Message[] | ((prev: Message[]) => Message[])) => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
   isMounted: React.MutableRefObject<boolean>;
-  setSelectedConversation: (conversation: any) => void;
-  setConversations: (conversations: any[] | ((prev: any[]) => any[])) => void;
-  loadConversations: () => Promise<any[]>;
+  setSelectedConversation: (conversation: Conversation | null) => void;
+  setConversations: (conversations: Conversation[] | ((prev: Conversation[]) => Conversation[])) => void;
+  loadConversations: () => Promise<Conversation[]>;
   setNewConversationId?: (id: string | null) => void;
 }
 
@@ -307,7 +307,7 @@ export const useMessageHandling = ({
   };
 
   // Load messages for the selected conversation
-  const loadMessages = useCallback(async (conversation: any) => {
+  const loadMessages = useCallback(async (conversation: Conversation) => {
     if (!user) return;
     
     try {

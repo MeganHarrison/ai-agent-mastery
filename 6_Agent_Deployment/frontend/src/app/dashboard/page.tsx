@@ -57,8 +57,25 @@ function formatCurrency(amount: number | null | undefined) {
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [meetings, setMeetings] = useState<any[]>([]);
-  const [insights, setInsights] = useState<any[]>([]);
+  interface Meeting {
+    id: number;
+    title: string;
+    date: string;
+    project_id?: number;
+    summary?: string;
+    duration_minutes?: number;
+  }
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  interface Insight {
+    id: number;
+    title: string;
+    description: string;
+    type?: string;
+    priority?: string;
+    created_at?: string;
+    project_id?: number;
+  }
+  const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnlyActive, setShowOnlyActive] = useState(true);
@@ -143,8 +160,8 @@ export default function DashboardPage() {
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     
     const groups = {
-      today: [] as any[],
-      yesterday: [] as any[],
+      today: [] as Meeting[],
+      yesterday: [] as Meeting[],
       thisWeek: [] as any[]
     };
     
