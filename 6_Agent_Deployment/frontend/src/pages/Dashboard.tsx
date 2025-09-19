@@ -99,9 +99,9 @@ const Dashboard = () => {
       }
 
       // Fetch AI insights
-      const { data: insightsData, error: insightsError } = await supabase
+      const { data: insightsData, error: insightsError, count: insightsCount } = await supabase
         .from('project_insights')
-        .select('id, insight_type, title, description, priority, created_at')
+        .select('id, insight_type, title, description, priority, created_at', { count: 'exact' })
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -109,7 +109,7 @@ const Dashboard = () => {
         console.error('Error fetching insights:', insightsError);
       } else if (insightsData) {
         setInsights(insightsData);
-        setStats(prev => ({ ...prev, insightsGenerated: insightsData.length }));
+        setStats(prev => ({ ...prev, insightsGenerated: insightsCount ?? insightsData.length }));
       }
 
       // Calculate team utilization (mock for now)
