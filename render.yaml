@@ -3,8 +3,9 @@ services:
   - type: web
     name: dynamous-frontend
     runtime: node
-    buildCommand: cd 6_Agent_Deployment/frontend && npm install && npm run build
-    startCommand: cd 6_Agent_Deployment/frontend && npm run start
+    rootDir: 6_Agent_Deployment/frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
     envVars:
       - fromGroup: frontend-env
     domains:
