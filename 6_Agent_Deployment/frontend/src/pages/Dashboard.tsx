@@ -115,7 +115,7 @@ const Dashboard = () => {
       // Calculate team utilization (mock for now)
       setStats(prev => ({ 
         ...prev, 
-        teamUtilization: projects.length > 0 ? Math.floor(Math.random() * 30) + 70 : 0 
+        teamUtilization: (projectsData?.length ?? 0) > 0 ? Math.floor(Math.random() * 30) + 70 : 0 
       }));
 
     } catch (error) {
