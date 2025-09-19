@@ -3,14 +3,26 @@
 import { createClient } from "@/utils/supabase/server"
 import { Database } from "@/types/database.types"
 
-type Contact = Database["public"]["Tables"]["contacts"]["Row"]
-type Company = Database["public"]["Tables"]["companies"]["Row"]
+interface Contact {
+  id: number
+  name: string | null
+  email: string | null
+  phone: string | null
+  company_id: string | null
+  created_at: string
+  updated_at?: string | null
+}
+
+interface Company {
+  id: string
+  name: string | null
+}
 
 interface ContactWithCompany extends Contact {
   company?: Company | null
 }
 
-export async function getContacts(): Promise<Contact[]> {
+export async function getContacts(): Promise<ContactWithCompany[]> {
   const supabase = await createClient()
 
   const { data, error } = await supabase

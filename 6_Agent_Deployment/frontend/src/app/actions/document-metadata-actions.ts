@@ -5,7 +5,21 @@ import { createClient as createServiceClient } from "@/lib/supabase/server"
 import { Database } from "@/types/database.types"
 import { revalidatePath } from "next/cache"
 
-type DocumentMetadata = Database["public"]["Tables"]["document_metadata"]["Row"]
+// Document metadata type matching component expectations exactly
+export type DocumentMetadata = {
+  id: number
+  filename: string | null
+  file_path: string | null
+  file_type: string | null
+  file_size: number | null
+  upload_date: string | null
+  processed_date: string | null
+  status: string | null
+  error_message: string | null
+  chunk_count: number | null
+  created_at: string
+  updated_at: string | null
+}
 
 export async function getDocumentMetadata(): Promise<DocumentMetadata[]> {
   const supabase = await createClient()

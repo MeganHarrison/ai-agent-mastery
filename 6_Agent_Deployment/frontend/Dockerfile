@@ -20,19 +20,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build args for environment variables
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG NEXT_PUBLIC_AGENT_ENDPOINT
-ARG NEXT_PUBLIC_ENABLE_STREAMING
-ARG NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT
-
-# Set environment variables for build
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_AGENT_ENDPOINT=$NEXT_PUBLIC_AGENT_ENDPOINT
-ENV NEXT_PUBLIC_ENABLE_STREAMING=$NEXT_PUBLIC_ENABLE_STREAMING
-ENV NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT=$NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT
+# Provide dummy environment variables to prevent build failures
+# These will be overridden at runtime by docker-compose
+ENV NEXT_PUBLIC_SUPABASE_URL=https://dummy.supabase.co
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy_anon_key
+ENV NEXT_PUBLIC_AGENT_ENDPOINT=http://localhost:8001
+ENV NEXT_PUBLIC_ENABLE_STREAMING=true
+ENV NEXT_PUBLIC_LANGFUSE_HOST_WITH_PROJECT=
+ENV SUPABASE_SERVICE_ROLE_KEY=dummy_service_key
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry

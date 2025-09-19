@@ -5,11 +5,28 @@ import { createClient as createServiceClient } from "@/lib/supabase/server"
 import { Database } from "@/types/database.types"
 import { revalidatePath } from "next/cache"
 
-type Client = Database["public"]["Tables"]["clients"]["Row"]
-type Company = Database["public"]["Tables"]["companies"]["Row"]
+// Database types not used - using custom interfaces below
 
-interface ClientWithCompany extends Client {
-  company?: Company | null
+// Match the type expected by the component
+export interface ClientWithCompany {
+  id: number
+  name: string | null
+  email?: string | null
+  phone?: string | null
+  company_id?: string | null
+  address?: string | null
+  city?: string | null
+  state?: string | null
+  zip?: string | null
+  website?: string | null
+  industry?: string | null
+  status?: string | null
+  created_at: string
+  updated_at?: string
+  company?: {
+    id: string
+    name: string | null
+  } | null
 }
 
 export async function getClients(): Promise<ClientWithCompany[]> {
@@ -51,9 +68,9 @@ export async function getClientById(id: number): Promise<ClientWithCompany | nul
   return data
 }
 
-export async function updateClient(id: number, updates: Partial<Client>) {
+export async function updateClient(id: number, updates: Partial<ClientWithCompany>) {
   // Use service client to bypass RLS for development
-  const supabase = createServiceClient()
+  const supabase = await createServiceClient()
   
   const { data, error } = await supabase
     .from("clients")
@@ -77,7 +94,7 @@ export async function updateClient(id: number, updates: Partial<Client>) {
 
 export async function deleteClient(id: number) {
   // Use service client to bypass RLS for development
-  const supabase = createServiceClient()
+  const supabase = await createServiceClient()
   
   const { error } = await supabase
     .from("clients")

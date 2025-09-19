@@ -59,7 +59,7 @@ import {
   HelpCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { updateAIInsight, deleteAIInsight } from '@/app/actions/ai-insights-actions'
+import { updateAIInsight, deleteAIInsight, AIInsightWithProject } from '@/app/actions/ai-insights-actions'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -71,34 +71,8 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 
-// Type definition for AI Insight with project relation
-export type AIInsight = {
-  id: number
-  insight_type: string
-  title: string | null
-  description: string | null
-  confidence_score: number | null
-  severity: string | null
-  status: string | null
-  project_name: string | null
-  assigned_to: string | null
-  assignee: string | null
-  due_date: string | null
-  document_id: string | null
-  meeting_name: string | null
-  meeting_date: string | null
-  resolved: boolean | null
-  created_at: string
-  updated_at: string | null
-  metadata: any
-  project?: {
-    id: number
-    name: string | null
-  } | null
-}
-
 interface AIInsightsDataTableProps {
-  insights: AIInsight[]
+  insights: AIInsightWithProject[]
 }
 
 const COLUMNS = [
@@ -137,8 +111,8 @@ export function AIInsightsDataTable({ insights: initialInsights }: AIInsightsDat
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     new Set(COLUMNS.filter(col => col.defaultVisible).map(col => col.id))
   )
-  const [editingInsight, setEditingInsight] = useState<AIInsight | null>(null)
-  const [editData, setEditData] = useState<Partial<AIInsight>>({})
+  const [editingInsight, setEditingInsight] = useState<AIInsightWithProject | null>(null)
+  const [editData, setEditData] = useState<Partial<AIInsightWithProject>>({})
   const [isDeleting, setIsDeleting] = useState<number | null>(null)
 
   // Get unique types for filter
@@ -195,7 +169,7 @@ export function AIInsightsDataTable({ insights: initialInsights }: AIInsightsDat
     }
   }
 
-  const handleEdit = (insight: AIInsight) => {
+  const handleEdit = (insight: AIInsightWithProject) => {
     setEditingInsight(insight)
     setEditData({
       title: insight.title,

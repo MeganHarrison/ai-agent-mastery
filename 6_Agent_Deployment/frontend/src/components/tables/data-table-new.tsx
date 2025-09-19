@@ -112,7 +112,7 @@ export function DataTable({ data = [], columns, pageSize = 10 }: DataTableProps)
                     <p>No results found.</p>
                     {searchTerm && (
                       <p className="text-sm mt-1">
-                        Try adjusting your search or filters to find what you're looking for.
+                        Try adjusting your search or filters to find what you&apos;re looking for.
                       </p>
                     )}
                   </div>

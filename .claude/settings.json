@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/ts-validation-hook.py",
+            "timeout": 30000
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command", 
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/ts-autofix-hook.py",
+            "timeout": 60000
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys,re; data=json.load(sys.stdin); prompt=data.get('prompt',''); context='🎯 TypeScript Mode: Prioritizing type safety and error prevention.' if re.search(r'\\.(ts|tsx)\\b', prompt) else ''; print(json.dumps({'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit', 'additionalContext': context}}) if context else '')\"",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  }
+}

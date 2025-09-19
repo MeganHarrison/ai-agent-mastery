@@ -1,9 +1,14 @@
 "use client";
 
 import { DataTable } from "@/components/tables/database-table";
-import type { Tables } from "@/types/database.types";
-
-type Document = Tables<"document_metadata">;
+// Define Document type based on expected structure
+type Document = {
+  id: string;
+  title: string | null;
+  url: string | null;
+  created_at: string | null;
+  schema: string | null;
+};
 
 function formatDateMMDDYYYY(dateString?: string) {
   if (!dateString) return "-";
@@ -19,9 +24,10 @@ export function DocumentsDataTable({ documents }: { documents: Document[] }) {
     {
       key: "title",
       label: "Title",
-      format: (value: string) => {
+      format: (value: unknown) => {
+        const strValue = String(value);
         // Find the document with this title to get the url
-        const doc = documents.find((d) => d.title === value);
+        const doc = documents.find((d) => d.title === strValue);
         return doc && doc.url ? (
           <a
             href={doc.url}
@@ -29,17 +35,17 @@ export function DocumentsDataTable({ documents }: { documents: Document[] }) {
             rel="noopener noreferrer"
             className="text-blue-600 underline"
           >
-            {value || "-"}
+            {strValue || "-"}
           </a>
         ) : (
-          value || "-"
+          strValue || "-"
         );
       },
     },
     {
       key: "created_at",
       label: "Created",
-      format: (value: string) => (value ? formatDateMMDDYYYY(value) : "-"),
+      format: (value: unknown) => (value ? formatDateMMDDYYYY(String(value)) : "-"),
     },
   ];
 

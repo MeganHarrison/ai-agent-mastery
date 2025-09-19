@@ -55,7 +55,7 @@ function formatCurrency(amount: number | null | undefined) {
   }).format(amount);
 }
 
-export function ModernHomepage() {
+export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [meetings, setMeetings] = useState<any[]>([]);
   const [insights, setInsights] = useState<any[]>([]);

@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { EditableDocumentsTable } from "@/components/tables/editable-documents-table";
 import { AddDocumentButton } from "@/components/table-buttons/add-document-button";
-import { useActionButton } from "../layout";
+import { useActionButton } from "@/hooks/use-action-button";
 
 interface DocumentsClientWrapperProps {
   documents: any[]

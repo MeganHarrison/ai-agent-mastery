@@ -59,10 +59,10 @@ interface SubcontractorsDataTableProps {
 }
 
 export default function SubcontractorsDataTable({ subcontractors }: SubcontractorsDataTableProps) {
-  const [searchQuery] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [specialtyFilter, setSpecialtyFilter] = useState<string>("all");
-  const [currentPage] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   // Get unique statuses for filter

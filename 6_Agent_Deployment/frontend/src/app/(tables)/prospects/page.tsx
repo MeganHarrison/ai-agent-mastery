@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { DataTable } from "@/components/tables/database-table";
 import { AddProspectButton } from "@/components/table-buttons/add-prospect-button";
 import { formatDate } from "@/utils/format";
-import { useActionButton } from "../layout";
+import { useActionButton } from "@/hooks/use-action-button";
 
 export default function ProspectsPage() {
   const { setActionButton } = useActionButton();
@@ -65,7 +65,7 @@ export default function ProspectsPage() {
               key: "created_at",
               label: "Created",
               format: (value) => {
-                return formatDate(value);
+                return formatDate(String(value));
               },
             },
           ]}

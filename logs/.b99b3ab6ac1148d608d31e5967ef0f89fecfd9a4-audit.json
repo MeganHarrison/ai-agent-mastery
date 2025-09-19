@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/meganharrison/Documents/github/ai-agent-mastery3/logs/.b99b3ab6ac1148d608d31e5967ef0f89fecfd9a4-audit.json",
+    "files": [
+        {
+            "date": 1758275597891,
+            "name": "/Users/meganharrison/Documents/github/ai-agent-mastery3/logs/mcp-puppeteer-2025-09-19.log",
+            "hash": "a9a31b5bda3129c651cacb2fd328b74c1d57c2ad26b555f41d9ba3dcfb7ff2a9"
+        }
+    ],
+    "hashType": "sha256"
+}

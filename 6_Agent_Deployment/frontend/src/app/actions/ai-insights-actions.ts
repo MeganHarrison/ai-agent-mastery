@@ -8,8 +8,30 @@ import { revalidatePath } from "next/cache"
 type AIInsight = Database["public"]["Tables"]["ai_insights"]["Row"]
 type Project = Database["public"]["Tables"]["projects"]["Row"]
 
-interface AIInsightWithProject extends AIInsight {
-  project?: Project | null
+// Match the type expected by the component
+export interface AIInsightWithProject {
+  id: number
+  insight_type: string
+  title: string | null
+  description: string | null
+  confidence_score: number | null
+  severity: string | null
+  status: string | null
+  project_name: string | null
+  assigned_to: string | null
+  assignee: string | null
+  due_date: string | null
+  document_id: string | null
+  meeting_name: string | null
+  meeting_date: string | null
+  resolved: boolean | null
+  created_at: string
+  updated_at: string | null
+  metadata: any
+  project?: {
+    id: number
+    name: string | null
+  } | null
 }
 
 export async function getAIInsights(): Promise<AIInsightWithProject[]> {
@@ -51,9 +73,9 @@ export async function getAIInsightById(id: number): Promise<AIInsightWithProject
   return data
 }
 
-export async function updateAIInsight(id: number, updates: Partial<AIInsight>) {
+export async function updateAIInsight(id: number, updates: Partial<AIInsightWithProject>) {
   // Use service client to bypass RLS for development
-  const supabase = createServiceClient()
+  const supabase = await createServiceClient()
   
   const { data, error } = await supabase
     .from("ai_insights")
@@ -77,7 +99,7 @@ export async function updateAIInsight(id: number, updates: Partial<AIInsight>) {
 
 export async function deleteAIInsight(id: number) {
   // Use service client to bypass RLS for development
-  const supabase = createServiceClient()
+  const supabase = await createServiceClient()
   
   const { error } = await supabase
     .from("ai_insights")

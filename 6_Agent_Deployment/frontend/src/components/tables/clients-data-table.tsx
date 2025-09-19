@@ -50,7 +50,7 @@ import {
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
-import { updateClient, deleteClient } from '@/app/actions/clients-actions'
+import { updateClient, deleteClient, ClientWithCompany } from '@/app/actions/clients-actions'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -62,30 +62,8 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 
-// Type definition based on typical client structure
-export type Client = {
-  id: number
-  name: string | null
-  email?: string | null
-  phone?: string | null
-  company_id?: string | null
-  address?: string | null
-  city?: string | null
-  state?: string | null
-  zip?: string | null
-  website?: string | null
-  industry?: string | null
-  status?: string | null
-  created_at: string
-  updated_at?: string
-  company?: {
-    id: string
-    name: string | null
-  } | null
-}
-
 interface ClientsDataTableProps {
-  clients: Client[]
+  clients: ClientWithCompany[]
 }
 
 const COLUMNS = [
@@ -106,8 +84,8 @@ export function ClientsDataTable({ clients: initialClients }: ClientsDataTablePr
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     new Set(COLUMNS.filter(col => col.defaultVisible).map(col => col.id))
   )
-  const [editingClient, setEditingClient] = useState<Client | null>(null)
-  const [editData, setEditData] = useState<Partial<Client>>({})
+  const [editingClient, setEditingClient] = useState<ClientWithCompany | null>(null)
+  const [editData, setEditData] = useState<Partial<ClientWithCompany>>({})
   const [isDeleting, setIsDeleting] = useState<number | null>(null)
 
   // Get unique industries for filter
@@ -147,7 +125,7 @@ export function ClientsDataTable({ clients: initialClients }: ClientsDataTablePr
     }
   }
 
-  const handleEdit = (client: Client) => {
+  const handleEdit = (client: ClientWithCompany) => {
     setEditingClient(client)
     setEditData({
       name: client.name,

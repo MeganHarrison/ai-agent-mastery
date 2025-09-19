@@ -3,6 +3,7 @@
 import React from "react"
 import { usePathname } from "next/navigation"
 import { PageHeader } from "@/components/page-header"
+import { ActionButtonContext } from "@/hooks/use-action-button"
 
 // Route-to-title mapping configuration
 const ROUTE_CONFIG = {
@@ -106,18 +107,6 @@ function TablesLayoutHeader({ actionButton }: TablesLayoutHeaderProps) {
   )
 }
 
-// Context to pass action button from page to layout
-const ActionButtonContext = React.createContext<{
-  setActionButton: (button: React.ReactNode) => void
-} | null>(null)
-
-export function useActionButton() {
-  const context = React.useContext(ActionButtonContext)
-  if (!context) {
-    throw new Error('useActionButton must be used within TablesLayout')
-  }
-  return context
-}
 
 export default function TablesLayout({
   children,

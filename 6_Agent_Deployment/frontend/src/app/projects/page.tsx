@@ -56,7 +56,7 @@ import {
   useDeleteProject 
 } from '@/hooks/useProjects';
 
-export const Projects = () => {
+export default function ProjectsPage() {
   const [viewMode, setViewMode] = useState<'card' | 'list' | 'table'>('card');
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -627,4 +627,3 @@ export const Projects = () => {
   );
 };
 
-export default Projects;

@@ -4,7 +4,7 @@
 
 import { DataTable } from "@/components/tables/database-table";
 import { PageHeader } from "@/components/page-header";
-import { DocumentsUploadModal } from "@/components/docs/documents-upload-modal";
+// import { DocumentsUploadModal } from "@/components/docs/documents-upload-modal";
 
 interface Document {
   id: number;
@@ -22,10 +22,10 @@ export function DocumentsClient({ documents }: { documents: Document[] }) {
       <PageHeader
         title="Documents"
         description="Manage your document library"
-        action={{
-          label: "Add Document",
-          component: <DocumentsUploadModal />,
-        }}
+        // action={{
+        //   label: "Add Document",
+        //   component: <DocumentsUploadModal />,
+        // }}
       />
       <DataTable
         data={documents.filter(
