@@ -1,10 +1,10 @@
 services:
-  # Frontend React Application (Static Site)
+  # Frontend Next.js Application (Node.js)
   - type: web
     name: dynamous-frontend
-    runtime: static
+    runtime: node
     buildCommand: cd 6_Agent_Deployment/frontend && npm install && npm run build
-    staticPublishPath: 6_Agent_Deployment/frontend/dist
+    startCommand: cd 6_Agent_Deployment/frontend && npm run start
     envVars:
       - fromGroup: frontend-env
     domains:

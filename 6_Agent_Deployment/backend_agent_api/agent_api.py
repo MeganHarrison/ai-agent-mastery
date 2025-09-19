@@ -438,12 +438,20 @@ async def health_check():
             "supabase": supabase is not None,
             "http_client": http_client is not None,
             "title_agent": title_agent is not None,
-            "mem0_client": mem0_client is not None
+            "mem0_client": mem0_client is not None  # Optional, can be None
         }
     }
-    
+
+    # Check only critical services (exclude mem0_client as it's optional)
+    critical_services = {
+        "embedding_client": embedding_client is not None,
+        "supabase": supabase is not None,
+        "http_client": http_client is not None,
+        "title_agent": title_agent is not None
+    }
+
     # If any critical service is not initialized, mark as unhealthy
-    if not all(health_status["services"].values()):
+    if not all(critical_services.values()):
         health_status["status"] = "unhealthy"
         raise HTTPException(status_code=503, detail=health_status)
     
