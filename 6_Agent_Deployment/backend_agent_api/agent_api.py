@@ -632,5 +632,7 @@ async def process_upload(
 
 if __name__ == "__main__":
     import uvicorn
-    # Feel free to change the port here if you need
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    import os
+    # Use PORT environment variable from Render, fallback to 8001 for local development
+    port = int(os.environ.get("PORT", 8001))
+    uvicorn.run(app, host="0.0.0.0", port=port)

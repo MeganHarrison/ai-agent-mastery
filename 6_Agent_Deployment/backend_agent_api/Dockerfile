@@ -30,12 +30,13 @@ RUN chown -R agent:agent /app && \
 # Switch to non-root user
 USER agent
 
-# Expose port
+# Expose port (Render will override this with PORT env var)
 EXPOSE 8001
 
-# Health check
+# Health check - use PORT env var with fallback to 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8001/health', timeout=5)"
+    CMD python -c "import os, requests; port=os.environ.get('PORT', '8001'); requests.get(f'http://localhost:{port}/health', timeout=5)"
 
-# Run the application
-CMD ["uvicorn", "agent_api:app", "--host", "0.0.0.0", "--port", "8001"]
+# Run the application using PORT environment variable (Render provides this)
+# The ${PORT:-8001} syntax provides a default value of 8001 if PORT is not set
+CMD uvicorn agent_api:app --host 0.0.0.0 --port ${PORT:-8001}
