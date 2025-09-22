@@ -25,19 +25,11 @@
     "delay_between_files": 0.1
   },
   "meetings_bucket": "meetings",
-  "documents_bucket": "documents",
+  "documents_bucket": "meetings",
   "backfill": {
-    "enabled": false,
+    "enabled": true,
     "batch_size": 50,
-    "initial_delay": 5
+    "initial_delay": 1
   },
-  "security": {
-    "verify_access": true,
-    "respect_rls": true
-  },
-  "logging": {
-    "level": "INFO",
-    "structured": true
-  },
-  "last_check_time": "2024-01-01T00:00:00.000000Z"
+  "last_check_time": "1970-01-01T00:00:00.000000Z"
 }

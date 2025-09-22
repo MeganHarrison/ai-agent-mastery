@@ -369,12 +369,12 @@ Found {len(top_results)} relevant documents
 async def get_recent_documents_tool(supabase: Client, days_back: int = 7, document_types: List[str] = None, match_count: int = 10) -> str:
     """
     Retrieve recent documents for timeline-based queries and status updates.
-    
+
     Args:
         days_back: Number of days to look back
         document_types: Filter by document types (e.g., ['meeting', 'transcript', 'report'])
-        match_count: Maximum number of documents to return
-        
+        match_count: Maximum number of UNIQUE documents to return (not chunks)
+
     Returns:
         Formatted list of recent documents with metadata
     """
@@ -382,38 +382,79 @@ async def get_recent_documents_tool(supabase: Client, days_back: int = 7, docume
         # Calculate date threshold
         from datetime import datetime, timedelta
         date_threshold = (datetime.now() - timedelta(days=days_back)).isoformat()
-        
-        # Build query with filters
+
+        # Build query with filters - get more results to account for chunking
         query = supabase.from_('documents') \
             .select('id, content, metadata, created_at') \
             .gte('created_at', date_threshold) \
             .order('created_at', desc=True) \
-            .limit(match_count)
-        
+            .limit(match_count * 10)  # Get more to account for chunks
+
         # Apply document type filter if specified
         if document_types:
             # This would need to be implemented based on how document types are stored
             # For now, we'll filter based on filename patterns
             pass
-        
+
         result = query.execute()
-        
+
         if not result.data:
             return f"No documents found in the last {days_back} days"
-        
+
+        # Group by UNIQUE document (using file_id or file_title from metadata)
+        unique_documents = {}
+        for doc in result.data:
+            metadata = doc.get('metadata', {})
+
+            # Get unique identifier for the document (not chunk)
+            file_id = metadata.get('file_id')
+            file_title = metadata.get('file_title', metadata.get('source', 'Unknown'))
+
+            # Use file_id as the unique key, or file_title if file_id doesn't exist
+            unique_key = file_id if file_id else file_title
+
+            # Only keep the first chunk of each document (or the one with lowest chunk_index)
+            if unique_key not in unique_documents:
+                unique_documents[unique_key] = {
+                    'doc': doc,
+                    'file_title': file_title,
+                    'chunk_index': metadata.get('chunk_index', 0)
+                }
+            else:
+                # If we find a lower chunk_index, use that one instead
+                current_chunk_index = metadata.get('chunk_index', 999)
+                if current_chunk_index < unique_documents[unique_key]['chunk_index']:
+                    unique_documents[unique_key] = {
+                        'doc': doc,
+                        'file_title': file_title,
+                        'chunk_index': current_chunk_index
+                    }
+
+        # Now we have unique documents, let's format them
+        # Sort by created_at and limit to match_count
+        sorted_unique_docs = sorted(
+            unique_documents.values(),
+            key=lambda x: x['doc']['created_at'],
+            reverse=True
+        )[:match_count]
+
+        if not sorted_unique_docs:
+            return f"No unique documents found in the last {days_back} days"
+
         # Group by date and format
         documents_by_date = {}
-        for doc in result.data:
+        for item in sorted_unique_docs:
+            doc = item['doc']
             doc_date = doc['created_at'][:10]  # YYYY-MM-DD
             if doc_date not in documents_by_date:
                 documents_by_date[doc_date] = []
             documents_by_date[doc_date].append(doc)
-        
+
         # Format results by date
         formatted_sections = []
         for date, docs in sorted(documents_by_date.items(), reverse=True):
-            date_section = f"## {date} ({len(docs)} documents)\n"
-            
+            date_section = f"## {date} ({len(docs)} unique documents)\n"
+
             for doc in docs:
                 metadata = doc.get('metadata', {})
                 content_preview = doc.get('content', '')[:200] + "..." if len(doc.get('content', '')) > 200 else doc.get('content', '')

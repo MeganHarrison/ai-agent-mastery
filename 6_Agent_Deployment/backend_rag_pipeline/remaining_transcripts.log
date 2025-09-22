@@ -1,0 +1,157 @@
+Processing REMAINING transcript files
+============================================================
+Found 13 unprocessed transcript files
+------------------------------------------------------------
+Files to process:
+  - 2025-09-12 - Goodwill Bloomington Morning Meeting.md
+  - 2025-09-11 - NiemannAlleato Weekly.md
+  - 2025-09-11 - Goodwill Bloomington Morning Meeting.md
+  - 2025-09-10 - Update Job Descriptions.md
+  - 2025-09-10 - UniqloAlleato Group.md
+  - 2025-09-10 - Goodwill Bloomington Morning Meeting.md
+  - 2025-09-10 - Chateau Private Wealth Advisors Zoom Meeting.md
+  - 2025-09-09 - Weekly Accounting Meeting.md
+  - 2025-09-09 - Update Job Descriptions.md
+  - 2025-09-09 - Goodwill Bloomington Morning Meeting.md
+  - 2025-09-09 - AlleatoFedEx 0704 Carmel IN BiWeekly.md
+  - 2025-09-09 - Alleato Exotec - UpdateAlignment.md
+  - 2025-09-09 - AI Alleato Group follow-up.md
+------------------------------------------------------------
+
+[1/13] Processing: 2025-09-12 - Goodwill Bloomington Morning Meeting.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-12 - Goodwill Bloomington Morning Meeting.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-12 - Goodwill Bloomington Morning Meeting.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-12 - Goodwill Bloomington Morning Meeting.md
+Inserted metadata for file '2025-09-12 - Goodwill Bloomington Morning Meeting.md' (ID: meetings/transcripts/2025-09-12 - Goodwill Bloomington Morning Meeting.md)
+  ✅ Success!
+
+[2/13] Processing: 2025-09-11 - NiemannAlleato Weekly.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-11 - NiemannAlleato Weekly.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-11 - NiemannAlleato Weekly.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-11 - NiemannAlleato Weekly.md
+Inserted metadata for file '2025-09-11 - NiemannAlleato Weekly.md' (ID: meetings/transcripts/2025-09-11 - NiemannAlleato Weekly.md)
+  ✅ Success!
+
+[3/13] Processing: 2025-09-11 - Goodwill Bloomington Morning Meeting.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-11 - Goodwill Bloomington Morning Meeting.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-11 - Goodwill Bloomington Morning Meeting.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-11 - Goodwill Bloomington Morning Meeting.md
+Inserted metadata for file '2025-09-11 - Goodwill Bloomington Morning Meeting.md' (ID: meetings/transcripts/2025-09-11 - Goodwill Bloomington Morning Meeting.md)
+  ✅ Success!
+
+[4/13] Processing: 2025-09-10 - Update Job Descriptions.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-10 - Update Job Descriptions.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-10 - Update Job Descriptions.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-10 - Update Job Descriptions.md
+Inserted metadata for file '2025-09-10 - Update Job Descriptions.md' (ID: meetings/transcripts/2025-09-10 - Update Job Descriptions.md)
+  ✅ Success!
+
+[5/13] Processing: 2025-09-10 - UniqloAlleato Group.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-10 - UniqloAlleato Group.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-10 - UniqloAlleato Group.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-10 - UniqloAlleato Group.md
+Inserted metadata for file '2025-09-10 - UniqloAlleato Group.md' (ID: meetings/transcripts/2025-09-10 - UniqloAlleato Group.md)
+  ✅ Success!
+
+[6/13] Processing: 2025-09-10 - Goodwill Bloomington Morning Meeting.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-10 - Goodwill Bloomington Morning Meeting.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-10 - Goodwill Bloomington Morning Meeting.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-10 - Goodwill Bloomington Morning Meeting.md
+Inserted metadata for file '2025-09-10 - Goodwill Bloomington Morning Meeting.md' (ID: meetings/transcripts/2025-09-10 - Goodwill Bloomington Morning Meeting.md)
+  ✅ Success!
+
+[7/13] Processing: 2025-09-10 - Chateau Private Wealth Advisors Zoom Meeting.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-10 - Chateau Private Wealth Advisors Zoom Meeting.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-10 - Chateau Private Wealth Advisors Zoom Meeting.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-10 - Chateau Private Wealth Advisors Zoom Meeting.md
+Inserted metadata for file '2025-09-10 - Chateau Private Wealth Advisors Zoom Meeting.md' (ID: meetings/transcripts/2025-09-10 - Chateau Private Wealth Advisors Zoom Meeting.md)
+  ✅ Success!
+
+[8/13] Processing: 2025-09-09 - Weekly Accounting Meeting.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-09 - Weekly Accounting Meeting.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-09 - Weekly Accounting Meeting.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-09 - Weekly Accounting Meeting.md
+Inserted metadata for file '2025-09-09 - Weekly Accounting Meeting.md' (ID: meetings/transcripts/2025-09-09 - Weekly Accounting Meeting.md)
+  ✅ Success!
+
+[9/13] Processing: 2025-09-09 - Update Job Descriptions.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-09 - Update Job Descriptions.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-09 - Update Job Descriptions.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-09 - Update Job Descriptions.md
+Inserted metadata for file '2025-09-09 - Update Job Descriptions.md' (ID: meetings/transcripts/2025-09-09 - Update Job Descriptions.md)
+  ✅ Success!
+
+[10/13] Processing: 2025-09-09 - Goodwill Bloomington Morning Meeting.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-09 - Goodwill Bloomington Morning Meeting.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-09 - Goodwill Bloomington Morning Meeting.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-09 - Goodwill Bloomington Morning Meeting.md
+Inserted metadata for file '2025-09-09 - Goodwill Bloomington Morning Meeting.md' (ID: meetings/transcripts/2025-09-09 - Goodwill Bloomington Morning Meeting.md)
+  ✅ Success!
+
+[11/13] Processing: 2025-09-09 - AlleatoFedEx 0704 Carmel IN BiWeekly.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-09 - AlleatoFedEx 0704 Carmel IN BiWeekly.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-09 - AlleatoFedEx 0704 Carmel IN BiWeekly.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-09 - AlleatoFedEx 0704 Carmel IN BiWeekly.md
+Inserted metadata for file '2025-09-09 - AlleatoFedEx 0704 Carmel IN BiWeekly.md' (ID: meetings/transcripts/2025-09-09 - AlleatoFedEx 0704 Carmel IN BiWeekly.md)
+  ✅ Success!
+
+[12/13] Processing: 2025-09-09 - Alleato Exotec - UpdateAlignment.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 0 document chunks for file ID: meetings/transcripts/2025-09-09 - Alleato Exotec - UpdateAlignment.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-09 - Alleato Exotec - UpdateAlignment.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-09 - Alleato Exotec - UpdateAlignment.md
+Inserted metadata for file '2025-09-09 - Alleato Exotec - UpdateAlignment.md' (ID: meetings/transcripts/2025-09-09 - Alleato Exotec - UpdateAlignment.md)
+  ✅ Success!
+
+[13/13] Processing: 2025-09-09 - AI Alleato Group follow-up.md
+  📥 Downloading...
+  📝 Extracting text...
+  🔄 Vectorizing...
+Deleted 63 document chunks for file ID: meetings/transcripts/2025-09-09 - AI Alleato Group follow-up.md
+Deleted 0 document rows for file ID: meetings/transcripts/2025-09-09 - AI Alleato Group follow-up.md
+Deleted metadata for file ID: meetings/transcripts/2025-09-09 - AI Alleato Group follow-up.md
+Inserted metadata for file '2025-09-09 - AI Alleato Group follow-up.md' (ID: meetings/transcripts/2025-09-09 - AI Alleato Group follow-up.md)
+  ✅ Success!
+
+============================================================
+Processing complete!
+✅ Processed: 13 files
+❌ Errors: 0 files
+
+Final status check:
+Remaining unprocessed transcript files: 0

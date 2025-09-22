@@ -84,11 +84,12 @@ def delete_document_by_file_id(file_id: str) -> None:
     except Exception as e:
         print(f"Error deleting documents: {e}")
 
-def insert_document_chunks(chunks: List[str], embeddings: List[List[float]], file_id: str, 
-                        file_url: str, file_title: str, mime_type: str, file_contents: bytes | None = None) -> None:
+def insert_document_chunks(chunks: List[str], embeddings: List[List[float]], file_id: str,
+                        file_url: str, file_title: str, mime_type: str, file_contents: bytes | None = None,
+                        project_id: int | None = None) -> None:
     """
     Insert document chunks with their embeddings into the Supabase database.
-    
+
     Args:
         chunks: List of text chunks
         embeddings: List of embedding vectors for each chunk
@@ -97,6 +98,7 @@ def insert_document_chunks(chunks: List[str], embeddings: List[List[float]], fil
         file_title: The title of the file
         mime_type: The mime type of the file
         file_contents: Optional binary of the file to store as metadata
+        project_id: Optional project ID to associate with the chunks
     """
     try:
         # Ensure we have the same number of chunks and embeddings
@@ -107,7 +109,7 @@ def insert_document_chunks(chunks: List[str], embeddings: List[List[float]], fil
         data = []
         for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
             file_bytes_str = base64.b64encode(file_contents).decode('utf-8') if file_contents else None
-            data.append({
+            row_data = {
                 "content": chunk,
                 "metadata": {
                     "file_id": file_id,
@@ -117,8 +119,15 @@ def insert_document_chunks(chunks: List[str], embeddings: List[List[float]], fil
                     "chunk_index": i,
                     **({"file_contents": file_bytes_str} if file_bytes_str else {})
                 },
-                "embedding": embedding
-            })
+                "embedding": embedding,
+                "file_id": file_id  # Add file_id as a direct column
+            }
+
+            # Add project_id if provided
+            if project_id is not None:
+                row_data["project_id"] = project_id
+
+            data.append(row_data)
         
         # Insert the data into the documents table
         for item in data:
@@ -231,21 +240,24 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
         chunk_size = text_processing.get('default_chunk_size', 400)
         chunk_overlap = text_processing.get('default_chunk_overlap', 0)
 
+        # Get project_id from config if provided
+        project_id = config.get('project_id')
+
         # Chunk the text
         chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
         if not chunks:
             print(f"No chunks were created for file '{file_title}' (Path: {file_id})")
             return
-        
+
         # Create embeddings for the chunks
-        embeddings = create_embeddings(chunks)  
+        embeddings = create_embeddings(chunks)
 
         # For images, don't chunk the image, just store the title for RAG and include the binary in the metadata
         if mime_type and mime_type.startswith("image"):
-            insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type, file_content)
+            insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type, file_content, project_id)
         else:
             # Insert the chunks with their embeddings
-            insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type)
+            insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type, None, project_id)
 
         # Process insights if enabled and user_id provided
         if insights_processor and user_id and text:
