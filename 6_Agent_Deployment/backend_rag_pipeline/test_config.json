@@ -1,1 +1,0 @@
-{"supported_mime_types": ["text/markdown", "text/plain"], "text_processing": {"default_chunk_size": 400, "default_chunk_overlap": 0}, "meetings_bucket": "meetings", "documents_bucket": "meetings"}

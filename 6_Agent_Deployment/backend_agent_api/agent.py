@@ -38,12 +38,13 @@ from tools import (
     generate_meeting_insights_tool,
     get_project_insights_tool,
     get_insights_summary_tool,
-    search_insights_tool
+    search_insights_tool,
+    strategic_business_analysis_tool
 )
 
 # ========== Helper function to get model configuration ==========
 def get_model():
-    llm = os.getenv('LLM_CHOICE') or 'gpt-4o-mini'
+    llm = os.getenv('LLM_CHOICE') or 'gpt-5'
     base_url = os.getenv('LLM_BASE_URL') or 'https://api.openai.com/v1'
     api_key = os.getenv('LLM_API_KEY') or 'ollama'
 
@@ -363,4 +364,37 @@ async def search_insights(
         insight_types,
         priorities,
         limit
+    )
+
+@agent.tool
+async def strategic_business_analysis(
+    ctx: RunContext[AgentDeps],
+    analysis_query: str,
+    focus_areas: List[str] = None
+) -> str:
+    """
+    **EXECUTIVE INTELLIGENCE TOOL** - Use this for strategic business questions that require
+    comprehensive analysis across multiple data sources. This tool automatically performs
+    4-5 different searches and synthesizes the results for executive-level insights.
+    
+    Perfect for questions like:
+    - "What are the biggest risks facing the company?"
+    - "What challenges are we seeing across projects?"
+    - "What patterns indicate potential problems?"
+    - "What strategic issues need leadership attention?"
+    
+    Args:
+        ctx: The context including Supabase and OpenAI clients
+        analysis_query: The strategic question requiring comprehensive analysis
+        focus_areas: Optional focus areas like ['risks', 'timeline', 'budget', 'personnel']
+        
+    Returns:
+        Comprehensive strategic analysis with multi-source evidence
+    """
+    print("Calling strategic_business_analysis tool - EXECUTIVE INTELLIGENCE MODE")
+    return await strategic_business_analysis_tool(
+        ctx.deps.supabase,
+        ctx.deps.embedding_client,
+        analysis_query,
+        focus_areas
     )

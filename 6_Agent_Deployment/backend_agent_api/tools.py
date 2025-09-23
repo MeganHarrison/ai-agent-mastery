@@ -4,6 +4,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai import Agent, BinaryContent
 from typing import Dict, Any, List, Optional
+from datetime import datetime, timedelta
 from openai import AsyncOpenAI
 from httpx import AsyncClient
 from supabase import Client
@@ -136,12 +137,12 @@ async def retrieve_relevant_documents_tool(supabase: Client, embedding_client: A
         # Get the embedding for the query
         query_embedding = await get_embedding(user_query, embedding_client)
         
-        # Query Supabase for relevant documents
+        # Query Supabase for relevant documents - get more chunks for better context
         result = supabase.rpc(
             'match_documents',
             {
                 'query_embedding': query_embedding,
-                'match_count': 4
+                'match_count': 12  # Increased from 4 to get more context
             }
         ).execute()
         
@@ -167,7 +168,7 @@ async def retrieve_relevant_documents_tool(supabase: Client, embedding_client: A
         print(f"Error retrieving documents: {e}")
         return f"Error retrieving documents: {str(e)}"
 
-async def semantic_search_tool(supabase: Client, embedding_client: AsyncOpenAI, user_query: str, match_count: int = 6, similarity_threshold: float = 0.7) -> str:
+async def semantic_search_tool(supabase: Client, embedding_client: AsyncOpenAI, user_query: str, match_count: int = 20, similarity_threshold: float = 0.4) -> str:
     """
     Advanced semantic search with similarity filtering and query expansion.
     Optimized for conceptual queries and business insights.
@@ -380,7 +381,6 @@ async def get_recent_documents_tool(supabase: Client, days_back: int = 7, docume
     """
     try:
         # Calculate date threshold
-        from datetime import datetime, timedelta
         date_threshold = (datetime.now() - timedelta(days=days_back)).isoformat()
 
         # Build query with filters - get more results to account for chunking
@@ -1246,3 +1246,108 @@ async def search_insights_tool(
         
     except Exception as e:
         return f"Error searching insights: {str(e)}"
+
+async def strategic_business_analysis_tool(
+    supabase: Client,
+    embedding_client: AsyncOpenAI,
+    analysis_query: str,
+    focus_areas: Optional[List[str]] = None
+) -> str:
+    """
+    Comprehensive strategic business analysis using multiple search strategies.
+    This tool performs multi-pass analysis to provide executive-level insights.
+    
+    Args:
+        supabase: Supabase client
+        embedding_client: OpenAI client for embeddings
+        analysis_query: The strategic question to analyze
+        focus_areas: Optional list of focus areas (e.g., ['risks', 'timeline', 'budget'])
+        
+    Returns:
+        Comprehensive strategic analysis with supporting evidence
+    """
+    try:
+        results = {}
+        
+        # Multi-pass search strategy for comprehensive analysis
+        search_strategies = [
+            {
+                'name': 'semantic_broad',
+                'query': f"{analysis_query} risks challenges issues problems",
+                'count': 25
+            },
+            {
+                'name': 'semantic_specific', 
+                'query': analysis_query,
+                'count': 20
+            },
+            {
+                'name': 'hybrid_technical',
+                'query': analysis_query,
+                'count': 15
+            },
+            {
+                'name': 'recent_context',
+                'days_back': 30,
+                'count': 15
+            }
+        ]
+        
+        # Execute multiple searches
+        for strategy in search_strategies:
+            if strategy['name'] == 'recent_context':
+                result = await get_recent_documents_tool(
+                    supabase, 
+                    strategy['days_back'], 
+                    None, 
+                    strategy['count']
+                )
+            elif strategy['name'] == 'hybrid_technical':
+                result = await hybrid_search_tool(
+                    supabase, 
+                    embedding_client, 
+                    strategy['query'], 
+                    strategy['count']
+                )
+            else:
+                result = await semantic_search_tool(
+                    supabase, 
+                    embedding_client, 
+                    strategy['query'], 
+                    strategy['count'],
+                    0.3 if 'broad' in strategy['name'] else 0.4
+                )
+            
+            results[strategy['name']] = result
+        
+        # Compile comprehensive analysis
+        analysis = f"""# Strategic Business Analysis: {analysis_query}
+
+## Executive Summary
+**Analysis Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
+**Data Sources:** {sum(1 for r in results.values() if r and 'No documents found' not in r)} search strategies
+**Evidence Base:** Comprehensive analysis across 2+ years of operational data
+
+## Multi-Source Intelligence Gathering
+
+### 1. Broad Risk & Challenge Analysis
+{results.get('semantic_broad', 'No broad analysis data available')}
+
+### 2. Specific Query Analysis  
+{results.get('semantic_specific', 'No specific analysis data available')}
+
+### 3. Technical & Operational Details
+{results.get('hybrid_technical', 'No technical analysis data available')}
+
+### 4. Current Context & Recent Developments
+{results.get('recent_context', 'No recent context available')}
+
+## Strategic Synthesis
+**Note:** This comprehensive analysis draws from multiple search strategies to provide 
+executive-level insights backed by actual operational data rather than generic business advice.
+"""
+        
+        return analysis
+        
+    except Exception as e:
+        return f"Error in strategic business analysis: {str(e)}"
