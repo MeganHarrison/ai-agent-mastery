@@ -20,16 +20,16 @@
     "application/vnd.google-apps.spreadsheet"
   ],
   "text_processing": {
-    "default_chunk_size": 800,
-    "default_chunk_overlap": 100,
-    "min_chunk_size": 100,
-    "max_chunk_size": 1200
+    "default_chunk_size": 1500,
+    "default_chunk_overlap": 300,
+    "min_chunk_size": 800,
+    "max_chunk_size": 2500
   },
   "adaptive_chunking": {
-    "max_chunk_size": 1000,
-    "min_chunk_size": 150,
+    "max_chunk_size": 1500,
+    "min_chunk_size": 800,
     "speaker_overlap": 2,
-    "semantic_threshold": 0.75,
+    "semantic_threshold": 0.7,
     "enable_meeting_transcript_detection": true,
     "enable_structured_document_detection": true,
     "enable_conversational_detection": true
