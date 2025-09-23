@@ -71,6 +71,10 @@ class EnhancedBusinessInsight:
     urgency_indicators: Optional[List[str]] = None
     resolved: bool = False
     
+    # Date fields - NEW!
+    document_date: Optional[str] = None  # YYYY-MM-DD format - when document/meeting occurred
+    meeting_date: Optional[str] = None   # YYYY-MM-DD format - alias for document_date
+    
     # Context and relationships
     source_meetings: Optional[List[str]] = None
     dependencies: Optional[List[str]] = None
@@ -113,6 +117,9 @@ class EnhancedBusinessInsight:
             'financial_impact': float(self.financial_impact) if self.financial_impact else None,
             'urgency_indicators': ensure_array(self.urgency_indicators),
             'resolved': self.resolved,
+            # Date fields - prioritize document_date, fall back to meeting_date
+            'document_date': self.document_date or self.meeting_date,
+            'meeting_date': self.meeting_date or self.document_date,
             'source_meetings': ensure_array(self.source_meetings),
             'dependencies': ensure_array(self.dependencies),
             'stakeholders_affected': ensure_array(self.stakeholders_affected),
@@ -353,6 +360,7 @@ class BusinessInsightsEngine:
         - confidence_score: 0.0-1.0 based on evidence quality
         - assignee: Specific person mentioned (if any)
         - due_date: YYYY-MM-DD format if timeline mentioned
+        - document_date: YYYY-MM-DD format when this meeting/document occurred (extract from title/content)
         - financial_impact: Numeric value if money mentioned (positive or negative)
         - urgency_indicators: List of phrases that indicate urgency
         - stakeholders_affected: People/roles impacted
@@ -418,10 +426,13 @@ class BusinessInsightsEngine:
             # Try direct JSON parsing first
             insights = json.loads(response_text)
             if isinstance(insights, list):
+                logger.info(f"Direct JSON parsing successful: {len(insights)} insights")
                 return insights
             elif isinstance(insights, dict) and 'insights' in insights:
+                logger.info(f"Found insights in dict wrapper: {len(insights['insights'])} insights")
                 return insights['insights']
             else:
+                logger.warning("Direct JSON parsing returned unexpected format")
                 return []
                 
         except json.JSONDecodeError:
@@ -436,12 +447,32 @@ class BusinessInsightsEngine:
                 json_match = re.search(pattern, response_text, re.DOTALL)
                 if json_match:
                     try:
-                        json_text = json_match.group(1) if len(json_match.groups()) > 0 else json_match.group(0)
+                        # Extract the matched text
+                        if len(json_match.groups()) > 0:
+                            json_text = json_match.group(1).strip()
+                        else:
+                            json_text = json_match.group(0).strip()
+                        
+                        # Parse the extracted JSON
                         parsed = json.loads(json_text)
+                        
                         if isinstance(parsed, list) and len(parsed) > 0:
-                            logger.info(f"Successfully parsed JSON from pattern: {pattern[:20]}...")
-                            return parsed
-                    except json.JSONDecodeError:
+                            # Validate that each item is a dictionary
+                            valid_insights = []
+                            for item in parsed:
+                                if isinstance(item, dict):
+                                    valid_insights.append(item)
+                                else:
+                                    logger.warning(f"Skipping non-dict insight: {type(item)}")
+                            
+                            if valid_insights:
+                                logger.info(f"Successfully parsed {len(valid_insights)} valid insights from pattern: {pattern[:20]}...")
+                                return valid_insights
+                        
+                        logger.warning(f"Pattern {pattern[:20]}... matched but didn't return valid insights")
+                        
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"JSON decode failed for pattern {pattern[:20]}...: {e}")
                         continue
             
             # If no JSON found, try to create insights from structured text
@@ -581,6 +612,21 @@ class BusinessInsightsEngine:
                 if re.match(r'\d{4}-\d{2}-\d{2}', due_date_str):
                     due_date = due_date_str
             
+            # Parse document/meeting date
+            document_date = None
+            meeting_date = None
+            
+            # Try to get from insight response first
+            if raw_insight.get('document_date'):
+                date_str = str(raw_insight['document_date'])
+                if re.match(r'\d{4}-\d{2}-\d{2}', date_str):
+                    document_date = date_str
+                    meeting_date = date_str
+            
+            # If not provided by AI, try to extract from document title
+            if not document_date:
+                document_date, meeting_date = self._extract_date_from_title(doc_title)
+            
             # Extract project ID from metadata or title
             project_id = metadata.get('project_id')
             if not project_id:
@@ -611,6 +657,8 @@ class BusinessInsightsEngine:
                 business_impact=raw_insight.get('business_impact', ''),
                 assignee=raw_insight.get('assignee'),
                 due_date=due_date,
+                document_date=document_date,
+                meeting_date=meeting_date,
                 financial_impact=financial_impact,
                 urgency_indicators=raw_insight.get('urgency_indicators', []),
                 resolved=False,
@@ -773,3 +821,82 @@ class BusinessInsightsEngine:
         for insight in insights:
             counts[insight.severity] = counts.get(insight.severity, 0) + 1
         return counts
+    
+    def _extract_date_from_title(self, title: str) -> Tuple[Optional[str], Optional[str]]:
+        """Extract meeting/document date from title or filename."""
+        if not title:
+            return None, None
+            
+        # Common date patterns
+        date_patterns = [
+            # YYYY-MM-DD format
+            r'(\d{4}-\d{2}-\d{2})',
+            # MM/DD/YYYY or MM-DD-YYYY
+            r'(\d{1,2}[/-]\d{1,2}[/-]\d{4})',
+            # Month DD, YYYY
+            r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},\s+\d{4})',
+            # DD Month YYYY
+            r'(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})',
+            # YYYY_MM_DD or YYYY.MM.DD
+            r'(\d{4}[_.]\d{2}[_.]\d{2})'
+        ]
+        
+        for pattern in date_patterns:
+            match = re.search(pattern, title, re.IGNORECASE)
+            if match:
+                date_str = match.group(1)
+                # Convert to YYYY-MM-DD format
+                normalized_date = self._normalize_date_string(date_str)
+                if normalized_date:
+                    return normalized_date, normalized_date
+        
+        return None, None
+    
+    def _normalize_date_string(self, date_str: str) -> Optional[str]:
+        """Convert various date formats to YYYY-MM-DD."""
+        try:
+            # Already in YYYY-MM-DD format
+            if re.match(r'\d{4}-\d{2}-\d{2}', date_str):
+                return date_str
+            
+            # Handle YYYY_MM_DD or YYYY.MM.DD
+            if re.match(r'\d{4}[_.]\d{2}[_.]\d{2}', date_str):
+                return date_str.replace('_', '-').replace('.', '-')
+            
+            # Handle MM/DD/YYYY or MM-DD-YYYY
+            if re.match(r'\d{1,2}[/-]\d{1,2}[/-]\d{4}', date_str):
+                parts = re.split(r'[/-]', date_str)
+                if len(parts) == 3:
+                    month, day, year = parts
+                    return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+            
+            # Handle Month DD, YYYY
+            month_match = re.search(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2}),\s+(\d{4})', date_str, re.IGNORECASE)
+            if month_match:
+                month_name, day, year = month_match.groups()
+                month_map = {
+                    'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+                    'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+                    'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+                }
+                month_num = month_map.get(month_name.lower()[:3])
+                if month_num:
+                    return f"{year}-{month_num}-{day.zfill(2)}"
+            
+            # Handle DD Month YYYY
+            day_month_match = re.search(r'(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})', date_str, re.IGNORECASE)
+            if day_month_match:
+                day, month_name, year = day_month_match.groups()
+                month_map = {
+                    'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+                    'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+                    'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+                }
+                month_num = month_map.get(month_name.lower()[:3])
+                if month_num:
+                    return f"{year}-{month_num}-{day.zfill(2)}"
+                    
+        except Exception as e:
+            logger.warning(f"Failed to normalize date '{date_str}': {e}")
+        
+        return None

@@ -165,7 +165,7 @@ export default function HomePage() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const { metrics: dashboardMetrics, loading: metricsLoading } = useDashboardMetrics()
-  const { projects, loading: projectsLoading } = useProjects()
+  const { projects, loading: projectsLoading, error: projectsError } = useProjects()
   const { insights, loading: insightsLoading } = useActiveInsights()
   
   useEffect(() => {
@@ -352,6 +352,11 @@ export default function HomePage() {
                         </CardContent>
                       </Card>
                     ))
+                  ) : projectsError ? (
+                    <div className="col-span-full text-center py-8 text-gray-400">
+                      <p className="mb-2">Projects data unavailable</p>
+                      <p className="text-sm">The projects feature may need to be configured in your database.</p>
+                    </div>
                   ) : projectHealth.length > 0 ? (
                     projectHealth.map((project, index) => (
                       <ProjectHealthCard key={index} {...project} />

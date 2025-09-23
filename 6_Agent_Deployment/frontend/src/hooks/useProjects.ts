@@ -25,15 +25,29 @@ export const useProjects = () => {
         .eq('is_archived', false)
         .order('updated_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        // Check if it's a table not found error
+        if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+          console.log('Projects table not found. Please run the SQL migration scripts.');
+          setProjects([]);
+          setError('Projects table not configured');
+          return;
+        }
+        throw error;
+      }
       setProjects(data || []);
+      setError(null);
     } catch (err: any) {
       setError(err.message);
-      toast({
-        title: "Error",
-        description: "Failed to fetch projects",
-        variant: "destructive",
-      });
+      console.error('Failed to fetch projects:', err.message);
+      // Only show toast for non-table-missing errors
+      if (!err.message?.includes('does not exist')) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch projects",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
