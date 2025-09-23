@@ -42,6 +42,9 @@ from tools import (
     strategic_business_analysis_tool
 )
 
+# Import enhanced insights generator
+from enhanced_insights_generator import create_enhanced_insights_generator
+
 # ========== Helper function to get model configuration ==========
 def get_model():
     llm = os.getenv('LLM_CHOICE') or 'gpt-5'
@@ -365,6 +368,119 @@ async def search_insights(
         priorities,
         limit
     )
+
+@agent.tool
+async def generate_enhanced_insights(
+    ctx: RunContext[AgentDeps],
+    document_id: str,
+    force_reprocess: bool = False
+) -> str:
+    """
+    **ENHANCED INSIGHTS GENERATOR** - Generate high-value business intelligence insights
+    from meeting transcripts and project documents using advanced analysis.
+    
+    This tool uses the new enhanced insights system that extracts:
+    - Strategic business impacts
+    - Financial implications
+    - Critical path risks
+    - Stakeholder concerns
+    - Actionable decisions
+    
+    Perfect for processing important meetings, financial reviews, and strategic documents.
+    
+    Args:
+        ctx: The context including Supabase and OpenAI clients
+        document_id: ID of the document to analyze for insights
+        force_reprocess: Whether to regenerate insights even if they already exist
+        
+    Returns:
+        Summary of generated high-value business insights
+    """
+    print("Calling generate_enhanced_insights tool - BUSINESS INTELLIGENCE MODE")
+    
+    try:
+        # Create enhanced insights generator
+        generator = create_enhanced_insights_generator(
+            ctx.deps.supabase,
+            ctx.deps.embedding_client
+        )
+        
+        # Generate insights
+        created_ids = await generator.process_document_for_enhanced_insights(
+            document_id=document_id,
+            force_reprocess=force_reprocess
+        )
+        
+        if not created_ids:
+            return f"No high-value insights found in document {document_id}. This may not contain strategic business content."
+        
+        # Retrieve and format the generated insights
+        insights = []
+        for insight_id in created_ids:
+            result = ctx.deps.supabase.table('document_insights').select('*').eq('id', insight_id).execute()
+            if result.data:
+                insights.append(result.data[0])
+        
+        # Format response
+        summary = f"""# Enhanced Business Intelligence Insights
+
+**Document ID:** {document_id}
+**Total High-Value Insights:** {len(insights)}
+**Analysis Type:** Strategic Business Intelligence
+
+## Executive Summary:
+
+"""
+        
+        for insight in insights:
+            severity_emoji = {
+                'critical': '🔴',
+                'high': '🟠', 
+                'medium': '🟡',
+                'low': '🟢'
+            }.get(insight.get('severity', 'medium'), '🟡')
+            
+            type_emoji = {
+                'financial_impact': '💰',
+                'strategic_initiative': '🎯',
+                'timeline_risk': '⏰',
+                'stakeholder_concern': '👥',
+                'decision': '📋',
+                'risk': '⚠️',
+                'opportunity': '💡',
+                'action_item': '✅'
+            }.get(insight.get('insight_type', 'action_item'), '📝')
+            
+            summary += f"""### {severity_emoji} {type_emoji} {insight.get('title', 'Untitled')}
+**Type:** {insight.get('insight_type', 'N/A').replace('_', ' ').title()}
+**Confidence:** {insight.get('confidence_score', 0.0):.0%}
+
+{insight.get('description', 'No description available')}
+
+"""
+            
+            # Add business intelligence fields
+            if insight.get('business_impact'):
+                summary += f"**Business Impact:** {insight.get('business_impact')}\n"
+            if insight.get('financial_impact'):
+                summary += f"**Financial Impact:** ${insight.get('financial_impact'):,.2f}\n"
+            if insight.get('critical_path_impact'):
+                summary += f"**Critical Path:** Yes\n"
+            if insight.get('stakeholders_affected'):
+                stakeholders = insight.get('stakeholders_affected', [])
+                if stakeholders:
+                    summary += f"**Stakeholders:** {', '.join(stakeholders)}\n"
+            if insight.get('assignee'):
+                summary += f"**Assigned to:** {insight.get('assignee')}\n"
+            if insight.get('due_date'):
+                summary += f"**Due date:** {insight.get('due_date')}\n"
+                
+            summary += "\n---\n\n"
+        
+        return summary
+        
+    except Exception as e:
+        return f"Error generating enhanced insights for document {document_id}: {str(e)}"
 
 @agent.tool
 async def strategic_business_analysis(

@@ -1003,14 +1003,12 @@ async def get_project_insights_tool(
         Formatted list of insights
     """
     try:
-    try:
         # Get insights with filters (re-enable insights functionality)
         # Calculate date range
-        from datetime import datetime, timedelta
         date_from = (datetime.now() - timedelta(days=days_back)).isoformat()
         
         # Build query for insights
-        query = supabase.table('ai_insights').select('*')
+        query = supabase.table('document_insights').select('*')
         
         # Apply filters
         if project_name:
@@ -1071,7 +1069,7 @@ async def get_project_insights_tool(
 
 **Status:** {status_emoji} {insight.get('status', 'open').replace('_', ' ').title()}
 **Type:** {insight.get('insight_type', 'N/A').replace('_', ' ').title()}
-**Source:** {insight.get('meeting_name', 'Unknown')}
+**Source:** {insight.get('doc_title', 'Unknown')}
 
 {insight.get('description', 'No description available')}
 
@@ -1079,80 +1077,18 @@ async def get_project_insights_tool(
             
             if insight.get('project_name'):
                 insights_text += f"**Project:** {insight.get('project_name')}\n"
-            if insight.get('assigned_to'):
-                insights_text += f"**Assigned to:** {insight.get('assigned_to')}\n"
-            if insight.get('due_date'):
-                insights_text += f"**Due date:** {insight.get('due_date')[:10]}\n"  # Just date part
-                
-            insights_text += "\n---\n\n"
-        
-        return header + insights_text
-        
-        # Calculate date range
-        from datetime import datetime, timedelta
-        date_from = (datetime.now() - timedelta(days=days_back)).isoformat()
-        
-        # Get insights with filters
-        insights = await generator.get_insights_for_project(
-            project_name=project_name,
-            insight_types=insight_types,
-            priorities=priorities,
-            status_filter=status_filter,
-            date_from=date_from,
-            limit=limit
-        )
-        
-        if not insights:
-            return f"No insights found matching the specified criteria in the last {days_back} days."
-        
-        # Format response
-        header = f"""# Project Insights ({len(insights)} results)
-
-**Time Period:** Last {days_back} days
-**Filters Applied:**
-"""
-        
-        if project_name:
-            header += f"- **Project:** {project_name}\n"
-        if insight_types:
-            header += f"- **Types:** {', '.join(insight_types)}\n"
-        if priorities:
-            header += f"- **Priorities:** {', '.join(priorities)}\n"
-        if status_filter:
-            header += f"- **Status:** {', '.join(status_filter)}\n"
-        
-        header += "\n## Insights:\n\n"
-        
-        insights_text = ""
-        for insight in insights:
-            priority_emoji = {
-                'critical': '🔴',
-                'high': '🟠',
-                'medium': '🟡', 
-                'low': '🟢'
-            }.get(insight.get('priority', 'medium'), '🟡')
-            
-            status_emoji = {
-                'open': '📋',
-                'in_progress': '⏳',
-                'completed': '✅',
-                'cancelled': '❌'
-            }.get(insight.get('status', 'open'), '📋')
-            
-            insights_text += f"""### {priority_emoji} {insight.get('title', 'Untitled')}
-
-**Status:** {status_emoji} {insight.get('status', 'open').replace('_', ' ').title()}
-**Type:** {insight.get('insight_type', 'N/A').replace('_', ' ').title()}
-**Source:** {insight.get('source_meeting_title', 'Unknown')}
-
-{insight.get('description', 'No description available')}
-
-"""
-            
-            if insight.get('project_name'):
-                insights_text += f"**Project:** {insight.get('project_name')}\n"
-            if insight.get('assigned_to'):
-                insights_text += f"**Assigned to:** {insight.get('assigned_to')}\n"
+            if insight.get('assignee'):
+                insights_text += f"**Assigned to:** {insight.get('assignee')}\n"
+            if insight.get('business_impact'):
+                insights_text += f"**Business Impact:** {insight.get('business_impact')}\n"
+            if insight.get('financial_impact'):
+                insights_text += f"**Financial Impact:** ${insight.get('financial_impact'):,.2f}\n"
+            if insight.get('critical_path_impact'):
+                insights_text += f"**Critical Path Impact:** Yes\n"
+            if insight.get('stakeholders_affected'):
+                stakeholders = insight.get('stakeholders_affected', [])
+                if stakeholders:
+                    insights_text += f"**Stakeholders Affected:** {', '.join(stakeholders)}\n"
             if insight.get('due_date'):
                 insights_text += f"**Due date:** {insight.get('due_date')[:10]}\n"  # Just date part
                 
