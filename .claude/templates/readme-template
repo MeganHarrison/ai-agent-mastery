@@ -1,0 +1,34 @@
+# README Template
+
+1. Title
+
+2. Summary
+
+Briefly explain what this project or script does in a couple of sentences.
+
+3. Supabase Tables
+
+List the key tables used in Supabase and a quick note on what each table is for.
+
+4. Triggers
+
+Explain the different ways this project can be triggered:
+
+Webhook: Describe what event or service triggers the webhook.
+
+Cron: Mention the cron schedule if there is one.
+
+API: Note any API endpoints that can start the process.
+
+Manual Script: Explain how to run it manually from the terminal if needed.
+
+5. File Tree (explain what each controls)
+
+
+6. Flowchart (Optional Visual)
+
+Include a flowchart if you have one to show the process visually.
+
+7. Additional Details
+
+Add any extra notes, tips, or context that might help someone understand or extend the project. For instance, you might include links to related documentation, notes about edge cases, or even future improvements.

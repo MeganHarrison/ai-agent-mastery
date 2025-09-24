@@ -71,9 +71,8 @@ class EnhancedBusinessInsight:
     urgency_indicators: Optional[List[str]] = None
     resolved: bool = False
     
-    # Date fields - NEW!
+    # Date field - NEW!
     document_date: Optional[str] = None  # YYYY-MM-DD format - when document/meeting occurred
-    meeting_date: Optional[str] = None   # YYYY-MM-DD format - alias for document_date
     
     # Context and relationships
     source_meetings: Optional[List[str]] = None
@@ -117,9 +116,8 @@ class EnhancedBusinessInsight:
             'financial_impact': float(self.financial_impact) if self.financial_impact else None,
             'urgency_indicators': ensure_array(self.urgency_indicators),
             'resolved': self.resolved,
-            # Date fields - prioritize document_date, fall back to meeting_date
-            'document_date': self.document_date or self.meeting_date,
-            'meeting_date': self.meeting_date or self.document_date,
+            # Date field
+            'document_date': self.document_date,
             'source_meetings': ensure_array(self.source_meetings),
             'dependencies': ensure_array(self.dependencies),
             'stakeholders_affected': ensure_array(self.stakeholders_affected),
@@ -330,10 +328,22 @@ class BusinessInsightsEngine:
     ) -> List[Dict[str, Any]]:
         """Extract insights using GPT with sophisticated business prompting."""
         
-        # Build context-aware system prompt
+        # Build context-aware system prompt with BALANCED quality requirements
         system_prompt = f"""
-        You are an elite business intelligence analyst and management consultant with 20+ years of experience.
-        You specialize in extracting actionable insights from business documents that drive executive decision-making.
+        You are an elite business intelligence analyst extracting the most important insights.
+        
+        EXTRACTION REQUIREMENTS:
+        1. Extract MAXIMUM 5 insights per document (target: 3-4)
+        2. Focus on insights that require executive attention or action
+        3. Include significant business impacts (revenue, costs, risks, decisions)
+        4. Ignore routine operational details unless they indicate major problems
+        5. Each insight must be unique and actionable
+        
+        QUALITY STANDARDS:
+        - Insights should be suitable for executive summary
+        - Must affect business objectives, not just operational details
+        - Minimum confidence: 0.7 (moderately confident or higher)
+        - Include specific financial impacts, risks, or timeline issues
         
         {self.business_context_prompt}
         
@@ -343,24 +353,22 @@ class BusinessInsightsEngine:
         - Urgency: {doc_analysis.get('urgency_level', 'medium')}
         - Key Stakeholders: {', '.join(doc_analysis.get('key_stakeholders', []))}
         
-        INSTRUCTIONS:
-        1. Extract ONLY insights that have clear business impact and are actionable
-        2. Focus on insights that affect revenue, costs, timelines, risks, or strategic objectives
-        3. Include specific financial impacts when mentioned (extract exact numbers)
-        4. Identify critical path impacts and cross-project dependencies
-        5. Capture exact quotes that support each insight
-        6. Assign realistic urgency and business severity levels
+        EXTRACTION FOCUS:
+        1. PRIORITIZE: Major decisions, significant risks, budget impacts, timeline changes, critical blockers
+        2. INCLUDE: Action items with clear business impact, financial implications, strategic changes
+        3. AVOID: Routine updates, meeting logistics, obvious information, minor operational details
+        4. Target confidence: 0.7-1.0 (be realistic about confidence levels)
         
         For each insight, provide:
         - insight_type: {[t.value for t in BusinessInsightType]}
-        - title: Clear, executive-level summary (max 100 chars)
-        - description: Detailed business impact and recommended actions (max 500 chars)
+        - title: Executive-level summary (max 80 chars)
+        - description: Business impact and recommended actions (max 300 chars)
         - business_impact: Specific impact on business objectives
-        - severity: critical/high/medium/low based on business urgency
-        - confidence_score: 0.0-1.0 based on evidence quality
+        - severity: critical/high/medium (avoid 'low' unless truly minor)
+        - confidence_score: 0.7-1.0 (be realistic, not overly conservative)
         - assignee: Specific person mentioned (if any)
         - due_date: YYYY-MM-DD format if timeline mentioned
-        - document_date: YYYY-MM-DD format when this meeting/document occurred (extract from title/content)
+        - document_date: YYYY-MM-DD format when this meeting/document occurred
         - financial_impact: Numeric value if money mentioned (positive or negative)
         - urgency_indicators: List of phrases that indicate urgency
         - stakeholders_affected: People/roles impacted
@@ -369,7 +377,7 @@ class BusinessInsightsEngine:
         - critical_path_impact: true if affects project critical path
         - dependencies: Other tasks/projects this depends on
         
-        Return JSON array of insights. Only include insights with clear business value.
+        Return JSON array of insights. Focus on business value over perfection.
         """
         
         # Prepare content for analysis (truncate if too long)
@@ -612,20 +620,18 @@ class BusinessInsightsEngine:
                 if re.match(r'\d{4}-\d{2}-\d{2}', due_date_str):
                     due_date = due_date_str
             
-            # Parse document/meeting date
+            # Parse document date (works for meetings, docs, any content)
             document_date = None
-            meeting_date = None
             
             # Try to get from insight response first
             if raw_insight.get('document_date'):
                 date_str = str(raw_insight['document_date'])
                 if re.match(r'\d{4}-\d{2}-\d{2}', date_str):
                     document_date = date_str
-                    meeting_date = date_str
             
             # If not provided by AI, try to extract from document title
             if not document_date:
-                document_date, meeting_date = self._extract_date_from_title(doc_title)
+                document_date = self._extract_date_from_title(doc_title)
             
             # Extract project ID from metadata or title
             project_id = metadata.get('project_id')
@@ -658,7 +664,6 @@ class BusinessInsightsEngine:
                 assignee=raw_insight.get('assignee'),
                 due_date=due_date,
                 document_date=document_date,
-                meeting_date=meeting_date,
                 financial_impact=financial_impact,
                 urgency_indicators=raw_insight.get('urgency_indicators', []),
                 resolved=False,
@@ -687,38 +692,135 @@ class BusinessInsightsEngine:
         self, 
         insights: List[EnhancedBusinessInsight]
     ) -> List[EnhancedBusinessInsight]:
-        """Filter and rank insights by business value and quality."""
+        """Aggressively filter and rank insights - MAXIMUM 5 per document."""
         
         if not insights:
             return []
         
-        # Filter out low-quality insights
-        quality_insights = []
-        for insight in insights:
-            # Quality criteria
-            if (insight.confidence_score >= 0.6 and
-                len(insight.title) > 10 and
-                len(insight.description) > 20 and
-                insight.insight_type in [t.value for t in BusinessInsightType]):
-                quality_insights.append(insight)
+        # AGGRESSIVE quality filtering
+        high_quality_insights = []
         
-        # Rank by business impact (critical > high > medium > low)
+        for insight in insights:
+            # BALANCED quality criteria (less aggressive than before)
+            if (
+                # Moderate confidence threshold
+                insight.confidence_score >= 0.7 and
+                
+                # Reasonable content requirements
+                len(insight.title) >= 10 and  # Reduced from 15
+                len(insight.description) >= 20 and  # Reduced from 30
+                
+                # Valid insight types
+                insight.insight_type in [t.value for t in BusinessInsightType] and
+                
+                # Allow low severity if it has other value
+                (insight.severity in ['critical', 'high', 'medium'] or 
+                 insight.financial_impact or insight.critical_path_impact) and
+                
+                # Less aggressive routine filtering
+                not self._is_obviously_routine(insight)
+            ):
+                high_quality_insights.append(insight)
+        
+        # Remove duplicates based on similarity
+        deduplicated_insights = self._remove_duplicate_insights(high_quality_insights)
+        
+        # Rank by business impact
         severity_order = {'critical': 4, 'high': 3, 'medium': 2, 'low': 1}
         
         def insight_score(insight):
             severity_score = severity_order.get(insight.severity, 1)
             confidence_score = insight.confidence_score
-            urgency_score = 1.2 if insight.urgency_indicators else 1.0
-            financial_score = 1.3 if insight.financial_impact else 1.0
-            critical_path_score = 1.5 if insight.critical_path_impact else 1.0
+            urgency_score = 1.3 if insight.urgency_indicators else 1.0
+            financial_score = 1.5 if insight.financial_impact else 1.0
+            critical_path_score = 2.0 if insight.critical_path_impact else 1.0
             
             return severity_score * confidence_score * urgency_score * financial_score * critical_path_score
         
-        # Sort by score (highest first) and limit to top insights
-        ranked_insights = sorted(quality_insights, key=insight_score, reverse=True)
+        # Sort by score (highest first)
+        ranked_insights = sorted(deduplicated_insights, key=insight_score, reverse=True)
         
-        # Return top 20 insights to avoid overwhelming users
-        return ranked_insights[:20]
+        # STRICT LIMIT: Maximum 5 insights per document (prefer 2-3)
+        max_insights = 5
+        if len(ranked_insights) > max_insights:
+            logger.info(f"Limiting insights from {len(ranked_insights)} to {max_insights} highest-quality ones")
+        
+        return ranked_insights[:max_insights]
+    
+    def _is_obviously_routine(self, insight: EnhancedBusinessInsight) -> bool:
+        """Filter out only obviously routine insights (less aggressive)."""
+        
+        # Only filter the most obvious routine phrases
+        obvious_routine = [
+            'meeting held', 'meeting scheduled', 'attendees present',
+            'agenda reviewed', 'minutes taken', 'next meeting',
+            'will follow up', 'will check back'
+        ]
+        
+        text_to_check = (insight.title + ' ' + insight.description).lower()
+        
+        # Only reject if it's clearly routine AND has no business value
+        for indicator in obvious_routine:
+            if indicator in text_to_check:
+                # But keep it if it has significant business impact
+                if (insight.financial_impact or insight.critical_path_impact or 
+                   insight.severity == 'critical' or insight.urgency_indicators):
+                    return False  # Keep it despite routine language
+                return True  # Reject routine insight
+        
+        return False  # Not obviously routine
+    
+    def _remove_duplicate_insights(
+        self, 
+        insights: List[EnhancedBusinessInsight]
+    ) -> List[EnhancedBusinessInsight]:
+        """Remove duplicate or highly similar insights."""
+        
+        if len(insights) <= 1:
+            return insights
+        
+        unique_insights = []
+        
+        for insight in insights:
+            is_duplicate = False
+            
+            for existing in unique_insights:
+                # Check for similar titles (>70% similarity)
+                title_similarity = self._calculate_similarity(insight.title, existing.title)
+                
+                # Check for similar descriptions  
+                desc_similarity = self._calculate_similarity(insight.description, existing.description)
+                
+                # Consider duplicate if very similar
+                if title_similarity > 0.7 or desc_similarity > 0.8:
+                    # Keep the higher-confidence one
+                    if insight.confidence_score > existing.confidence_score:
+                        unique_insights.remove(existing)
+                        unique_insights.append(insight)
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
+                unique_insights.append(insight)
+        
+        return unique_insights
+    
+    def _calculate_similarity(self, text1: str, text2: str) -> float:
+        """Calculate similarity between two text strings (0-1)."""
+        if not text1 or not text2:
+            return 0.0
+        
+        # Simple word-based similarity
+        words1 = set(text1.lower().split())
+        words2 = set(text2.lower().split())
+        
+        if not words1 or not words2:
+            return 0.0
+        
+        intersection = words1.intersection(words2)
+        union = words1.union(words2)
+        
+        return len(intersection) / len(union) if union else 0.0
     
     async def save_insights_to_database(
         self, 
@@ -822,10 +924,10 @@ class BusinessInsightsEngine:
             counts[insight.severity] = counts.get(insight.severity, 0) + 1
         return counts
     
-    def _extract_date_from_title(self, title: str) -> Tuple[Optional[str], Optional[str]]:
-        """Extract meeting/document date from title or filename."""
+    def _extract_date_from_title(self, title: str) -> Optional[str]:
+        """Extract document date from title or filename (works for meetings, docs, etc)."""
         if not title:
-            return None, None
+            return None
             
         # Common date patterns
         date_patterns = [
@@ -848,9 +950,9 @@ class BusinessInsightsEngine:
                 # Convert to YYYY-MM-DD format
                 normalized_date = self._normalize_date_string(date_str)
                 if normalized_date:
-                    return normalized_date, normalized_date
+                    return normalized_date
         
-        return None, None
+        return None
     
     def _normalize_date_string(self, date_str: str) -> Optional[str]:
         """Convert various date formats to YYYY-MM-DD."""

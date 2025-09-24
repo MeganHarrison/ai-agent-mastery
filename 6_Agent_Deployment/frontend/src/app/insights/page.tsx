@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
 import { createBrowserClient } from '@/utils/supabase-browser';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import {
@@ -60,6 +61,10 @@ import {
   MessageSquare,
   FileText,
   BrainCircuit,
+  ChevronUp,
+  ChevronDown,
+  Search,
+  X,
 } from 'lucide-react';
 
 interface InsightMetrics {
@@ -103,6 +108,179 @@ const INSIGHT_TYPE_ICONS = {
   stakeholder_feedback: <MessageSquare className="w-4 h-4" />,
 };
 
+// Component for Project-Grouped Insights with Expandable Meeting Sections
+function ProjectInsightsTable({ insights }: { insights: any[] }) {
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+
+  // Group insights by project, then by meeting
+  const projectGroups = insights.reduce((groups: any, insight) => {
+    const projectName = insight.doc_title?.split(' - ')[0] || 'Unassigned';
+    const meetingTitle = insight.doc_title || 'No Meeting';
+
+    if (!groups[projectName]) {
+      groups[projectName] = {
+        meetings: {},
+        totalInsights: 0,
+        criticalCount: 0,
+        highCount: 0,
+        unresolvedCount: 0,
+      };
+    }
+
+    if (!groups[projectName].meetings[meetingTitle]) {
+      groups[projectName].meetings[meetingTitle] = [];
+    }
+
+    groups[projectName].meetings[meetingTitle].push(insight);
+    groups[projectName].totalInsights++;
+
+    if (insight.severity === 'critical') groups[projectName].criticalCount++;
+    if (insight.severity === 'high') groups[projectName].highCount++;
+    if (!insight.resolved) groups[projectName].unresolvedCount++;
+
+    return groups;
+  }, {});
+
+  const toggleProject = (projectName: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(Array.from(prev));
+      if (next.has(projectName)) {
+        next.delete(projectName);
+      } else {
+        next.add(projectName);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-2">
+      {Object.entries(projectGroups).map(([projectName, projectData]: [string, any]) => {
+        const isExpanded = expandedProjects.has(projectName);
+        const hasCritical = projectData.criticalCount > 0;
+        const hasHighRisk = projectData.highCount > 0;
+
+        return (
+          <div key={projectName} className="border rounded-lg">
+            {/* Project Header Row */}
+            <div
+              className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => toggleProject(projectName)}
+            >
+              <div className="flex items-center gap-3">
+                <ChevronRight
+                  className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                />
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{projectName}</span>
+                  {hasCritical && (
+                    <div className="flex items-center gap-1">
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                      <Badge variant="destructive" className="text-xs">
+                        {projectData.criticalCount} Critical
+                      </Badge>
+                    </div>
+                  )}
+                  {hasHighRisk && !hasCritical && (
+                    <div className="flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4 text-orange-500" />
+                      <Badge variant="default" className="text-xs bg-orange-500">
+                        {projectData.highCount} High
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>{projectData.totalInsights} insights</span>
+                <span>{projectData.unresolvedCount} unresolved</span>
+              </div>
+            </div>
+
+            {/* Expanded Content - Meetings and Insights */}
+            {isExpanded && (
+              <div className="border-t bg-muted/20">
+                {Object.entries(projectData.meetings).map(([meetingTitle, meetingInsights]: [string, any]) => (
+                  <div key={meetingTitle} className="border-b last:border-b-0">
+                    <div className="px-6 py-2 bg-muted/30">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <FileText className="h-3 w-3" />
+                        {meetingTitle}
+                        <span className="text-muted-foreground">({meetingInsights.length} insights)</span>
+                      </h4>
+                    </div>
+                    <div className="divide-y">
+                      {meetingInsights.map((insight: any) => (
+                        <div key={insight.id} className="px-6 py-3 hover:bg-muted/10">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="mt-0.5">
+                                  {INSIGHT_TYPE_ICONS[insight.insight_type as keyof typeof INSIGHT_TYPE_ICONS] || <FileText className="w-4 h-4" />}
+                                </div>
+                                <span className="font-medium text-sm">{insight.title}</span>
+                                <Badge
+                                  variant={
+                                    insight.severity === 'critical' ? 'destructive' :
+                                    insight.severity === 'high' ? 'default' :
+                                    'secondary'
+                                  }
+                                  className="text-xs"
+                                >
+                                  {insight.severity || 'medium'}
+                                </Badge>
+                                {insight.resolved && (
+                                  <Badge variant="outline" className="text-xs text-green-600">
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    Resolved
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground ml-6 line-clamp-1">
+                                {insight.description}
+                              </p>
+                              <div className="flex items-center gap-4 mt-2 ml-6 text-xs text-muted-foreground">
+                                {insight.assignee && (
+                                  <span className="flex items-center gap-1">
+                                    <Users className="w-3 h-3" />
+                                    {insight.assignee}
+                                  </span>
+                                )}
+                                {insight.due_date && (
+                                  <span className="flex items-center gap-1">
+                                    <CalendarIcon className="w-3 h-3" />
+                                    {format(new Date(insight.due_date), 'MMM dd, yyyy')}
+                                  </span>
+                                )}
+                                {insight.business_impact && (
+                                  <span className="flex items-center gap-1">
+                                    <TrendingUp className="w-3 h-3" />
+                                    Business Impact
+                                  </span>
+                                )}
+                                {insight.financial_impact && (
+                                  <span className="flex items-center gap-1">
+                                    <DollarSign className="w-3 h-3" />
+                                    ${insight.financial_impact.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ProjectInsightsPage() {
   const [metrics, setMetrics] = useState<InsightMetrics | null>(null);
   const [insights, setInsights] = useState<any[]>([]);
@@ -111,6 +289,10 @@ export default function ProjectInsightsPage() {
   const [selectedProject, setSelectedProject] = useState('all');
   const [selectedTab, setSelectedTab] = useState('overview');
   const [refreshing, setRefreshing] = useState(false);
+  const [sortField, setSortField] = useState<string>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showDataTable, setShowDataTable] = useState(true);
   const supabase = createBrowserClient();
 
   useEffect(() => {
@@ -217,12 +399,12 @@ export default function ProjectInsightsPage() {
 
     const teamPerformance = Object.entries(teamData).map(([name, stats]) => ({
       name,
-      ...stats,
+      ...(stats as any),
     }));
 
     // Timeline data
     const timeline: Array<{ date: string; count: number; type: string }> = [];
-    const dates = [...new Set(data.map(i => format(new Date(i.created_at), 'yyyy-MM-dd')))].sort();
+    const dates = Array.from(new Set(data.map(i => format(new Date(i.created_at), 'yyyy-MM-dd')))).sort();
     dates.forEach(date => {
       const dayInsights = data.filter(i => format(new Date(i.created_at), 'yyyy-MM-dd') === date);
       timeline.push({
@@ -255,16 +437,92 @@ export default function ProjectInsightsPage() {
 
   const exportData = () => {
     const csvContent = insights.map(i =>
-      `"${i.title}","${i.insight_type}","${i.priority}","${i.status}","${i.project_name || ''}","${i.assigned_to || ''}","${i.due_date || ''}"`
+      `"${i.title}","${i.insight_type}","${i.severity || 'medium'}","${i.resolved ? 'Resolved' : 'Open'}","${i.doc_title || ''}","${i.assignee || ''}","${i.due_date || ''}"`
     ).join('\n');
 
-    const blob = new Blob([`"Title","Type","Priority","Status","Project","Assigned To","Due Date"\n${csvContent}`], { type: 'text/csv' });
+    const blob = new Blob([`"Title","Type","Severity","Status","Document","Assignee","Due Date"\n${csvContent}`], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `insights-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
   };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getFilteredAndSortedInsights = () => {
+    let filtered = insights;
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(insight =>
+        insight.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        insight.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        insight.insight_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        insight.assignee?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        insight.doc_title?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) aValue = '';
+      if (bValue === null || bValue === undefined) bValue = '';
+
+      // Compare values
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  };
+
+  const handleViewDetails = (insight: any) => {
+    // You can implement a modal or navigation to detailed view
+    console.log('View details for:', insight);
+    // For now, we'll just log it. You could add a modal component here
+  };
+
+  // Table header component
+  const DataTableHeader = ({
+    field,
+    label,
+    sortField,
+    sortDirection,
+    onSort
+  }: {
+    field: string;
+    label: string;
+    sortField: string;
+    sortDirection: 'asc' | 'desc';
+    onSort: (field: string) => void;
+  }) => (
+    <th
+      className="text-left py-3 px-4 cursor-pointer hover:bg-muted/50 select-none"
+      onClick={() => onSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        <span>{label}</span>
+        {sortField === field && (
+          sortDirection === 'asc' ?
+            <ChevronUp className="h-4 w-4" /> :
+            <ChevronDown className="h-4 w-4" />
+        )}
+      </div>
+    </th>
+  );
 
   if (loading) {
     return (
@@ -278,7 +536,7 @@ export default function ProjectInsightsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -407,7 +665,7 @@ export default function ProjectInsightsPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
@@ -476,54 +734,13 @@ export default function ProjectInsightsPage() {
             </Card>
           </div>
 
-          {/* Recent Critical Insights */}
+          {/* Project-Grouped Insights with Expandable Meeting Sections */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Critical & High Severity Insights</CardTitle>
+              <CardTitle>Project Insights Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {insights
-                  .filter(i => ['critical', 'high'].includes(i.severity || 'medium'))
-                  .slice(0, 5)
-                  .map((insight) => (
-                    <div key={insight.id} className="flex items-start space-x-3 p-3 rounded-lg border">
-                      <div className="mt-1">
-                        {INSIGHT_TYPE_ICONS[insight.insight_type as keyof typeof INSIGHT_TYPE_ICONS] || <FileText className="w-4 h-4" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium">{insight.title}</h4>
-                          <Badge variant={insight.severity === 'critical' ? 'destructive' : 'default'}>
-                            {insight.severity || 'medium'}
-                          </Badge>
-                          <Badge variant="outline">{insight.resolved ? 'Resolved' : 'Open'}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">{insight.description}</p>
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          {insight.doc_title && (
-                            <span className="flex items-center gap-1">
-                              <FileText className="w-3 h-3" />
-                              {insight.doc_title}
-                            </span>
-                          )}
-                          {insight.assignee && (
-                            <span className="flex items-center gap-1">
-                              <Users className="w-3 h-3" />
-                              {insight.assignee}
-                            </span>
-                          )}
-                          {insight.due_date && (
-                            <span className="flex items-center gap-1">
-                              <CalendarIcon className="w-3 h-3" />
-                              {format(new Date(insight.due_date), 'MMM dd')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
+              <ProjectInsightsTable insights={insights} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -705,6 +922,145 @@ export default function ProjectInsightsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Comprehensive Data Table */}
+      <Card className="mt-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle>All Document Insights Data</CardTitle>
+              <Badge variant="secondary">{insights.length} records</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search insights..."
+                  className="pl-10 pr-10 w-64"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDataTable(!showDataTable)}
+              >
+                {showDataTable ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {showDataTable ? 'Collapse' : 'Expand'}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        {showDataTable && (
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <DataTableHeader field="title" label="Title" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                    <DataTableHeader field="insight_type" label="Type" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                    <DataTableHeader field="severity" label="Severity" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                    <DataTableHeader field="resolved" label="Status" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                    <DataTableHeader field="assignee" label="Assignee" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                    <DataTableHeader field="due_date" label="Due Date" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                    <DataTableHeader field="doc_title" label="Document" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                    <DataTableHeader field="confidence_score" label="Confidence" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                    <DataTableHeader field="financial_impact" label="Financial Impact" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                    <DataTableHeader field="created_at" label="Created" sortField={sortField} sortDirection={sortDirection} onSort={handleSort} />
+                    <th className="text-left py-3 px-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getFilteredAndSortedInsights().map((insight) => (
+                    <tr key={insight.id} className="border-b hover:bg-muted/50 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="max-w-xs">
+                          <p className="font-medium truncate">{insight.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{insight.description}</p>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1">
+                          {INSIGHT_TYPE_ICONS[insight.insight_type as keyof typeof INSIGHT_TYPE_ICONS] || <FileText className="w-3 h-3" />}
+                          <span className="text-sm">{insight.insight_type?.replace(/_/g, ' ')}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge
+                          variant={
+                            insight.severity === 'critical' ? 'destructive' :
+                            insight.severity === 'high' ? 'default' :
+                            'secondary'
+                          }
+                        >
+                          {insight.severity || 'medium'}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge variant={insight.resolved ? 'outline' : 'default'}>
+                          {insight.resolved ? 'Resolved' : 'Open'}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm">{insight.assignee || '-'}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm">
+                          {insight.due_date ? format(new Date(insight.due_date), 'MMM dd, yyyy') : '-'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm truncate max-w-xs block" title={insight.doc_title}>
+                          {insight.doc_title || '-'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm">
+                          {insight.confidence_score ? `${(insight.confidence_score * 100).toFixed(0)}%` : '-'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm">
+                          {insight.financial_impact ? `$${insight.financial_impact.toLocaleString()}` : '-'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-muted-foreground">
+                          {format(new Date(insight.created_at), 'MMM dd, HH:mm')}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewDetails(insight)}
+                        >
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {getFilteredAndSortedInsights().length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No insights found matching your criteria
+                </div>
+              )}
+            </div>
+          </CardContent>
+        )}
+      </Card>
     </div>
   );
 }

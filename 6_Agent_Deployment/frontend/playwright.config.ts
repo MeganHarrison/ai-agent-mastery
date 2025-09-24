@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined, // Allow 2 workers in CI for better parallelization
   reporter: process.env.CI ? [['github'], ['html']] : 'html',
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
     actionTimeout: 10000,
     navigationTimeout: 30000,
@@ -37,16 +37,16 @@ export default defineConfig({
     // Unauthenticated tests (for testing login flow)
     {
       name: 'chromium-unauthenticated',
-      use: { 
+      use: {
         ...devices['Desktop Chrome'],
       },
-      testMatch: /.*auth\.spec\.ts/,
+      testMatch: /.*\.(auth|validate-tables-with-mock|validate-crud-no-auth|capture-real-screenshots)\.spec\.ts/,
     },
   ],
 
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3001',
+    url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },
