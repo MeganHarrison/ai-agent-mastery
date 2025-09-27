@@ -26,8 +26,8 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version || '18' }}
-        cache: 'npm'
-        cache-dependency-path: '6_Agent_Deployment/frontend-nextjs/pnpm-lock.yaml'
+        cache: 'pnpm'
+        cache-dependency-path: '6_Agent_Deployment/frontend/pnpm-lock.yaml'
         
     - name: Install pnpm
       uses: pnpm/action-setup@v2
@@ -36,10 +36,10 @@ jobs:
         
     - name: Install dependencies
       run: |
-        cd 6_Agent_Deployment/frontend-nextjs
+        cd 6_Agent_Deployment/frontend
         pnpm install
-        
+
     - name: Run ESLint
       run: |
-        cd 6_Agent_Deployment/frontend-nextjs
+        cd 6_Agent_Deployment/frontend
         pnpm run lint

@@ -33,8 +33,8 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version || '18' }}
-        cache: 'npm'
-        cache-dependency-path: '6_Agent_Deployment/frontend-nextjs/pnpm-lock.yaml'
+        cache: 'pnpm'
+        cache-dependency-path: '6_Agent_Deployment/frontend/pnpm-lock.yaml'
         
     - name: Install pnpm
       uses: pnpm/action-setup@v2
@@ -43,27 +43,27 @@ jobs:
         
     - name: Install dependencies
       run: |
-        cd 6_Agent_Deployment/frontend-nextjs
+        cd 6_Agent_Deployment/frontend
         pnpm install
-        
+
     - name: Install Playwright browsers
       run: |
-        cd 6_Agent_Deployment/frontend-nextjs
+        cd 6_Agent_Deployment/frontend
         npx playwright install --with-deps
-        
+
     - name: Create test environment file
       run: |
-        cd 6_Agent_Deployment/frontend-nextjs
+        cd 6_Agent_Deployment/frontend
         cat > .env.test << EOF
         NEXT_PUBLIC_SUPABASE_URL=${{ env.NEXT_PUBLIC_SUPABASE_URL }}
         NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         NEXT_PUBLIC_AGENT_ENDPOINT=${{ env.NEXT_PUBLIC_AGENT_ENDPOINT }}
         NEXT_PUBLIC_ENABLE_STREAMING=${{ env.NEXT_PUBLIC_ENABLE_STREAMING }}
         EOF
-        
+
     - name: Run Playwright tests
       run: |
-        cd 6_Agent_Deployment/frontend-nextjs
+        cd 6_Agent_Deployment/frontend
         pnpm run test
         
     - name: Upload Playwright report
