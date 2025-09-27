@@ -4,17 +4,12 @@ import { useEffect, useState } from 'react'
 import { StandardizedTable, TableColumn } from "@/components/tables/standardized-table"
 import { getContacts } from "@/app/actions/contacts-actions"
 import { createClient } from "@/lib/supabase/client"
-import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
+import { Database } from "@/types/database.types"
 
-interface ContactWithCompany {
-  id: number
-  name: string | null
-  email: string | null
-  phone: string | null
-  company_id: string | null
-  created_at: string
-  updated_at?: string | null
+// Use the database types directly
+type Contact = Database['public']['Tables']['contacts']['Row']
+
+interface ContactWithCompany extends Contact {
   company?: {
     id: string
     name: string | null
@@ -23,11 +18,36 @@ interface ContactWithCompany {
 
 const columns: TableColumn<ContactWithCompany>[] = [
   {
-    id: "name",
-    label: "Name",
-    accessor: (item) => item.name,
+    id: "first_name",
+    label: "First Name",
+    accessor: (item) => item.first_name,
     defaultVisible: true,
     sortable: true,
+    renderCell: (value) => value || <span className="text-muted-foreground">-</span>
+  },
+  {
+    id: "last_name",
+    label: "Last Name",
+    accessor: (item) => item.last_name,
+    defaultVisible: true,
+    sortable: true,
+    renderCell: (value) => value || <span className="text-muted-foreground">-</span>
+  },
+  {
+    id: "company",
+    label: "Company",
+    accessor: (item) => item.company?.name,
+    defaultVisible: true,
+    sortable: true,
+    renderCell: (value) => value || <span className="text-muted-foreground">-</span>
+  },
+  {
+    id: "role",
+    label: "Role",
+    accessor: (item) => item.role,
+    defaultVisible: true,
+    sortable: true,
+    renderCell: (value) => value || <span className="text-muted-foreground">-</span>
   },
   {
     id: "email",
@@ -54,20 +74,16 @@ const columns: TableColumn<ContactWithCompany>[] = [
     ) : <span className="text-muted-foreground">-</span>
   },
   {
-    id: "company",
-    label: "Company",
-    accessor: (item) => item.company?.name,
+    id: "notes",
+    label: "Notes",
+    accessor: (item) => item.notes,
     defaultVisible: true,
-    sortable: true,
-    renderCell: (value) => value || <span className="text-muted-foreground">-</span>
-  },
-  {
-    id: "created_at",
-    label: "Created",
-    accessor: (item) => item.created_at,
-    defaultVisible: true,
-    sortable: true,
-    renderCell: (value) => value ? format(new Date(value), "PP") : "-"
+    sortable: false,
+    renderCell: (value) => value ? (
+      <span className="max-w-[200px] truncate" title={value}>
+        {value}
+      </span>
+    ) : <span className="text-muted-foreground">-</span>
   }
 ]
 
@@ -89,9 +105,12 @@ export default function ContactsPage() {
   const handleAdd = async (data: Partial<ContactWithCompany>) => {
     const supabase = createClient()
 
+    // Remove the company field as it's not a database column
+    const { company, ...contactData } = data
+
     const { error } = await supabase
       .from("contacts")
-      .insert([data])
+      .insert([contactData])
 
     if (error) {
       throw new Error(error.message)
@@ -103,9 +122,12 @@ export default function ContactsPage() {
   const handleUpdate = async (id: string | number, data: Partial<ContactWithCompany>) => {
     const supabase = createClient()
 
+    // Remove the company field as it's not a database column
+    const { company, ...contactData } = data
+
     const { error } = await supabase
       .from("contacts")
-      .update(data)
+      .update(contactData)
       .eq("id", id)
 
     if (error) {
@@ -151,7 +173,7 @@ export default function ContactsPage() {
         onUpdate={handleUpdate}
         onDelete={handleDelete}
         onRefresh={loadContacts}
-        searchableFields={["name", "email", "phone"]}
+        searchableFields={["first_name", "last_name", "email", "phone", "role", "notes"]}
         emptyMessage="No contacts found. Add your first contact to get started."
       />
     </div>
