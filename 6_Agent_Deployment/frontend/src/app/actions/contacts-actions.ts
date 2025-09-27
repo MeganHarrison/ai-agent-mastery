@@ -3,15 +3,10 @@
 import { createClient } from "@/utils/supabase/server"
 import { Database } from "@/types/database.types"
 
-interface Contact {
-  id: number
-  name: string | null
-  email: string | null
-  phone: string | null
-  company_id: string | null
-  created_at: string
-  updated_at?: string | null
-}
+// Import the database types directly for type safety
+type Contact = Database['public']['Tables']['contacts']['Row']
+type ContactInsert = Database['public']['Tables']['contacts']['Insert']
+type ContactUpdate = Database['public']['Tables']['contacts']['Update']
 
 interface Company {
   id: string
@@ -55,14 +50,14 @@ export async function getContactById(id: string): Promise<Contact | null> {
   return data
 }
 
-// Get contacts that are employees (have job titles)
+// Get contacts that are employees (have roles)
 export async function getEmployees(): Promise<Contact[]> {
   const supabase = await createClient()
 
   const { data, error } = await supabase
     .from("contacts")
     .select("*")
-    .not("job_title", "is", null)
+    .not("role", "is", null)
     .order("created_at", { ascending: false })
 
   if (error) {

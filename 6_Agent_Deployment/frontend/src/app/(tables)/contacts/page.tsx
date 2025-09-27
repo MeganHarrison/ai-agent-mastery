@@ -4,20 +4,12 @@ import { useEffect, useState } from 'react'
 import { StandardizedTable, TableColumn } from "@/components/tables/standardized-table"
 import { getContacts } from "@/app/actions/contacts-actions"
 import { createClient } from "@/lib/supabase/client"
-import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
+import { Database } from "@/types/database.types"
 
-interface ContactWithCompany {
-  id: number
-  first_name: string | null
-  last_name: string | null
-  email: string | null
-  phone: string | null
-  role: string | null
-  notes: string | null
-  company_id: string | null
-  created_at: string
-  updated_at?: string | null
+// Use the database types directly
+type Contact = Database['public']['Tables']['contacts']['Row']
+
+interface ContactWithCompany extends Contact {
   company?: {
     id: string
     name: string | null
@@ -113,9 +105,12 @@ export default function ContactsPage() {
   const handleAdd = async (data: Partial<ContactWithCompany>) => {
     const supabase = createClient()
 
+    // Remove the company field as it's not a database column
+    const { company, ...contactData } = data
+
     const { error } = await supabase
       .from("contacts")
-      .insert([data])
+      .insert([contactData])
 
     if (error) {
       throw new Error(error.message)
@@ -127,9 +122,12 @@ export default function ContactsPage() {
   const handleUpdate = async (id: string | number, data: Partial<ContactWithCompany>) => {
     const supabase = createClient()
 
+    // Remove the company field as it's not a database column
+    const { company, ...contactData } = data
+
     const { error } = await supabase
       .from("contacts")
-      .update(data)
+      .update(contactData)
       .eq("id", id)
 
     if (error) {
