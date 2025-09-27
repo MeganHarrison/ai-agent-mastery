@@ -34,6 +34,7 @@ interface ProjectHealth {
   name: string;
   status: 'active' | 'inactive' | 'completed' | 'on_hold' | 'planning';
   progress: number;
+  team_members?: string[];
 }
 
 interface AIInsight {
@@ -66,10 +67,10 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Fetch projects
+      // Fetch projects with team members
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('id, name, status, progress, budget')
+        .select('id, name, status, progress, budget, team_members')
         .order('created_at', { ascending: false });
 
       if (projectsError) {
@@ -112,10 +113,42 @@ const Dashboard = () => {
         setStats(prev => ({ ...prev, insightsGenerated: insightsCount ?? insightsData.length }));
       }
 
-      // Calculate team utilization (mock for now)
-      setStats(prev => ({ 
-        ...prev, 
-        teamUtilization: (projectsData?.length ?? 0) > 0 ? Math.floor(Math.random() * 30) + 70 : 0 
+      // Calculate real team utilization based on projects and team members
+      let teamUtilization = 0;
+      if (projectsData && projectsData.length > 0) {
+        // Get all active projects
+        const activeProjects = projectsData.filter(p => p.status === 'active');
+
+        // Calculate unique team members across all active projects
+        const allTeamMembers = new Set<string>();
+        activeProjects.forEach(project => {
+          if (project.team_members && Array.isArray(project.team_members)) {
+            project.team_members.forEach(member => allTeamMembers.add(member));
+          }
+        });
+
+        const uniqueTeamMemberCount = allTeamMembers.size;
+
+        if (uniqueTeamMemberCount > 0) {
+          // Calculate average projects per team member
+          const avgProjectsPerMember = activeProjects.length / uniqueTeamMemberCount;
+
+          // Assuming 2 projects per person = 100% utilization (adjust baseline as needed)
+          // This gives us a reasonable scale where:
+          // 1 project per person = 50% utilization
+          // 2 projects per person = 100% utilization
+          // More than 2 = over 100% (capped at 120%)
+          const baselineProjectsPerPerson = 2.0;
+          teamUtilization = Math.min(120, Math.round((avgProjectsPerMember / baselineProjectsPerPerson) * 100));
+        } else if (activeProjects.length > 0) {
+          // If we have active projects but no team members listed, assume moderate utilization
+          teamUtilization = 75;
+        }
+      }
+
+      setStats(prev => ({
+        ...prev,
+        teamUtilization
       }));
 
     } catch (error) {
@@ -225,10 +258,10 @@ const Dashboard = () => {
                 <div>
                   <p className="text-sm text-muted-foreground">Team Utilization</p>
                   <p className="text-3xl font-bold">
-                    {stats.teamUtilization > 0 ? `${stats.teamUtilization}%` : 'NaN%'}
+                    {`${stats.teamUtilization}%`}
                   </p>
-                  <p className="text-xs text-yellow-500 mt-1">→ Current capacity</p>
-                  <p className="text-xs text-muted-foreground">Based on project load</p>
+                  <p className="text-xs text-yellow-500 mt-1">→ Active project workload</p>
+                  <p className="text-xs text-muted-foreground">Projects per team member ratio</p>
                 </div>
                 <div className="p-3 bg-yellow-500/10 rounded-lg">
                   <Users className="h-8 w-8 text-yellow-500" />
