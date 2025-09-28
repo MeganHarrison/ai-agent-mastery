@@ -159,7 +159,7 @@ export default function ProjectsDashboard() {
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-white">
       {/* Left Sidebar - Projects List */}
-      <div className="w-[40%] bg-gray-50 border-r border-gray-200 flex flex-col">
+      <div className="w-[40%] border-r border-gray-200 flex flex-col">
         <div className="px-10 py-8 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-4xl font-light text-gray-900">Projects</h2>
@@ -203,7 +203,7 @@ export default function ProjectsDashboard() {
                         className={cn(
                           "py-4 cursor-pointer transition-all",
                           isSelected
-                            ? "bg-blue-50 text-gray-900 px-10 border-l-4 border-blue-500"
+                            ? "bg-brand-50 text-gray-900 px-10 border-l-4 border-brand"
                             : "hover:bg-gray-100 text-gray-700 px-10 border-l-4 border-transparent"
                         )}
                       >

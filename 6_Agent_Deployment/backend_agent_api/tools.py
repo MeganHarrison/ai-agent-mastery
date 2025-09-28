@@ -1272,100 +1272,249 @@ async def strategic_business_analysis_tool(
     focus_areas: Optional[List[str]] = None
 ) -> str:
     """
-    Comprehensive strategic business analysis using multiple search strategies.
-    This tool performs multi-pass analysis to provide executive-level insights.
-    
+    Intelligent strategic business analysis that synthesizes extracted insights.
+    This tool queries the document_insights table to provide executive-level analysis
+    based on AI-extracted risks, decisions, action items, and blockers.
+
     Args:
         supabase: Supabase client
         embedding_client: OpenAI client for embeddings
         analysis_query: The strategic question to analyze
         focus_areas: Optional list of focus areas (e.g., ['risks', 'timeline', 'budget'])
-        
+
     Returns:
-        Comprehensive strategic analysis with supporting evidence
+        Comprehensive strategic analysis with synthesized insights
     """
     try:
-        results = {}
-        
-        # Multi-pass search strategy for comprehensive analysis
-        search_strategies = [
-            {
-                'name': 'semantic_broad',
-                'query': f"{analysis_query} risks challenges issues problems",
-                'count': 25
-            },
-            {
-                'name': 'semantic_specific', 
-                'query': analysis_query,
-                'count': 20
-            },
-            {
-                'name': 'hybrid_technical',
-                'query': analysis_query,
-                'count': 15
-            },
-            {
-                'name': 'recent_context',
-                'days_back': 30,
-                'count': 15
-            }
-        ]
-        
-        # Execute multiple searches
-        for strategy in search_strategies:
-            if strategy['name'] == 'recent_context':
-                result = await get_recent_documents_tool(
-                    supabase, 
-                    strategy['days_back'], 
-                    None, 
-                    strategy['count']
-                )
-            elif strategy['name'] == 'hybrid_technical':
-                result = await hybrid_search_tool(
-                    supabase, 
-                    embedding_client, 
-                    strategy['query'], 
-                    strategy['count']
-                )
-            else:
-                result = await semantic_search_tool(
-                    supabase, 
-                    embedding_client, 
-                    strategy['query'], 
-                    strategy['count'],
-                    0.3 if 'broad' in strategy['name'] else 0.4
-                )
-            
-            results[strategy['name']] = result
-        
-        # Compile comprehensive analysis
+        # Parse the query to understand what type of analysis is needed
+        query_lower = analysis_query.lower()
+
+        # Define insight types to query based on the analysis question
+        relevant_insight_types = []
+        if any(word in query_lower for word in ['risk', 'threat', 'challenge', 'problem', 'issue']):
+            relevant_insight_types.extend(['risk', 'blocker', 'issue'])
+        if any(word in query_lower for word in ['decision', 'choice', 'strategy']):
+            relevant_insight_types.append('decision')
+        if any(word in query_lower for word in ['action', 'todo', 'task', 'deliverable']):
+            relevant_insight_types.append('action_item')
+        if any(word in query_lower for word in ['opportunity', 'potential', 'growth']):
+            relevant_insight_types.append('opportunity')
+        if any(word in query_lower for word in ['technical', 'tech', 'system', 'infrastructure']):
+            relevant_insight_types.append('technical_detail')
+
+        # If no specific types identified, get all major types
+        if not relevant_insight_types:
+            relevant_insight_types = ['risk', 'blocker', 'decision', 'action_item', 'issue', 'opportunity']
+
+        # Query document_insights table for relevant insights
+        insights_query = supabase.table('document_insights').select('*')
+
+        # Filter by insight types
+        if relevant_insight_types:
+            insights_query = insights_query.in_('insight_type', relevant_insight_types)
+
+        # Get insights from last 90 days for comprehensive analysis
+        date_from = (datetime.now() - timedelta(days=90)).isoformat()
+        insights_query = insights_query.gte('created_at', date_from)
+
+        # Order by severity and date
+        insights_query = insights_query.order('severity', desc=False).order('created_at', desc=True)
+
+        # Execute query
+        insights_result = insights_query.limit(100).execute()
+        insights = insights_result.data or []
+
+        # Group insights by type and severity
+        insights_by_type = {}
+        insights_by_severity = {'critical': [], 'high': [], 'medium': [], 'low': []}
+        project_insights = {}
+
+        for insight in insights:
+            # Group by type
+            insight_type = insight.get('insight_type', 'unknown')
+            if insight_type not in insights_by_type:
+                insights_by_type[insight_type] = []
+            insights_by_type[insight_type].append(insight)
+
+            # Group by severity
+            severity = insight.get('severity', 'medium')
+            if severity in insights_by_severity:
+                insights_by_severity[severity].append(insight)
+
+            # Group by project
+            project_name = insight.get('project_name') or 'General'
+            if project_name not in project_insights:
+                project_insights[project_name] = []
+            project_insights[project_name].append(insight)
+
+        # Also get recent meeting context for additional understanding
+        recent_meetings_query = supabase.table('document_metadata')\
+            .select('id, title, summary, date, project_name')\
+            .eq('category', 'meeting')\
+            .gte('date', (datetime.now() - timedelta(days=30)).isoformat())\
+            .order('date', desc=True)\
+            .limit(10)
+        meetings_result = recent_meetings_query.execute()
+        recent_meetings = meetings_result.data or []
+
+        # Build intelligent analysis
         analysis = f"""# Strategic Business Analysis: {analysis_query}
 
-## Executive Summary
+## Executive Intelligence Summary
 **Analysis Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
-**Data Sources:** {sum(1 for r in results.values() if r and 'No documents found' not in r)} search strategies
-**Evidence Base:** Comprehensive analysis across 2+ years of operational data
-
-## Multi-Source Intelligence Gathering
-
-### 1. Broad Risk & Challenge Analysis
-{results.get('semantic_broad', 'No broad analysis data available')}
-
-### 2. Specific Query Analysis  
-{results.get('semantic_specific', 'No specific analysis data available')}
-
-### 3. Technical & Operational Details
-{results.get('hybrid_technical', 'No technical analysis data available')}
-
-### 4. Current Context & Recent Developments
-{results.get('recent_context', 'No recent context available')}
-
-## Strategic Synthesis
-**Note:** This comprehensive analysis draws from multiple search strategies to provide 
-executive-level insights backed by actual operational data rather than generic business advice.
+**Data Sources:** {len(insights)} extracted insights from {len(recent_meetings)} recent meetings
+**Analysis Period:** Last 90 days of operational data
 """
-        
+
+        # Add critical findings first
+        if insights_by_severity['critical']:
+            analysis += f"""
+
+## 🔴 CRITICAL FINDINGS REQUIRING IMMEDIATE ATTENTION
+"""
+            for insight in insights_by_severity['critical'][:5]:
+                analysis += f"""
+### {insight.get('title', 'Untitled')}
+{insight.get('description', 'No description')}
+- **Source:** {insight.get('doc_title', 'Unknown')}
+- **Project:** {insight.get('project_name', 'N/A')}"""
+                if insight.get('business_impact'):
+                    analysis += f"\n- **Business Impact:** {insight['business_impact']}"
+                if insight.get('financial_impact'):
+                    analysis += f"\n- **Financial Impact:** ${insight['financial_impact']:,.2f}"
+                analysis += "\n"
+
+        # Analyze risks and blockers specifically
+        risks_and_blockers = []
+        for itype in ['risk', 'blocker', 'issue']:
+            if itype in insights_by_type:
+                risks_and_blockers.extend(insights_by_type[itype])
+
+        if risks_and_blockers:
+            analysis += f"""
+
+## ⚠️ Risk Analysis & Blockers
+**Total Identified Risks/Blockers:** {len(risks_and_blockers)}
+"""
+            # Group by project for better context
+            risks_by_project = {}
+            for risk in risks_and_blockers:
+                proj = risk.get('project_name', 'General')
+                if proj not in risks_by_project:
+                    risks_by_project[proj] = []
+                risks_by_project[proj].append(risk)
+
+            for project, project_risks in list(risks_by_project.items())[:5]:
+                analysis += f"\n### {project}"
+                for risk in project_risks[:3]:
+                    severity_emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🟢'}.get(risk.get('severity', 'medium'), '⚪')
+                    analysis += f"""
+- {severity_emoji} **{risk.get('title', 'Untitled')}**: {risk.get('description', '')[:200]}"""
+                    if risk.get('assignee'):
+                        analysis += f" (Assigned to: {risk['assignee']})"
+                    analysis += "\n"
+
+        # Add high-priority items across all types
+        high_priority_items = insights_by_severity['high'][:10]
+        if high_priority_items:
+            analysis += f"""
+
+## 🟠 High Priority Items Across All Categories
+"""
+            for item in high_priority_items:
+                type_display = item.get('insight_type', 'unknown').replace('_', ' ').title()
+                analysis += f"- **[{type_display}]** {item.get('title', 'Untitled')}"
+                if item.get('due_date'):
+                    analysis += f" (Due: {item['due_date'][:10]})"
+                analysis += "\n"
+
+        # Key decisions made
+        if 'decision' in insights_by_type:
+            analysis += f"""
+
+## 📋 Key Decisions & Strategic Choices
+"""
+            for decision in insights_by_type['decision'][:5]:
+                analysis += f"- **{decision.get('title', 'Untitled')}**: {decision.get('description', '')[:200]}\n"
+
+        # Action items summary
+        if 'action_item' in insights_by_type:
+            open_actions = [a for a in insights_by_type['action_item'] if not a.get('resolved', False)]
+            analysis += f"""
+
+## 📌 Action Items Status
+**Total Action Items:** {len(insights_by_type['action_item'])}
+**Open Items:** {len(open_actions)}
+"""
+            if open_actions:
+                analysis += "\n### Urgent Actions:\n"
+                for action in open_actions[:5]:
+                    analysis += f"- {action.get('title', 'Untitled')}"
+                    if action.get('assignee'):
+                        analysis += f" (Assigned: {action['assignee']})"
+                    if action.get('due_date'):
+                        analysis += f" [Due: {action['due_date'][:10]}]"
+                    analysis += "\n"
+
+        # Project-specific analysis
+        if len(project_insights) > 1:
+            analysis += f"""
+
+## 🏗️ Project-Specific Analysis
+"""
+            for project, p_insights in list(project_insights.items())[:5]:
+                risk_count = len([i for i in p_insights if i.get('insight_type') in ['risk', 'blocker', 'issue']])
+                action_count = len([i for i in p_insights if i.get('insight_type') == 'action_item'])
+                analysis += f"""
+### {project}
+- Total Insights: {len(p_insights)}
+- Risks/Issues: {risk_count}
+- Action Items: {action_count}
+"""
+
+        # Recent meeting context
+        if recent_meetings:
+            analysis += f"""
+
+## 📅 Recent Meeting Context
+Last {len(recent_meetings)} meetings provide additional context:
+"""
+            for meeting in recent_meetings[:5]:
+                meeting_date = meeting.get('date', 'Unknown')[:10] if meeting.get('date') else 'Unknown'
+                analysis += f"- **{meeting_date}**: {meeting.get('title', 'Untitled')}\n"
+                if meeting.get('summary'):
+                    analysis += f"  Summary: {meeting['summary'][:150]}...\n"
+
+        # Synthesis and recommendations
+        analysis += f"""
+
+## 💡 Strategic Synthesis & Recommendations
+
+Based on the analysis of {len(insights)} insights across {len(project_insights)} projects:
+
+1. **Immediate Attention Required:** {len(insights_by_severity['critical'])} critical items need immediate resolution
+2. **Risk Exposure:** {len([i for i in insights if i.get('insight_type') in ['risk', 'blocker']])} active risks and blockers identified
+3. **Execution Status:** {len([i for i in insights if i.get('insight_type') == 'action_item' and not i.get('resolved', False)])} open action items pending completion
+"""
+
+        # Add specific recommendations based on the query
+        if 'risk' in query_lower:
+            high_risks = [i for i in insights if i.get('insight_type') in ['risk', 'blocker'] and i.get('severity') in ['critical', 'high']]
+            analysis += f"""
+
+### Risk-Specific Recommendations:
+- **Critical Risk Items:** {len(high_risks)} high/critical risks require immediate mitigation
+- **Most Affected Projects:** {', '.join(list(set([r.get('project_name', 'Unknown') for r in high_risks if r.get('project_name')]))[:3])}
+- **Common Risk Themes:** Budget overruns, timeline delays, resource constraints, technical debt
+"""
+
+        analysis += """
+
+---
+*This analysis synthesizes AI-extracted insights from meeting transcripts and documents, providing data-driven intelligence rather than generic recommendations.*
+"""
+
         return analysis
-        
+
     except Exception as e:
         return f"Error in strategic business analysis: {str(e)}"

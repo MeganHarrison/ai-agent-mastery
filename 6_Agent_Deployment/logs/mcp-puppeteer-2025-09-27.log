@@ -97,3 +97,5 @@
 {"level":"info","message":"Navigation successful","service":"mcp-puppeteer","status":200,"timestamp":"2025-09-27 14:37:35.759","url":"http://localhost:3000/projects/dashboard"}
 {"arguments":{"height":900,"name":"projects-dashboard-filtered","width":1400},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 14:37:53.567","tool":"puppeteer_screenshot"}
 {"arguments":{"height":900,"name":"projects-dashboard-scrollable","width":1400},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 14:40:38.148","tool":"puppeteer_screenshot"}
+{"level":"info","message":"Starting MCP server","service":"mcp-puppeteer","timestamp":"2025-09-27 23:27:06.733"}
+{"level":"info","message":"MCP server started successfully","service":"mcp-puppeteer","timestamp":"2025-09-27 23:27:06.734"}

@@ -1,211 +1,235 @@
-// pages/api/projects/[projectId]/briefing.ts
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { createRouteClient } from '@/utils/supabase-server';
+import OpenAI from 'openai';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
 
-const SYNTHESIS_PROMPT = `
-You are an elite business strategist and project manager. I will provide you with individual insights extracted from meeting transcripts for a specific project. Your job is to synthesize these into an executive briefing format.
-
-Analyze the insights and create a structured briefing with these sections:
-
-1. EXECUTIVE SUMMARY
-- Status (on-track/at-risk/critical)
-- Headline (one sentence capturing the current situation)
-- Key point (2-3 sentences explaining what leadership needs to know)
-
-2. CURRENT STATE
-- Momentum (strong/mixed/weak)
-- Description (what's happening right now)
-- Key developments (4-6 bullet points from the insights)
-
-3. RISK ASSESSMENT
-- Level (low/medium/high/critical)
-- Primary concern (the biggest risk)
-- Details (explanation of the risk)
-- Potential impact (business consequences)
-
-4. ACTIVE RESPONSE
-- Approach (our strategy)
-- Actions (what we're doing - from insights marked as actions)
-- Next milestone (upcoming key date/deliverable)
-
-5. LEADERSHIP ITEMS
-- Items requiring decisions or awareness
-- Urgency level for each
-
-Focus on business impact, not technical details. Be concise but comprehensive. 
-If there are conflicting insights, note the tension and recommend resolution.
-
-Return ONLY a JSON object with this structure:
-{
-  "executiveSummary": {
-    "status": "at-risk",
-    "headline": "...",
-    "keyPoint": "..."
-  },
-  "currentState": {
-    "momentum": "mixed",
-    "description": "...",
-    "keyDevelopments": ["...", "..."]
-  },
-  "riskAssessment": {
-    "level": "high",
-    "primaryConcern": "...",
-    "details": "...",
-    "potentialImpact": "..."
-  },
-  "activeResponse": {
-    "approach": "...",
-    "actions": ["...", "..."],
-    "nextMilestone": "..."
-  },
-  "leadershipItems": [
-    {
-      "type": "decision-needed",
-      "item": "...",
-      "urgency": "This week"
-    }
-  ]
-}
-`;
-
-interface ProjectInsight {
+interface Insight {
   id: string;
-  insight_type: string;
   title: string;
   description: string;
-  priority: string;
-  confidence_score: number;
-  source_document_id: string;
-  metadata: any;
+  insight_type: string;
+  severity: string;
+  assignee?: string;
+  due_date?: string;
+  resolved: boolean;
+  doc_title?: string;
   created_at: string;
-  meeting_title?: string;
+  confidence_score?: number;
+  business_impact?: string;
+  financial_impact?: number;
+  dependencies?: string[];
+  next_steps?: string[];
+  project_name?: string;
   meeting_date?: string;
   participants?: string[];
+  source_content?: string;
+}
+
+interface ExecutiveBriefing {
+  executiveSummary: {
+    status: 'on-track' | 'at-risk' | 'critical' | 'delayed';
+    headline: string;
+    lastUpdated: string;
+  };
+  currentState: {
+    keyDevelopments: Array<{
+      title: string;
+      impact: 'positive' | 'negative' | 'neutral';
+      insightIds: string[];
+    }>;
+  };
+  riskAssessment: {
+    risks: Array<{
+      risk: string;
+      impact: string;
+      likelihood: 'high' | 'medium' | 'low';
+      insightIds: string[];
+    }>;
+  };
+  activeResponse: {
+    actions: Array<{
+      action: string;
+      owner: string;
+      dueDate?: string;
+      insightIds: string[];
+    }>;
+  };
+  leadershipItems: {
+    decisions: Array<{
+      item: string;
+      context: string;
+      insightIds: string[];
+    }>;
+  };
 }
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { projectId: string } }
 ) {
-  const { projectId } = params;
-
   try {
-    // 1. Get all insights for this project
-    const { data: insights, error: insightsError } = await supabase
-      .from('insights')
-      .select(`
-        *,
-        meetings!inner(
-          title,
-          date,
-          participants
-        )
-      `)
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false })
-      .limit(50); // Get recent insights
+    const supabase = createRouteClient();
 
-    if (insightsError) {
-      throw insightsError;
+    // Fetch all insights for the project
+    const { data: insights, error } = await supabase
+      .from('document_insights')
+      .select('*')
+      .eq('project_name', decodeURIComponent(params.projectId))
+      .order('created_at', { ascending: false })
+      .limit(100); // Limit to most recent 100 insights
+
+    if (error) {
+      console.error('Database error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch insights' },
+        { status: 500 }
+      );
     }
 
     if (!insights || insights.length === 0) {
-      return NextResponse.json({ error: 'No insights found for this project' }, { status: 404 });
+      return NextResponse.json(
+        {
+          executiveSummary: {
+            status: 'on-track',
+            headline: 'No insights available for this project',
+            lastUpdated: new Date().toISOString()
+          },
+          currentState: { keyDevelopments: [] },
+          riskAssessment: { risks: [] },
+          activeResponse: { actions: [] },
+          leadershipItems: { decisions: [] },
+          insights: []
+        },
+        { status: 200 }
+      );
     }
 
-    // 2. Format insights for AI analysis
-    const formattedInsights = insights.map((insight: any) => ({
-      type: insight.insight_type,
-      title: insight.title,
-      description: insight.description,
-      priority: insight.priority,
-      confidence: insight.confidence_score,
-      date: insight.created_at,
-      meeting: insight.meetings?.title || 'Unknown Meeting',
-      meetingDate: insight.meetings?.date,
-      participants: insight.meetings?.participants || []
+    // Prepare insights for AI synthesis
+    const insightsSummary = insights.map((i: Insight) => ({
+      id: i.id,
+      title: i.title,
+      description: i.description,
+      type: i.insight_type,
+      severity: i.severity,
+      resolved: i.resolved,
+      assignee: i.assignee,
+      dueDate: i.due_date,
+      meeting: i.doc_title,
+      businessImpact: i.business_impact,
+      financialImpact: i.financial_impact,
+      createdAt: i.created_at
     }));
 
-    // 3. Create the prompt for AI synthesis
-    const analysisPrompt = `
-${SYNTHESIS_PROMPT}
+    // Use OpenAI to synthesize the executive briefing
+    const systemPrompt = `You are a senior project manager synthesizing project insights into an executive briefing.
+    Transform the individual insights into a cohesive narrative that tells leadership:
+    1. Executive Summary: One-sentence headline status and key message
+    2. Current State: 2-3 key developments that show project momentum (positive or negative)
+    3. Risk Assessment: Top 2-3 risks with business impact
+    4. Active Response: What we're doing to address risks/issues (2-3 actions)
+    5. Leadership Items: 1-2 decisions or awareness items for leadership
 
-PROJECT INSIGHTS TO ANALYZE:
-${JSON.stringify(formattedInsights, null, 2)}
+    For each point, reference the specific insight IDs that support it.
+    Focus on business impact, not technical details.
+    Be direct and actionable.`;
 
-Synthesize these insights into the executive briefing format described above.
-`;
-
-    // 4. Call OpenAI to synthesize insights
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert business strategist who synthesizes project data into executive briefings.'
-          },
-          {
-            role: 'user',
-            content: analysisPrompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000
-      })
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt
+        },
+        {
+          role: "user",
+          content: `Project: ${params.projectId}\n\nInsights:\n${JSON.stringify(insightsSummary, null, 2)}\n\nCreate an executive briefing in JSON format.`
+        }
+      ],
+      temperature: 0.3,
+      response_format: { type: "json_object" }
     });
 
-    if (!openaiResponse.ok) {
-      throw new Error(`OpenAI API error: ${openaiResponse.statusText}`);
-    }
-
-    const aiResult = await openaiResponse.json();
-    let synthesizedBriefing;
-
+    let briefing: ExecutiveBriefing;
     try {
-      synthesizedBriefing = JSON.parse(aiResult.choices[0].message.content);
+      briefing = JSON.parse(completion.choices[0].message.content || '{}');
     } catch (parseError) {
-      console.error('Failed to parse AI response:', aiResult.choices[0].message.content);
-      throw new Error('Failed to parse AI synthesis response');
+      // Fallback to manual synthesis if AI fails
+      briefing = synthesizeManually(insights);
     }
 
-    // 5. Enhance with drill-down data
-    const enhancedBriefing = {
-      ...synthesizedBriefing,
-      lastUpdated: new Date().toISOString(),
-      insightCount: insights.length,
-      rawInsights: insights.map(insight => ({
-        id: insight.id,
-        type: insight.insight_type,
-        title: insight.title,
-        description: insight.description,
-        priority: insight.priority,
-        confidence: insight.confidence_score,
-        meetingId: insight.source_document_id,
-        meetingTitle: insight.meetings?.title,
-        meetingDate: insight.meetings?.date,
-        participants: insight.meetings?.participants,
-        timestamp: insight.created_at
-      }))
-    };
-
-    return NextResponse.json(enhancedBriefing);
+    // Return the briefing with original insights attached
+    return NextResponse.json({
+      ...briefing,
+      projectName: params.projectId,
+      insightsCount: insights.length,
+      insights: insights // Include raw insights for drill-down
+    });
 
   } catch (error) {
-    console.error('Error generating project briefing:', error);
-    return NextResponse.json({ 
-      error: 'Failed to generate project briefing',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    console.error('API Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate briefing' },
+      { status: 500 }
+    );
   }
+}
+
+// Fallback manual synthesis if AI fails
+function synthesizeManually(insights: Insight[]): ExecutiveBriefing {
+  const criticalInsights = insights.filter(i => i.severity === 'critical');
+  const unresolvedInsights = insights.filter(i => !i.resolved);
+  const recentInsights = insights.slice(0, 5);
+
+  // Determine overall status
+  let status: 'on-track' | 'at-risk' | 'critical' | 'delayed' = 'on-track';
+  if (criticalInsights.length > 2) status = 'critical';
+  else if (criticalInsights.length > 0) status = 'at-risk';
+  else if (unresolvedInsights.length > insights.length * 0.5) status = 'delayed';
+
+  return {
+    executiveSummary: {
+      status,
+      headline: `Project has ${criticalInsights.length} critical issues and ${unresolvedInsights.length} open items`,
+      lastUpdated: new Date().toISOString()
+    },
+    currentState: {
+      keyDevelopments: recentInsights.slice(0, 3).map(i => ({
+        title: i.title,
+        impact: i.severity === 'critical' ? 'negative' : 'neutral' as const,
+        insightIds: [i.id]
+      }))
+    },
+    riskAssessment: {
+      risks: criticalInsights.slice(0, 3).map(i => ({
+        risk: i.title,
+        impact: i.business_impact || 'Potential project delay',
+        likelihood: 'high' as const,
+        insightIds: [i.id]
+      }))
+    },
+    activeResponse: {
+      actions: unresolvedInsights
+        .filter(i => i.assignee)
+        .slice(0, 3)
+        .map(i => ({
+          action: i.title,
+          owner: i.assignee!,
+          dueDate: i.due_date,
+          insightIds: [i.id]
+        }))
+    },
+    leadershipItems: {
+      decisions: criticalInsights
+        .filter(i => i.insight_type === 'decision' || i.business_impact)
+        .slice(0, 2)
+        .map(i => ({
+          item: i.title,
+          context: i.business_impact || i.description,
+          insightIds: [i.id]
+        }))
+    }
+  };
 }

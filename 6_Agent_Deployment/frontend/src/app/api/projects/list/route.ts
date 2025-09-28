@@ -1,24 +1,45 @@
-// pages/api/projects/list.ts
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createRouteClient } from '@/utils/supabase-server';
 
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createRouteClient();
+
+    // Get distinct project names from document_insights
     const { data: projects, error } = await supabase
-      .from('projects')
-      .select('id, name, status, last_updated')
-      .order('last_updated', { ascending: false });
+      .from('document_insights')
+      .select('project_name')
+      .not('project_name', 'is', null)
+      .order('project_name');
 
-    if (error) throw error;
+    if (error) {
+      console.error('Database error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch projects' },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json(projects);
+    // Get unique project names and count insights for each
+    const projectMap = new Map();
+    projects?.forEach(p => {
+      if (p.project_name) {
+        projectMap.set(p.project_name, (projectMap.get(p.project_name) || 0) + 1);
+      }
+    });
+
+    const projectList = Array.from(projectMap.entries()).map(([name, count]) => ({
+      name,
+      insightCount: count
+    }));
+
+    return NextResponse.json({ projects: projectList });
+
   } catch (error) {
-    console.error('Error fetching projects:', error);
-    return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 });
+    console.error('API Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch projects' },
+      { status: 500 }
+    );
   }
 }
