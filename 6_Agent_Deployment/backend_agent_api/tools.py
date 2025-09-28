@@ -1065,11 +1065,21 @@ async def get_project_insights_tool(
                 'cancelled': '❌'
             }.get(insight.get('status', 'open'), '📋')
             
+            # Get meeting details with proper linking
+            doc_id = insight.get('doc_id', '')
+            doc_title = insight.get('doc_title', 'Unknown')
+            meeting_date = insight.get('meeting_date', '')
+            if not meeting_date and insight.get('created_at'):
+                meeting_date = insight.get('created_at')[:10]
+
+            meeting_link = f"/meetings/{doc_id}" if doc_id else "#"
+            meeting_ref = f"[{doc_title} on {meeting_date}]({meeting_link})"
+
             insights_text += f"""### {priority_emoji} {insight.get('title', 'Untitled')}
 
 **Status:** {status_emoji} {insight.get('status', 'open').replace('_', ' ').title()}
 **Type:** {insight.get('insight_type', 'N/A').replace('_', ' ').title()}
-**Source:** {insight.get('doc_title', 'Unknown')}
+**Source:** {meeting_ref}
 
 {insight.get('description', 'No description available')}
 
@@ -1373,10 +1383,20 @@ async def strategic_business_analysis_tool(
 ## 🔴 CRITICAL FINDINGS REQUIRING IMMEDIATE ATTENTION
 """
             for insight in insights_by_severity['critical'][:5]:
+                # Get meeting details with proper linking
+                doc_id = insight.get('doc_id', '')
+                doc_title = insight.get('doc_title', 'Unknown')
+                meeting_date = insight.get('meeting_date', '')
+                if not meeting_date and insight.get('created_at'):
+                    meeting_date = insight.get('created_at')[:10]
+
+                meeting_link = f"/meetings/{doc_id}" if doc_id else "#"
+                meeting_ref = f"[{doc_title} on {meeting_date}]({meeting_link})"
+
                 analysis += f"""
 ### {insight.get('title', 'Untitled')}
 {insight.get('description', 'No description')}
-- **Source:** {insight.get('doc_title', 'Unknown')}
+- **Source:** {meeting_ref}
 - **Project:** {insight.get('project_name', 'N/A')}"""
                 if insight.get('business_impact'):
                     analysis += f"\n- **Business Impact:** {insight['business_impact']}"

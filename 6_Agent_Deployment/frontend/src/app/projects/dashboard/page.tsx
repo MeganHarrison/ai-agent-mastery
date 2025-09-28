@@ -302,7 +302,7 @@ export default function ProjectInsightsDashboard() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6">
             {/* Current State */}
             <Card>
               <CardHeader>
