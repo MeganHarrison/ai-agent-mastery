@@ -132,28 +132,24 @@ export default function ContactsPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Loading contacts...</div>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading contacts...</div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto py-6">
-      <StandardizedTable
-        data={contacts}
-        columns={columns}
-        tableName="Contact"
-        primaryKey="id"
-        onAdd={handleAdd}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-        onRefresh={loadContacts}
-        searchableFields={["name", "email", "phone"]}
-        emptyMessage="No contacts found. Add your first contact to get started."
-      />
-    </div>
+    <StandardizedTable
+      data={contacts}
+      columns={columns}
+      tableName="Contact"
+      primaryKey="id"
+      onAdd={handleAdd}
+      onUpdate={handleUpdate}
+      onDelete={handleDelete}
+      onRefresh={loadContacts}
+      searchableFields={["name", "email", "phone"]}
+      emptyMessage="No contacts found. Add your first contact to get started."
+    />
   )
 }

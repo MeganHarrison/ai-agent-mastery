@@ -1,629 +1,556 @@
 "use client"
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  MessageSquare, 
-  Plus, 
-  LayoutGrid, 
-  List, 
-  Table as TableIcon,
-  MoreVertical,
-  Edit,
-  Trash2,
-  Eye,
-  Loader2
-} from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabase"
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { Project, ProjectStatus, ProjectPriority } from '@/types/project.types';
-import { 
-  useProjects, 
-  useCreateProject, 
-  useUpdateProject, 
-  useDeleteProject 
-} from '@/hooks/useProjects';
+} from "@/components/ui/table"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2, Search, RefreshCw, Users, AlertCircle, Check, X, CheckCircle2, AlertTriangle, XCircle, MinusCircle } from "lucide-react"
+import { format } from "date-fns"
+import { Database } from "@/types/database.types"
+import { useToast } from "@/hooks/use-toast"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+type Project = Database["public"]["Tables"]["projects"]["Row"]
 
 export default function ProjectsPage() {
-  const [viewMode, setViewMode] = useState<'card' | 'list' | 'table'>('card');
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    status: 'active' as ProjectStatus,
-    priority: 'medium' as ProjectPriority,
-    progress: 0,
-    team_members: [] as string[],
-    technologies: [] as string[],
-    start_date: '',
-    end_date: '',
-    budget: 0
-  });
-  
-  const { toast } = useToast();
-  const { projects, loading, error, refetch } = useProjects();
-  const { createProject, loading: createLoading } = useCreateProject();
-  const { updateProject, loading: updateLoading } = useUpdateProject();
-  const { deleteProject, loading: deleteLoading } = useDeleteProject();
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [editingCell, setEditingCell] = useState<{ id: number; field: string } | null>(null)
+  const [editValue, setEditValue] = useState<string>("")
+  const [activeTab, setActiveTab] = useState("current")
+  const { toast } = useToast()
 
-  const handleCreate = async () => {
-    if (!formData.name.trim()) {
+  const fetchProjects = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+
+      setProjects(data || [])
+    } catch (err: any) {
+      console.error("Error fetching projects:", err)
+      setError(err.message || "Failed to fetch projects")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchProjects()
+  }, [])
+
+  const getProjectsByTab = (tab: string) => {
+    let filtered = projects.filter(project => {
+      const searchLower = searchTerm.toLowerCase()
+      return (
+        project.name?.toLowerCase().includes(searchLower) ||
+        project.client?.toLowerCase().includes(searchLower) ||
+        project["job number"]?.toLowerCase().includes(searchLower) ||
+        project.description?.toLowerCase().includes(searchLower) ||
+        project.state?.toLowerCase().includes(searchLower)
+      )
+    })
+
+    switch (tab) {
+      case 'current':
+        return filtered.filter(p => {
+          // Check both phase columns
+          const phase = (p.phase || p.current_phase)?.toLowerCase()
+          // If no phase is set, show in current by default
+          if (!phase) return true
+          return !['completed', 'lost', 'cancelled'].includes(phase)
+        })
+      case 'planning':
+        return filtered.filter(p => {
+          const phase = (p.phase || p.current_phase)?.toLowerCase()
+          return phase && ['planning', 'design'].includes(phase)
+        })
+      case 'completed':
+        return filtered.filter(p => {
+          const phase = (p.phase || p.current_phase)?.toLowerCase()
+          return phase === 'completed'
+        })
+      case 'lost':
+        return filtered.filter(p => {
+          const phase = (p.phase || p.current_phase)?.toLowerCase()
+          return phase && ['lost', 'cancelled'].includes(phase)
+        })
+      default:
+        return filtered
+    }
+  }
+
+  const getHealthStatusIcon = (status: string | null) => {
+    const statusLower = status?.toLowerCase()
+    switch(statusLower) {
+      case 'good':
+      case 'healthy':
+        return {
+          icon: CheckCircle2,
+          color: 'text-green-600',
+          bgColor: 'bg-green-100',
+          label: 'Healthy'
+        }
+      case 'warning':
+      case 'at risk':
+      case 'needs attention':
+        return {
+          icon: AlertTriangle,
+          color: 'text-yellow-600',
+          bgColor: 'bg-yellow-100',
+          label: 'Needs Attention'
+        }
+      case 'critical':
+      case 'unhealthy':
+      case 'blocked':
+        return {
+          icon: XCircle,
+          color: 'text-red-600',
+          bgColor: 'bg-red-100',
+          label: 'Critical'
+        }
+      default:
+        return {
+          icon: MinusCircle,
+          color: 'text-gray-500',
+          bgColor: 'bg-gray-100',
+          label: 'Unknown'
+        }
+    }
+  }
+
+  const getPhaseColor = (phase: string | null) => {
+    switch(phase?.toLowerCase()) {
+      case 'planning':
+        return 'bg-purple-500'
+      case 'design':
+        return 'bg-blue-500'
+      case 'development':
+      case 'construction':
+      case 'in progress':
+        return 'bg-indigo-500'
+      case 'testing':
+        return 'bg-cyan-500'
+      case 'deployment':
+        return 'bg-green-500'
+      case 'on hold':
+        return 'bg-yellow-500'
+      case 'completed':
+        return 'bg-gray-500'
+      case 'lost':
+      case 'cancelled':
+        return 'bg-red-500'
+      default:
+        return 'bg-gray-400'
+    }
+  }
+
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null) return '-'
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0
+    }).format(amount)
+  }
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-'
+    try {
+      return format(new Date(dateString), 'MMM d, yyyy')
+    } catch {
+      return dateString
+    }
+  }
+
+  const startEdit = (id: number, field: string, currentValue: any) => {
+    setEditingCell({ id, field })
+    setEditValue(currentValue?.toString() || "")
+  }
+
+  const cancelEdit = () => {
+    setEditingCell(null)
+    setEditValue("")
+  }
+
+  const saveEdit = async () => {
+    if (!editingCell) return
+
+    try {
+      const { id, field } = editingCell
+      let updateValue: any = editValue
+
+      // Parse numeric fields
+      if (['budget', 'est revenue', 'completion_percentage'].includes(field)) {
+        updateValue = parseFloat(editValue) || 0
+      }
+
+      const { error } = await supabase
+        .from("projects")
+        .update({ [field]: updateValue || null })
+        .eq("id", id)
+
+      if (error) throw error
+
+      // Update local state
+      setProjects(prev => prev.map(p =>
+        p.id === id ? { ...p, [field]: updateValue } : p
+      ))
+
+      toast({
+        title: "Success",
+        description: "Project updated successfully",
+      })
+
+      cancelEdit()
+    } catch (err: any) {
       toast({
         title: "Error",
-        description: "Project name is required",
+        description: err.message || "Failed to update project",
         variant: "destructive",
-      });
-      return;
+      })
     }
-
-    const result = await createProject(formData);
-    if (result) {
-      setIsCreateDialogOpen(false);
-      setFormData({
-        name: '',
-        description: '',
-        status: 'active',
-        priority: 'medium',
-        progress: 0,
-        team_members: [],
-        technologies: [],
-        start_date: '',
-        end_date: '',
-        budget: 0
-      });
-      refetch();
-    }
-  };
-
-  const handleEdit = async (project: Project) => {
-    if (!editingProject) return;
-    
-    const result = await updateProject(project.id, {
-      name: project.name,
-      description: project.description,
-      status: project.status,
-      priority: project.priority,
-      progress: project.progress,
-      team_members: project.team_members,
-      technologies: project.technologies,
-      start_date: project.start_date,
-      end_date: project.end_date,
-      budget: project.budget
-    });
-    
-    if (result) {
-      setEditingProject(null);
-      refetch();
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this project?')) return;
-    
-    const result = await deleteProject(id);
-    if (result) {
-      refetch();
-    }
-  };
-
-  const getStatusColor = (status: ProjectStatus) => {
-    switch(status) {
-      case 'active': return 'bg-green-500';
-      case 'inactive': return 'bg-gray-500';
-      case 'completed': return 'bg-blue-500';
-      case 'on_hold': return 'bg-yellow-500';
-      case 'planning': return 'bg-purple-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getPriorityColor = (priority: ProjectPriority) => {
-    switch(priority) {
-      case 'critical': return 'destructive';
-      case 'high': return 'destructive';
-      case 'medium': return 'secondary';
-      case 'low': return 'outline';
-      default: return 'outline';
-    }
-  };
+  }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
-    );
+    )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="text-red-500 mb-4">Error loading projects: {error}</p>
-        <Button onClick={refetch}>Retry</Button>
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="flex items-center space-x-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />
+              <p>Error: {error}</p>
+            </div>
+            <Button
+              onClick={fetchProjects}
+              className="mt-4"
+              variant="outline"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
-    );
+    )
   }
 
-  const CardView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {projects.map(project => (
-        <Card key={project.id} className="relative">
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="text-lg">{project.name}</CardTitle>
-                <div className="flex gap-2 mt-2">
-                  <Badge className={getStatusColor(project.status)}>
-                    {project.status}
-                  </Badge>
-                  <Badge variant={getPriorityColor(project.priority)}>
-                    {project.priority}
-                  </Badge>
-                </div>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href={`/projects/${project.id}`}>
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Details
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setEditingProject(project)}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => handleDelete(project.id)}
-                    className="text-red-600"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CardDescription>{project.description}</CardDescription>
-            <div className="mt-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span>{project.progress}%</span>
-              </div>
-              <div className="w-full bg-secondary rounded-full h-2">
-                <div 
-                  className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${project.progress}%` }}
-                />
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <div className="flex justify-between w-full text-sm text-muted-foreground">
-              <span>Owner: {project.owner_name}</span>
-              <span>{new Date(project.updated_at).toLocaleDateString()}</span>
-            </div>
-          </CardFooter>
-        </Card>
-      ))}
-    </div>
-  );
-
-  const ListView = () => (
-    <div className="space-y-2">
-      {projects.map(project => (
-        <Card key={project.id}>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div>
-                  <CardTitle className="text-base">{project.name}</CardTitle>
-                  <CardDescription className="text-sm mt-1">
-                    {project.description}
-                  </CardDescription>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex gap-2">
-                  <Badge className={getStatusColor(project.status)}>
-                    {project.status}
-                  </Badge>
-                  <Badge variant={getPriorityColor(project.priority)}>
-                    {project.priority}
-                  </Badge>
-                </div>
-                <div className="flex space-x-2">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/projects/${project.id}`}>
-                      <Eye className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setEditingProject(project)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => handleDelete(project.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
-              <span>Owner: {project.owner_name}</span>
-              <span>Progress: {project.progress}%</span>
-              <span>Modified: {new Date(project.updated_at).toLocaleDateString()}</span>
-            </div>
-          </CardHeader>
-        </Card>
-      ))}
-    </div>
-  );
-
-  const TableView = () => (
-    <Table>
-      <TableCaption>A list of all projects in the system</TableCaption>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Priority</TableHead>
-          <TableHead>Owner</TableHead>
-          <TableHead>Progress</TableHead>
-          <TableHead>Last Modified</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {projects.map(project => (
-          <TableRow key={project.id}>
-            <TableCell className="font-medium">
-              <div>
-                <div>{project.name}</div>
-                <div className="text-sm text-muted-foreground">{project.description}</div>
-              </div>
-            </TableCell>
-            <TableCell>
-              <Badge className={getStatusColor(project.status)}>
-                {project.status}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <Badge variant={getPriorityColor(project.priority)}>
-                {project.priority}
-              </Badge>
-            </TableCell>
-            <TableCell>{project.owner_name}</TableCell>
-            <TableCell>{project.progress}%</TableCell>
-            <TableCell>{new Date(project.updated_at).toLocaleDateString()}</TableCell>
-            <TableCell className="text-right">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href={`/projects/${project.id}`}>
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Details
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setEditingProject(project)}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => handleDelete(project.id)}
-                    className="text-red-600"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-
   return (
-    <div className="flex flex-col min-h-screen">
-      <div className="border-b">
-        <div className="flex items-center justify-between px-4 py-2">
-          <h1 className="text-lg font-semibold">Projects</h1>
-          <div className="flex items-center gap-2">
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="default" size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Project
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Create New Project</DialogTitle>
-                  <DialogDescription>
-                    Add a new project to your workspace.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">
-                      Name
-                    </Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="description" className="text-right">
-                      Description
-                    </Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="status" className="text-right">
-                      Status
-                    </Label>
-                    <Select 
-                      value={formData.status}
-                      onValueChange={(value) => setFormData({...formData, status: value as Project['status']})}
-                    >
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="priority" className="text-right">
-                      Priority
-                    </Label>
-                    <Select 
-                      value={formData.priority}
-                      onValueChange={(value) => setFormData({...formData, priority: value as Project['priority']})}
-                    >
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="owner" className="text-right">
-                      Owner
-                    </Label>
-                    <Input
-                      id="owner"
-                      value={formData.owner}
-                      onChange={(e) => setFormData({...formData, owner: e.target.value})}
-                      className="col-span-3"
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit" onClick={handleCreate}>Create Project</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Back to Chat
-              </Link>
-            </Button>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="Search projects by name, client, job number..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Button onClick={fetchProjects} variant="outline" className="ml-4">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList>
+          <TabsTrigger value="current">
+            Current ({getProjectsByTab('current').length})
+          </TabsTrigger>
+          <TabsTrigger value="planning">
+            Planning ({getProjectsByTab('planning').length})
+          </TabsTrigger>
+          <TabsTrigger value="completed">
+            Completed ({getProjectsByTab('completed').length})
+          </TabsTrigger>
+          <TabsTrigger value="lost">
+            Lost ({getProjectsByTab('lost').length})
+          </TabsTrigger>
+        </TabsList>
+
+        {['current', 'planning', 'completed', 'lost'].map((tab) => (
+          <TabsContent key={tab} value={tab}>
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Job #</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Phase</TableHead>
+                  <TableHead>Health</TableHead>
+                  <TableHead>Completion</TableHead>
+                  <TableHead>Budget</TableHead>
+                  <TableHead>Est. Revenue</TableHead>
+                  <TableHead>Start Date</TableHead>
+                  <TableHead>Est. Completion</TableHead>
+                  <TableHead>Team</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(() => {
+                  const tabProjects = getProjectsByTab(tab)
+                  if (tabProjects.length === 0) {
+                    return (
+                      <TableRow>
+                        <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                          {searchTerm ? "No projects found matching your search" : `No ${tab} projects`}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  }
+                  return tabProjects.map((project) => {
+                    const isEditing = (field: string) =>
+                      editingCell?.id === project.id && editingCell?.field === field
+
+                    const renderEditableCell = (field: string, value: any, formatter?: (val: any) => string) => {
+                      if (isEditing(field)) {
+                        return (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEdit()
+                                if (e.key === 'Escape') cancelEdit()
+                              }}
+                              className="h-8 w-full"
+                              autoFocus
+                            />
+                            <Button size="sm" variant="ghost" onClick={saveEdit} className="h-8 w-8 p-0">
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-8 w-8 p-0">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )
+                      }
+                      return (
+                        <div
+                          onClick={() => startEdit(project.id, field, value)}
+                          className="cursor-pointer hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1"
+                        >
+                          {formatter ? formatter(value) : (value || '-')}
+                        </div>
+                      )
+                    }
+
+                    const renderSelectableCell = (field: string, value: string | null, options: string[], colorFn?: (val: string | null) => string) => {
+                      if (isEditing(field)) {
+                        return (
+                          <div className="flex items-center gap-1">
+                            <Select value={editValue} onValueChange={setEditValue}>
+                              <SelectTrigger className="h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {options.map((option) => (
+                                  <SelectItem key={option} value={option}>
+                                    {option}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button size="sm" variant="ghost" onClick={saveEdit} className="h-8 w-8 p-0">
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-8 w-8 p-0">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )
+                      }
+                      return (
+                        <div
+                          onClick={() => startEdit(project.id, field, value)}
+                          className="cursor-pointer"
+                        >
+                          {value && (
+                            <Badge className={colorFn ? colorFn(value) : undefined}>
+                              {value}
+                            </Badge>
+                          )}
+                        </div>
+                      )
+                    }
+
+                    const renderHealthStatus = (value: string | null) => {
+                      if (isEditing('health_status')) {
+                        return (
+                          <div className="flex items-center gap-1">
+                            <Select value={editValue} onValueChange={setEditValue}>
+                              <SelectTrigger className="h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {['Good', 'Healthy', 'Warning', 'At Risk', 'Needs Attention', 'Critical', 'Unhealthy', 'Blocked'].map((option) => {
+                                  const statusInfo = getHealthStatusIcon(option)
+                                  const Icon = statusInfo.icon
+                                  return (
+                                    <SelectItem key={option} value={option}>
+                                      <div className="flex items-center gap-2">
+                                        <Icon className={`h-4 w-4 ${statusInfo.color}`} />
+                                        <span>{option}</span>
+                                      </div>
+                                    </SelectItem>
+                                  )
+                                })}
+                              </SelectContent>
+                            </Select>
+                            <Button size="sm" variant="ghost" onClick={saveEdit} className="h-8 w-8 p-0">
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-8 w-8 p-0">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )
+                      }
+
+                      const statusInfo = getHealthStatusIcon(value)
+                      const Icon = statusInfo.icon
+                      return (
+                        <div
+                          onClick={() => startEdit(project.id, 'health_status', value)}
+                          className="cursor-pointer flex items-center justify-center"
+                          title={statusInfo.label}
+                        >
+                          <div className={`inline-flex items-center justify-center rounded-full p-2 ${statusInfo.bgColor}`}>
+                            <Icon className={`h-5 w-5 ${statusInfo.color}`} />
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <TableRow key={project.id}>
+                        <TableCell className="font-mono">
+                          {renderEditableCell('job number', project["job number"])}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {renderEditableCell('name', project.name)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell('client', project.client)}
+                        </TableCell>
+                        <TableCell>
+                          {renderSelectableCell(
+                            'phase',
+                            project.phase || project.current_phase,
+                            ['Planning', 'Design', 'Development', 'Construction', 'Testing', 'Deployment', 'In Progress', 'On Hold', 'Completed', 'Lost', 'Cancelled'],
+                            getPhaseColor
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {renderHealthStatus(project.health_status)}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing('completion_percentage') ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveEdit()
+                                  if (e.key === 'Escape') cancelEdit()
+                                }}
+                                className="h-8 w-20"
+                                autoFocus
+                              />
+                              <Button size="sm" variant="ghost" onClick={saveEdit} className="h-8 w-8 p-0">
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-8 w-8 p-0">
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => startEdit(project.id, 'completion_percentage', project.completion_percentage)}
+                              className="cursor-pointer hover:bg-gray-50 rounded px-2 py-1 -mx-2 -my-1"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-blue-600 h-2 rounded-full"
+                                    style={{ width: `${project.completion_percentage || 0}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm text-muted-foreground">
+                                  {project.completion_percentage || 0}%
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell('budget', project.budget, formatCurrency)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell('est revenue', project["est revenue"], formatCurrency)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell('start date', project["start date"], formatDate)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell('est completion', project["est completion"], formatDate)}
+                        </TableCell>
+                        <TableCell>
+                          {project.team_members && project.team_members.length > 0 ? (
+                            <div className="flex items-center gap-1">
+                              <Users className="h-4 w-4" />
+                              <span className="text-sm">{project.team_members.length}</span>
+                            </div>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                })()}
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      </div>
-      
-      <div className="flex-1 overflow-auto p-4">
-        <div className="max-w-[1400px] mx-auto">
-          <Tabs 
-            defaultValue="card" 
-            value={viewMode}
-            onValueChange={(value) => setViewMode(value as typeof viewMode)}
-            className="w-full"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <TabsList className="bg-gray-100 dark:bg-gray-800">
-                <TabsTrigger 
-                  value="card" 
-                  className="transition-all data-[state=active]:bg-blue-500 data-[state=active]:text-white"
-                >
-                  <LayoutGrid className="mr-2 h-4 w-4" />
-                  Card View
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="list" 
-                  className="transition-all data-[state=active]:bg-blue-500 data-[state=active]:text-white"
-                >
-                  <List className="mr-2 h-4 w-4" />
-                  List View
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="table" 
-                  className="transition-all data-[state=active]:bg-blue-500 data-[state=active]:text-white"
-                >
-                  <TableIcon className="mr-2 h-4 w-4" />
-                  Table View
-                </TabsTrigger>
-              </TabsList>
-              <div className="text-sm text-muted-foreground">
-                {projects.length} projects
-              </div>
-            </div>
-            
-            <TabsContent value="card" className="mt-4">
-              <CardView />
-            </TabsContent>
-            
-            <TabsContent value="list" className="mt-4">
-              <ListView />
-            </TabsContent>
-            
-            <TabsContent value="table" className="mt-4">
-              <TableView />
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-
-      {/* Edit Dialog */}
-      {editingProject && (
-        <Dialog open={!!editingProject} onOpenChange={() => setEditingProject(null)}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Edit Project</DialogTitle>
-              <DialogDescription>
-                Make changes to your project here.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="edit-name"
-                  value={editingProject.name}
-                  onChange={(e) => setEditingProject({...editingProject, name: e.target.value})}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-description" className="text-right">
-                  Description
-                </Label>
-                <Textarea
-                  id="edit-description"
-                  value={editingProject.description}
-                  onChange={(e) => setEditingProject({...editingProject, description: e.target.value})}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-status" className="text-right">
-                  Status
-                </Label>
-                <Select 
-                  value={editingProject.status}
-                  onValueChange={(value) => setEditingProject({...editingProject, status: value as Project['status']})}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-priority" className="text-right">
-                  Priority
-                </Label>
-                <Select 
-                  value={editingProject.priority}
-                  onValueChange={(value) => setEditingProject({...editingProject, priority: value as Project['priority']})}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-progress" className="text-right">
-                  Progress (%)
-                </Label>
-                <Input
-                  id="edit-progress"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={editingProject.progress || 0}
-                  onChange={(e) => setEditingProject({...editingProject, progress: parseInt(e.target.value) || 0})}
-                  className="col-span-3"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" onClick={() => handleEdit(editingProject)}>Save changes</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+        </CardContent>
+      </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
-  );
-};
-
+  )
+}

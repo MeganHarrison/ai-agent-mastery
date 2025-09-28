@@ -33,20 +33,18 @@ function TableSkeleton() {
 
 export default function SubcontractorsPage() {
   return (
-    <div className="container mx-auto py-8 px-4">
-      <Card className="border-0 shadow-none">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold">Subcontractors Directory</CardTitle>
-          <CardDescription>
-            Manage and view all subcontractor information and certifications
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Suspense fallback={<TableSkeleton />}>
-            <SubcontractorsTableWrapper />
-          </Suspense>
-        </CardContent>
-      </Card>
-    </div>
+    <Card className="border-0 shadow-none">
+      <CardHeader>
+        <CardTitle className="text-3xl font-bold">Subcontractors Directory</CardTitle>
+        <CardDescription>
+          Manage and view all subcontractor information and certifications
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Suspense fallback={<TableSkeleton />}>
+          <SubcontractorsTableWrapper />
+        </Suspense>
+      </CardContent>
+    </Card>
   );
 }

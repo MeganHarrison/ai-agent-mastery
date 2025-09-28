@@ -1025,7 +1025,7 @@ export type Database = {
           state: string | null
           title: string | null
           updated_at: string | null
-          website: string
+          website: string | null
         }
         Insert: {
           address?: string | null
@@ -1037,7 +1037,7 @@ export type Database = {
           state?: string | null
           title?: string | null
           updated_at?: string | null
-          website: string
+          website?: string | null
         }
         Update: {
           address?: string | null
@@ -1049,7 +1049,7 @@ export type Database = {
           state?: string | null
           title?: string | null
           updated_at?: string | null
-          website?: string
+          website?: string | null
         }
         Relationships: []
       }
@@ -1329,6 +1329,7 @@ export type Database = {
           dependencies: string[] | null
           description: string
           doc_title: string | null
+          document_date: string | null
           document_id: string
           due_date: string | null
           exact_quotes: string[] | null
@@ -1339,6 +1340,7 @@ export type Database = {
           metadata: Json | null
           numerical_data: Json | null
           project_id: number | null
+          project_name: string | null
           resolved: boolean | null
           severity: string | null
           source_meetings: string[] | null
@@ -1356,6 +1358,7 @@ export type Database = {
           dependencies?: string[] | null
           description: string
           doc_title?: string | null
+          document_date?: string | null
           document_id: string
           due_date?: string | null
           exact_quotes?: string[] | null
@@ -1366,6 +1369,7 @@ export type Database = {
           metadata?: Json | null
           numerical_data?: Json | null
           project_id?: number | null
+          project_name?: string | null
           resolved?: boolean | null
           severity?: string | null
           source_meetings?: string[] | null
@@ -1383,6 +1387,7 @@ export type Database = {
           dependencies?: string[] | null
           description?: string
           doc_title?: string | null
+          document_date?: string | null
           document_id?: string
           due_date?: string | null
           exact_quotes?: string[] | null
@@ -1393,6 +1398,7 @@ export type Database = {
           metadata?: Json | null
           numerical_data?: Json | null
           project_id?: number | null
+          project_name?: string | null
           resolved?: boolean | null
           severity?: string | null
           source_meetings?: string[] | null
@@ -1400,7 +1406,15 @@ export type Database = {
           title?: string
           urgency_indicators?: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "document_insights_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "document_metadata"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       document_metadata: {
         Row: {
@@ -1412,21 +1426,22 @@ export type Database = {
           created_by: string | null
           date: string | null
           duration_minutes: number | null
+          employee: string | null
           entities: Json | null
           file_id: number | null
+          fireflies_file_url: string | null
           fireflies_id: string | null
           fireflies_link: string | null
           id: string
           outline: string | null
+          overview: string | null
           participants: string | null
           project: string | null
           project_id: number | null
           source: string | null
-          storage_bucket_path: string | null
           summary: string | null
           tags: string | null
           title: string | null
-          transcript_url: string | null
           type: string | null
           url: string | null
         }
@@ -1439,21 +1454,22 @@ export type Database = {
           created_by?: string | null
           date?: string | null
           duration_minutes?: number | null
+          employee?: string | null
           entities?: Json | null
           file_id?: number | null
+          fireflies_file_url?: string | null
           fireflies_id?: string | null
           fireflies_link?: string | null
           id: string
           outline?: string | null
+          overview?: string | null
           participants?: string | null
           project?: string | null
           project_id?: number | null
           source?: string | null
-          storage_bucket_path?: string | null
           summary?: string | null
           tags?: string | null
           title?: string | null
-          transcript_url?: string | null
           type?: string | null
           url?: string | null
         }
@@ -1466,25 +1482,33 @@ export type Database = {
           created_by?: string | null
           date?: string | null
           duration_minutes?: number | null
+          employee?: string | null
           entities?: Json | null
           file_id?: number | null
+          fireflies_file_url?: string | null
           fireflies_id?: string | null
           fireflies_link?: string | null
           id?: string
           outline?: string | null
+          overview?: string | null
           participants?: string | null
           project?: string | null
           project_id?: number | null
           source?: string | null
-          storage_bucket_path?: string | null
           summary?: string | null
           tags?: string | null
           title?: string | null
-          transcript_url?: string | null
           type?: string | null
           url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "document_metadata_employee_fkey"
+            columns: ["employee"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["email"]
+          },
           {
             foreignKeyName: "document_metadata_project_id_fkey"
             columns: ["project_id"]
@@ -1543,7 +1567,7 @@ export type Database = {
           created_by: string | null
           embedding: string | null
           file_date: string | null
-          file_id: string | null
+          file_id: string
           fireflies_id: string | null
           fireflies_link: string | null
           id: string
@@ -1566,7 +1590,7 @@ export type Database = {
           created_by?: string | null
           embedding?: string | null
           file_date?: string | null
-          file_id?: string | null
+          file_id: string
           fireflies_id?: string | null
           fireflies_link?: string | null
           id?: string
@@ -1589,7 +1613,7 @@ export type Database = {
           created_by?: string | null
           embedding?: string | null
           file_date?: string | null
-          file_id?: string | null
+          file_id?: string
           fireflies_id?: string | null
           fireflies_link?: string | null
           id?: string
@@ -3184,6 +3208,38 @@ export type Database = {
           },
         ]
       }
+      Prospects: {
+        Row: {
+          contact: number | null
+          created_at: string
+          id: number
+          status: string | null
+          title: string | null
+        }
+        Insert: {
+          contact?: number | null
+          created_at?: string
+          id?: number
+          status?: string | null
+          title?: string | null
+        }
+        Update: {
+          contact?: number | null
+          created_at?: string
+          id?: number
+          status?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Prospects_contact_fkey"
+            columns: ["contact"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rag_chat_history: {
         Row: {
           content: string
@@ -4046,7 +4102,15 @@ export type Database = {
           title: string | null
           urgency_indicators: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "document_insights_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "document_metadata"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_insights_today: {
         Row: {

@@ -178,7 +178,7 @@ export default function CompaniesPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-6">
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted-foreground">Loading companies...</div>
         </div>
@@ -187,7 +187,7 @@ export default function CompaniesPage() {
   }
 
   return (
-    <div className="container mx-auto py-6">
+    <div>
       <StandardizedTable
         data={companies}
         columns={columns}

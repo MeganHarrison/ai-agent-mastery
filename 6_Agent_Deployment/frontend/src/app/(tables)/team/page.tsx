@@ -32,20 +32,18 @@ function TableSkeleton() {
 
 export default function TeamPage() {
   return (
-    <div className="container mx-auto py-8 px-4">
-      <Card className="border-0 shadow-none">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold">Team Directory</CardTitle>
-          <CardDescription>
-            Manage and view all employee information
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Suspense fallback={<TableSkeleton />}>
-            <TeamTableWrapper />
-          </Suspense>
-        </CardContent>
-      </Card>
-    </div>
+    <Card className="border-0 shadow-none">
+      <CardHeader>
+        <CardTitle className="text-3xl font-bold">Team Directory</CardTitle>
+        <CardDescription>
+          Manage and view all employee information
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Suspense fallback={<TableSkeleton />}>
+          <TeamTableWrapper />
+        </Suspense>
+      </CardContent>
+    </Card>
   );
 }
