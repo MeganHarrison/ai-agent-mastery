@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteClient } from '@/utils/supabase-server';
+import { createServerClient } from '@/utils/supabase-server';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -71,7 +71,7 @@ export async function GET(
   { params }: { params: { projectId: string } }
 ) {
   try {
-    const supabase = createRouteClient();
+    const supabase = createServerClient();
 
     // Fetch all insights for the project
     const { data: insights, error } = await supabase

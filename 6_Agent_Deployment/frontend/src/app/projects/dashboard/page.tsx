@@ -1,386 +1,464 @@
-"use client"
+'use client';
 
-import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { createBrowserClient } from '@/utils/supabase-browser';
+import { format } from 'date-fns';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Loader2,
-  FileText,
-  Briefcase,
-  ChevronLeft,
+  AlertTriangle,
+  CheckCircle2,
+  TrendingUp,
+  AlertCircle,
+  RefreshCw,
   ChevronRight,
-  Grid3x3,
-  MoreVertical,
-  ExternalLink
-} from "lucide-react"
-import { format } from "date-fns"
-import { Database } from "@/types/database.types"
-import { useToast } from "@/hooks/use-toast"
-import { cn } from "@/lib/utils"
-import { useRouter } from 'next/navigation'
+  FileText,
+  Users,
+  Calendar,
+  Shield,
+  Target,
+  Zap,
+  X,
+  Info,
+  ExternalLink,
+  Clock,
+} from 'lucide-react';
 
-type Project = Database["public"]["Tables"]["projects"]["Row"]
-type DocumentMetadata = Database["public"]["Tables"]["document_metadata"]["Row"]
-type DocumentInsight = Database["public"]["Tables"]["document_insights"]["Row"]
+interface ExecutiveBriefing {
+  executiveSummary: {
+    status: 'on-track' | 'at-risk' | 'critical' | 'delayed';
+    headline: string;
+    lastUpdated: string;
+  };
+  currentState: {
+    keyDevelopments: Array<{
+      title: string;
+      impact: 'positive' | 'negative' | 'neutral';
+      insightIds: string[];
+    }>;
+  };
+  riskAssessment: {
+    risks: Array<{
+      risk: string;
+      impact: string;
+      likelihood: 'high' | 'medium' | 'low';
+      insightIds: string[];
+    }>;
+  };
+  activeResponse: {
+    actions: Array<{
+      action: string;
+      owner: string;
+      dueDate?: string;
+      insightIds: string[];
+    }>;
+  };
+  leadershipItems: {
+    decisions: Array<{
+      item: string;
+      context: string;
+      insightIds: string[];
+    }>;
+  };
+  projectName: string;
+  insightsCount: number;
+  insights: any[];
+}
 
-export default function ProjectsDashboard() {
-  const router = useRouter()
-  const [projects, setProjects] = useState<Project[]>([])
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
-  const [meetings, setMeetings] = useState<DocumentMetadata[]>([])
-  const [insights, setInsights] = useState<DocumentInsight[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadingDetails, setLoadingDetails] = useState(false)
-  const { toast } = useToast()
+interface DrillDownModalProps {
+  insight: any;
+  onClose: () => void;
+}
 
-  const fetchProjects = async () => {
-    try {
-      setLoading(true)
+function DrillDownModal({ insight, onClose }: DrillDownModalProps) {
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-background border rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto">
+        <div className="p-6 border-b">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-lg font-semibold">{insight.title}</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                From: {insight.doc_title || 'Unknown Meeting'}
+              </p>
+            </div>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <h4 className="font-medium mb-2">Context</h4>
+            <p className="text-sm text-muted-foreground">{insight.description}</p>
+          </div>
+          
+          {insight.business_impact && (
+            <div>
+              <h4 className="font-medium mb-2">Business Impact</h4>
+              <p className="text-sm text-muted-foreground">{insight.business_impact}</p>
+            </div>
+          )}
 
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .order("created_at", { ascending: false })
+          {insight.next_steps && insight.next_steps.length > 0 && (
+            <div>
+              <h4 className="font-medium mb-2">Next Steps</h4>
+              <ul className="list-disc list-inside text-sm text-muted-foreground">
+                {insight.next_steps.map((step: string, i: number) => (
+                  <li key={i}>{step}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
-      if (error) throw error
+          <div className="flex flex-wrap gap-2 pt-4">
+            <Badge variant={insight.severity === 'critical' ? 'destructive' : 'default'}>
+              {insight.severity || 'medium'}
+            </Badge>
+            <Badge variant="outline">{insight.insight_type}</Badge>
+            {insight.assignee && (
+              <Badge variant="secondary">
+                <Users className="h-3 w-3 mr-1" />
+                {insight.assignee}
+              </Badge>
+            )}
+            {insight.due_date && (
+              <Badge variant="secondary">
+                <Calendar className="h-3 w-3 mr-1" />
+                {format(new Date(insight.due_date), 'MMM dd')}
+              </Badge>
+            )}
+          </div>
 
-      // Filter for only current projects (phase = "current")
-      const currentProjects = (data || []).filter(project => {
-        const phase = project.phase?.toLowerCase()
-        // Only show projects where phase is explicitly set to "current"
-        return phase === 'current'
-      })
+          <div className="text-xs text-muted-foreground pt-2">
+            Created: {format(new Date(insight.created_at), 'MMM dd, yyyy HH:mm')}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      setProjects(currentProjects)
-
-      // Auto-select first project if none selected
-      if (currentProjects.length > 0 && !selectedProject) {
-        setSelectedProject(currentProjects[0])
-      }
-    } catch (err: any) {
-      console.error("Error fetching projects:", err)
-      toast({
-        title: "Error",
-        description: "Failed to load projects",
-        variant: "destructive"
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchProjectDetails = async (projectId: number) => {
-    try {
-      setLoadingDetails(true)
-
-      // Fetch meetings associated with this project
-      // First, try without the category filter to see if there's any data
-      const { data: allDocsData } = await supabase
-        .from("document_metadata")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("date", { ascending: false })
-
-      console.log("All documents for project", projectId, ":", allDocsData)
-
-      // Also try with the meeting category filter
-      const { data: meetingsData, error: meetingsError } = await supabase
-        .from("document_metadata")
-        .select("*")
-        .eq("project_id", projectId)
-        .eq("category", "meeting")
-        .order("date", { ascending: false })
-
-      console.log("Meeting documents for project", projectId, ":", meetingsData)
-
-      if (meetingsError) throw meetingsError
-      // Use all documents if no meetings with specific category found
-      setMeetings(meetingsData && meetingsData.length > 0 ? meetingsData : (allDocsData || []))
-
-      // Fetch insights for this project
-      const { data: insightsData, error: insightsError } = await supabase
-        .from("document_insights")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("created_at", { ascending: false })
-
-      if (insightsError) throw insightsError
-      setInsights(insightsData || [])
-
-    } catch (err: any) {
-      console.error("Error fetching project details:", err)
-      toast({
-        title: "Error",
-        description: "Failed to load project details",
-        variant: "destructive"
-      })
-    } finally {
-      setLoadingDetails(false)
-    }
-  }
+export default function ProjectInsightsDashboard() {
+  const [projects, setProjects] = useState<Array<{ name: string; insightCount: number }>>([]);
+  const [selectedProject, setSelectedProject] = useState<string>('');
+  const [briefing, setBriefing] = useState<ExecutiveBriefing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedInsight, setSelectedInsight] = useState<any>(null);
+  const supabase = createBrowserClient();
 
   useEffect(() => {
-    fetchProjects()
-  }, [])
+    fetchProjects();
+  }, []);
 
   useEffect(() => {
     if (selectedProject) {
-      fetchProjectDetails(selectedProject.id)
+      fetchBriefing(selectedProject);
     }
-  }, [selectedProject])
+  }, [selectedProject]);
 
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null) return "$0"
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0
-    }).format(amount)
-  }
+  const fetchProjects = async () => {
+    try {
+      const response = await fetch('/api/projects/list');
+      const data = await response.json();
+      if (data.projects && data.projects.length > 0) {
+        setProjects(data.projects);
+        setSelectedProject(data.projects[0].name);
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
 
-  if (loading) {
+  const fetchBriefing = async (projectName: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/projects/${encodeURIComponent(projectName)}/briefing`);
+      const data = await response.json();
+      setBriefing(data);
+    } catch (error) {
+      console.error('Error fetching briefing:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    if (selectedProject) {
+      setRefreshing(true);
+      fetchBriefing(selectedProject);
+    }
+  };
+
+  const findInsight = (insightIds: string[]) => {
+    if (!briefing?.insights) return null;
+    return briefing.insights.find(i => insightIds.includes(i.id));
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'on-track': return 'text-green-500';
+      case 'at-risk': return 'text-yellow-500';
+      case 'critical': return 'text-red-500';
+      case 'delayed': return 'text-orange-500';
+      default: return 'text-gray-500';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'on-track': return <CheckCircle2 className="h-5 w-5" />;
+      case 'at-risk': return <AlertCircle className="h-5 w-5" />;
+      case 'critical': return <AlertTriangle className="h-5 w-5" />;
+      case 'delayed': return <Clock className="h-5 w-5" />;
+      default: return <Info className="h-5 w-5" />;
+    }
+  };
+
+  const getImpactIcon = (impact: string) => {
+    switch (impact) {
+      case 'positive': return <TrendingUp className="h-4 w-4 text-green-500" />;
+      case 'negative': return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      default: return <Info className="h-4 w-4 text-blue-500" />;
+    }
+  };
+
+  if (loading && !briefing) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+      <div className="mx-auto p-6 space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+        </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-white">
-      {/* Left Sidebar - Projects List */}
-      <div className="w-[40%] border-r border-gray-200 flex flex-col">
-        <div className="px-10 py-8 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-4xl font-light text-gray-900">Projects</h2>
-            <div className="flex gap-1">
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500 hover:text-gray-900">
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500 hover:text-gray-900">
-                <Grid3x3 className="h-4 w-4" />
-              </Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500 hover:text-gray-900">
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          <p className="text-sm text-gray-600">All active projects</p>
+    <div className="mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Executive Project Briefing</h1>
+          <p className="text-muted-foreground mt-1">Synthesized insights from project meetings and documents</p>
         </div>
+        <div className="flex gap-2">
+          <Select value={selectedProject} onValueChange={setSelectedProject}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Select a project" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map(project => (
+                <SelectItem key={project.name} value={project.name}>
+                  {project.name} ({project.insightCount} insights)
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+      </div>
 
-        <ScrollArea className="flex-1">
-          <div className="py-8 space-y-8">
-            {/* Group projects by client */}
-            {Object.entries(
-              projects.reduce((acc, project) => {
-                const client = project.client || 'UNASSIGNED'
-                if (!acc[client]) acc[client] = []
-                acc[client].push(project)
-                return acc
-              }, {} as Record<string, typeof projects>)
-            ).map(([client, clientProjects]) => (
-              <div key={client} className="space-y-3">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wider px-10">
-                  {client}
-                </p>
-                <div className="space-y-2">
-                  {clientProjects.map((project) => {
-                    const isSelected = selectedProject?.id === project.id
+      {briefing && (
+        <>
+          {/* Executive Summary */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Executive Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-start gap-4">
+                <div className={`mt-1 ${getStatusColor(briefing.executiveSummary.status)}`}>
+                  {getStatusIcon(briefing.executiveSummary.status)}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge
+                      variant={briefing.executiveSummary.status === 'critical' ? 'destructive' : 'default'}
+                      className="capitalize"
+                    >
+                      {briefing.executiveSummary.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {briefing.insightsCount} total insights analyzed
+                    </span>
+                  </div>
+                  <p className="text-lg font-medium">{briefing.executiveSummary.headline}</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Last updated: {format(new Date(briefing.executiveSummary.lastUpdated), 'MMM dd, yyyy HH:mm')}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Current State */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5" />
+                  Current State
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {briefing.currentState.keyDevelopments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No key developments</p>
+                ) : (
+                  briefing.currentState.keyDevelopments.map((dev, i) => {
+                    const insight = findInsight(dev.insightIds);
                     return (
                       <div
-                        key={project.id}
-                        onClick={() => setSelectedProject(project)}
-                        className={cn(
-                          "py-4 cursor-pointer transition-all",
-                          isSelected
-                            ? "bg-brand-50 text-gray-900 px-10 border-l-4 border-brand"
-                            : "hover:bg-gray-100 text-gray-700 px-10 border-l-4 border-transparent"
-                        )}
+                        key={i}
+                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => insight && setSelectedInsight(insight)}
                       >
-                        <h3 className="font-medium text-base mb-2">
-                          {project.name || 'Untitled Project'}
-                        </h3>
-                        <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
-                          {project.description || 'No description available'}
-                        </p>
+                        {getImpactIcon(dev.impact)}
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{dev.title}</p>
+                          {insight && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {insight.doc_title ? `From: ${insight.doc_title}` : 'View details →'}
+                            </p>
+                          )}
+                        </div>
+                        {insight && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
-
-      {/* Right Panel - Project Details */}
-      <div className="w-[60%] bg-white overflow-hidden flex flex-col">
-        {selectedProject ? (
-          <ScrollArea className="flex-1">
-            <div className="h-full flex flex-col">
-            {/* Project Header */}
-            <div className="bg-gray-50 px-12 py-10 border-b border-gray-200">
-              <p className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-4">
-                {selectedProject.client || 'COLLECTIVE GROUP'}
-              </p>
-              <h1 className="text-5xl font-light text-gray-900 mb-8">
-                {selectedProject.name}
-              </h1>
-
-              <div className="grid grid-cols-3 gap-8">
-                <div>
-                  <p className="text-xs font-medium text-gray-600 mb-1">START DATE:</p>
-                  <p className="text-sm text-gray-900 font-medium">
-                    {selectedProject["start date"] ?
-                      format(new Date(selectedProject["start date"]), 'MMMM d, yyyy').toUpperCase() :
-                      'NOT SET'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-600 mb-1">EST BUDGET:</p>
-                  <p className="text-sm text-gray-900 font-medium">
-                    {formatCurrency(selectedProject.budget)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-600 mb-1">EST PROFIT:</p>
-                  <p className="text-sm text-gray-900 font-medium">
-                    {formatCurrency(selectedProject["est revenue"] || 0)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Project Description */}
-            <div className="px-12 py-10 border-b border-gray-200">
-              <div className="text-gray-700 text-base leading-relaxed whitespace-pre-wrap">
-                {selectedProject.description ? (
-                  selectedProject.description
-                    .replace(/￼/g, '') // Remove special characters
-                    .replace(/⸻/g, '\n\n') // Replace dividers with line breaks
-                    .replace(/•/g, '\n•') // Add line break before bullets
-                    .replace(/→/g, '\n  →') // Format arrows with indentation
-                    .trim()
-                ) : (
-                  'This project represents a complex coordination challenge involving multiple building systems, specialized infrastructure, and comprehensive planning requirements.'
+                    );
+                  })
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Insights Section */}
-            <div className="px-12 py-10">
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-8">INSIGHTS</h3>
+            {/* Risk Assessment */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Risk Assessment
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {briefing.riskAssessment.risks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No significant risks identified</p>
+                ) : (
+                  briefing.riskAssessment.risks.map((risk, i) => {
+                    const insight = findInsight(risk.insightIds);
+                    return (
+                      <div
+                        key={i}
+                        className="p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => insight && setSelectedInsight(insight)}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <p className="text-sm font-medium">{risk.risk}</p>
+                          <Badge
+                            variant={risk.likelihood === 'high' ? 'destructive' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {risk.likelihood}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{risk.impact}</p>
+                        {insight && (
+                          <p className="text-xs text-blue-500 mt-2">View meeting context →</p>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </CardContent>
+            </Card>
 
-              {loadingDetails ? (
-                <div className="flex items-center justify-center h-32">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
-                </div>
-              ) : insights.length === 0 && meetings.length === 0 ? (
-                <div className="text-center py-12">
-                  <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                  <p className="text-gray-600">No insights or meetings recorded yet</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto pb-10">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-gray-200">
-                        <TableHead className="text-gray-600 font-medium">Type</TableHead>
-                        <TableHead className="text-gray-600 font-medium">Description</TableHead>
-                        <TableHead className="text-gray-600 font-medium">Date</TableHead>
-                        <TableHead className="text-gray-600 font-medium">Category</TableHead>
-                        <TableHead className="text-gray-600 font-medium w-[40px]"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {/* Display insights */}
-                      {insights.map((insight) => (
-                        <TableRow key={`insight-${insight.id}`} className="border-gray-200">
-                          <TableCell className="text-gray-700 font-medium">
-                            {insight.title || 'Insight'}
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            {insight.description || 'No description'}
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            {insight.created_at ? format(new Date(insight.created_at), 'MMM d, yyyy') : '-'}
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            {insight.insight_type || 'General'}
-                          </TableCell>
-                          <TableCell>
-                            <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-500">
-                              <MoreVertical className="h-3 w-3" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+            {/* Active Response */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  Our Response
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {briefing.activeResponse.actions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No active mitigation actions</p>
+                ) : (
+                  briefing.activeResponse.actions.map((action, i) => {
+                    const insight = findInsight(action.insightIds);
+                    return (
+                      <div
+                        key={i}
+                        className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => insight && setSelectedInsight(insight)}
+                      >
+                        <p className="text-sm font-medium">{action.action}</p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {action.owner}
+                          </span>
+                          {action.dueDate && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {format(new Date(action.dueDate), 'MMM dd')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </CardContent>
+            </Card>
 
-                      {/* Display meetings as insights */}
-                      {meetings.map((meeting) => (
-                        <TableRow
-                          key={`meeting-${meeting.id}`}
-                          className="border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => router.push(`/meetings/${meeting.id}`)}
-                        >
-                          <TableCell className="text-gray-700 font-medium">
-                            Meeting
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            {meeting.title || meeting.summary || 'Meeting notes'}
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            {meeting.date ? format(new Date(meeting.date), 'MMM d, yyyy') : '-'}
-                          </TableCell>
-                          <TableCell className="text-gray-600">
-                            {meeting.source || 'Meeting'}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6 text-gray-500 hover:text-gray-900"
-                              onClick={(e: React.MouseEvent) => {
-                                e.stopPropagation()
-                                router.push(`/meetings/${meeting.id}`)
-                              }}
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
-            </div>
-          </ScrollArea>
-        ) : (
-          <div className="flex-1 flex items-center justify-center bg-white">
-            <div className="text-center space-y-3">
-              <Briefcase className="h-12 w-12 mx-auto text-gray-400" />
-              <div>
-                <h3 className="font-semibold text-gray-900">Select a Project</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Choose a project from the list to view details
-                </p>
-              </div>
-            </div>
+            {/* Leadership Items */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Leadership Items
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {briefing.leadershipItems.decisions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No decisions required</p>
+                ) : (
+                  briefing.leadershipItems.decisions.map((decision, i) => {
+                    const insight = findInsight(decision.insightIds);
+                    return (
+                      <div
+                        key={i}
+                        className="p-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 hover:bg-yellow-500/10 cursor-pointer transition-colors"
+                        onClick={() => insight && setSelectedInsight(insight)}
+                      >
+                        <p className="text-sm font-medium">{decision.item}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{decision.context}</p>
+                      </div>
+                    );
+                  })
+                )}
+              </CardContent>
+            </Card>
           </div>
-        )}
-      </div>
+        </>
+      )}
+
+      {/* Drill-down Modal */}
+      {selectedInsight && (
+        <DrillDownModal
+          insight={selectedInsight}
+          onClose={() => setSelectedInsight(null)}
+        />
+      )}
     </div>
-  )
+  );
 }

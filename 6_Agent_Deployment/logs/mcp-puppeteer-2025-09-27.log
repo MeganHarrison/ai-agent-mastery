@@ -99,3 +99,23 @@
 {"arguments":{"height":900,"name":"projects-dashboard-scrollable","width":1400},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 14:40:38.148","tool":"puppeteer_screenshot"}
 {"level":"info","message":"Starting MCP server","service":"mcp-puppeteer","timestamp":"2025-09-27 23:27:06.733"}
 {"level":"info","message":"MCP server started successfully","service":"mcp-puppeteer","timestamp":"2025-09-27 23:27:06.734"}
+{"arguments":{"url":"http://localhost:8081/chat"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:30:50.324","tool":"puppeteer_navigate"}
+{"level":"info","message":"Navigating to URL","service":"mcp-puppeteer","timestamp":"2025-09-27 23:30:50.325","url":"http://localhost:8081/chat"}
+{"error":"net::ERR_CONNECTION_REFUSED at http://localhost:8081/chat","level":"error","message":"Navigation failed","service":"mcp-puppeteer","timestamp":"2025-09-27 23:30:50.670","url":"http://localhost:8081/chat"}
+{"arguments":{"url":"http://localhost:3002/chat"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:31:08.682","tool":"puppeteer_navigate"}
+{"level":"info","message":"Navigating to URL","service":"mcp-puppeteer","timestamp":"2025-09-27 23:31:08.683","url":"http://localhost:3002/chat"}
+{"level":"info","message":"Navigation successful","service":"mcp-puppeteer","status":200,"timestamp":"2025-09-27 23:31:09.767","url":"http://localhost:3002/chat"}
+{"arguments":{"name":"chat_page_loaded"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:31:17.842","tool":"puppeteer_screenshot"}
+{"arguments":{"selector":"textarea[placeholder=\"Type your message here...\"]","value":"What are the biggest risks facing our projects?"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:31:25.242","tool":"puppeteer_fill"}
+{"arguments":{"selector":"button:has-text(\"New Chat\")"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:32:01.423","tool":"puppeteer_click"}
+{"arguments":{"script":"document.querySelector('button.bg-blue-500')?.click() || document.querySelector('button')?.click()"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:32:07.957","tool":"puppeteer_evaluate"}
+{"level":"debug","message":"Executing script in browser","scriptLength":98,"service":"mcp-puppeteer","timestamp":"2025-09-27 23:32:07.957"}
+{"hasResult":false,"level":"debug","logCount":0,"message":"Script execution result","resultType":"undefined","service":"mcp-puppeteer","timestamp":"2025-09-27 23:32:07.959"}
+{"arguments":{"name":"chat_after_click"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:32:17.588","tool":"puppeteer_screenshot"}
+{"arguments":{"selector":"textarea","value":"What are the biggest risks facing our projects?"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:32:25.891","tool":"puppeteer_fill"}
+{"arguments":{"selector":"button[type=\"submit\"]"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:32:31.886","tool":"puppeteer_click"}
+{"arguments":{"height":900,"name":"agent_risk_response"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:32:50.407","tool":"puppeteer_screenshot"}
+{"arguments":{"height":800,"name":"agent_response_final","width":1200},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:33:20.296","tool":"puppeteer_screenshot"}
+{"arguments":{"script":"// Check localStorage for Supabase auth\nconst supabaseAuth = localStorage.getItem('supabase.auth.token');\nconsole.log('Auth present:', !!supabaseAuth);\n\n// Get all network errors from console\nconst errors = [];\nif (window.console && window.console._errors) {\n  errors.push(...window.console._errors);\n}\n\n// Return relevant info\n{\n  hasAuth: !!supabaseAuth,\n  errors: errors.slice(0, 5),\n  localStorageKeys: Object.keys(localStorage)\n}"},"level":"debug","message":"Tool call received","service":"mcp-puppeteer","timestamp":"2025-09-27 23:33:38.745","tool":"puppeteer_evaluate"}
+{"level":"debug","message":"Executing script in browser","scriptLength":434,"service":"mcp-puppeteer","timestamp":"2025-09-27 23:33:38.746"}
+{"error":"Unexpected token ':'","level":"error","message":"Script evaluation failed","service":"mcp-puppeteer","timestamp":"2025-09-27 23:33:38.748"}

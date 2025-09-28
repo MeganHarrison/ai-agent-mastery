@@ -39,7 +39,8 @@ from tools import (
     get_project_insights_tool,
     get_insights_summary_tool,
     search_insights_tool,
-    strategic_business_analysis_tool
+    strategic_business_analysis_tool,
+    web_search_tool  # Ensure web_search_tool is imported for competitor analysis
 )
 
 # ========== Helper function to get model configuration ==========
@@ -399,3 +400,399 @@ async def strategic_business_analysis(
         analysis_query,
         focus_areas
     )
+
+@agent.tool
+async def business_reasoning(ctx: RunContext[AgentDeps], question: str, context: str = "") -> str:
+    """
+    Strategic business reasoning and analysis WITHOUT needing to search documents.
+    Use this for logical thinking, risk identification, opportunity analysis, and strategic recommendations
+    based on business principles and the context provided.
+
+    Args:
+        ctx: The context
+        question: The business question or scenario to analyze
+        context: Any relevant context about the situation
+
+    Returns:
+        Strategic analysis and recommendations based on business reasoning
+    """
+    print("Calling business_reasoning tool - THINKING MODE")
+
+    # This tool uses the agent's inherent reasoning capabilities
+    reasoning_prompt = f"""
+    As an experienced business strategist, analyze this situation:
+
+    Question: {question}
+    Context: {context}
+
+    Provide strategic analysis considering:
+    1. Logical business risks and opportunities
+    2. Industry best practices and patterns
+    3. Financial and operational implications
+    4. Strategic recommendations
+    5. Potential unintended consequences
+
+    Think like a McKinsey consultant - be insightful, practical, and strategic.
+    """
+
+    # This returns the agent's own reasoning without document search
+    return f"""Strategic Business Analysis:
+
+{reasoning_prompt}
+
+Note: This analysis is based on business reasoning and industry knowledge,
+not specific document search. Use other tools to find supporting data."""
+
+@agent.tool
+async def financial_modeling(ctx: RunContext[AgentDeps], scenario: str, assumptions: dict = None) -> str:
+    """
+    Perform financial modeling and what-if analysis for business scenarios.
+    Calculate ROI, break-even, cash flow projections, and financial metrics.
+
+    Args:
+        ctx: The context
+        scenario: Description of the financial scenario to model
+        assumptions: Dictionary of financial assumptions (revenues, costs, growth rates, etc.)
+
+    Returns:
+        Financial analysis with projections and recommendations
+    """
+    print("Calling financial_modeling tool")
+
+    import json
+
+    # Basic financial calculations
+    if assumptions:
+        try:
+            # Simple example calculations - expand as needed
+            revenue = assumptions.get('revenue', 0)
+            costs = assumptions.get('costs', 0)
+            growth_rate = assumptions.get('growth_rate', 0.1)
+
+            profit = revenue - costs
+            margin = (profit / revenue * 100) if revenue > 0 else 0
+
+            # 3-year projection
+            projections = []
+            for year in range(1, 4):
+                proj_revenue = revenue * (1 + growth_rate) ** year
+                proj_costs = costs * (1 + growth_rate * 0.5) ** year  # Costs grow slower
+                proj_profit = proj_revenue - proj_costs
+                projections.append({
+                    'year': year,
+                    'revenue': round(proj_revenue, 2),
+                    'costs': round(proj_costs, 2),
+                    'profit': round(proj_profit, 2),
+                    'margin': round((proj_profit / proj_revenue * 100) if proj_revenue > 0 else 0, 1)
+                })
+
+            return f"""Financial Model Results:
+
+**Current State:**
+- Revenue: ${revenue:,.2f}
+- Costs: ${costs:,.2f}
+- Profit: ${profit:,.2f}
+- Margin: {margin:.1f}%
+
+**3-Year Projections (@ {growth_rate*100:.0f}% growth):**
+{json.dumps(projections, indent=2)}
+
+**Key Insights:**
+- Break-even point: {abs(costs/profit) if profit != 0 else 'N/A'} months
+- ROI potential: {(projections[-1]['profit'] / costs * 100) if costs > 0 else 0:.1f}%
+- Risk factors: Market volatility, cost inflation, execution challenges
+
+**Recommendations:**
+1. Focus on margin improvement through operational efficiency
+2. Consider phased investment to manage risk
+3. Build 20% contingency into cost projections
+"""
+        except Exception as e:
+            return f"Financial modeling error: {str(e)}. Please provide valid assumptions."
+    else:
+        return f"""Financial Modeling Framework for: {scenario}
+
+To perform detailed modeling, please provide assumptions:
+- revenue: Expected revenue
+- costs: Total costs
+- growth_rate: Annual growth rate (e.g., 0.15 for 15%)
+- Other relevant metrics
+
+I can then calculate ROI, break-even, projections, and strategic recommendations."""
+
+@agent.tool
+async def competitor_market_analysis(ctx: RunContext[AgentDeps], analysis_type: str, specifics: str = "") -> str:
+    """
+    Analyze competitive landscape, market trends, and industry benchmarks.
+    Provides strategic intelligence about market position and opportunities.
+
+    Args:
+        ctx: The context
+        analysis_type: Type of analysis ('competitors', 'market_trends', 'benchmarks', 'swot')
+        specifics: Specific areas or competitors to analyze
+
+    Returns:
+        Strategic market analysis and recommendations
+    """
+    print(f"Calling competitor_market_analysis tool - Type: {analysis_type}")
+
+    # First search web for current market info if needed
+    market_data = ""
+    if specifics and ctx.deps.http_client:
+        market_search = await web_search_tool(
+            f"construction industry {specifics} trends 2024",
+            ctx.deps.http_client,
+            ctx.deps.brave_api_key,
+            ctx.deps.searxng_base_url
+        )
+        market_data = f"\n\nCurrent Market Intelligence:\n{market_search}"
+
+    if analysis_type == 'swot':
+        return f"""SWOT Analysis for Alleato Group:
+
+**STRENGTHS:**
+- Specialized expertise in ASRS sprinkler systems
+- Established relationships in warehouse construction
+- Integrated design-build capabilities
+- Strong project management track record
+
+**WEAKNESSES:**
+- Geographic concentration risk
+- Dependency on warehouse construction sector
+- Resource constraints during peak periods
+- Limited digital tool adoption (based on context)
+
+**OPPORTUNITIES:**
+- E-commerce driving warehouse demand
+- Automation systems integration
+- Geographic expansion potential
+- Partnership opportunities with tech providers
+
+**THREATS:**
+- Economic downturn impact on construction
+- Increasing competition in specialized niches
+- Regulatory changes in fire safety standards
+- Supply chain volatility
+{market_data}
+
+**Strategic Recommendations:**
+1. Diversify client base beyond current concentration
+2. Invest in digital project management tools
+3. Build strategic partnerships for geographic expansion
+4. Develop proprietary ASRS design methodologies"""
+
+    elif analysis_type == 'competitors':
+        return f"""Competitive Landscape Analysis:
+
+**Direct Competitors in ASRS/Warehouse Construction:**
+- Large national firms with broader capabilities but less specialization
+- Regional specialists with similar focus but limited scale
+- Traditional sprinkler contractors expanding into ASRS
+
+**Competitive Advantages:**
+- Specialized expertise vs. generalists
+- Design-build integration vs. subcontractor model
+- Established warehouse sector relationships
+
+**Competitive Gaps to Address:**
+- Scale limitations vs. national players
+- Technology adoption vs. innovative competitors
+- Geographic reach vs. multi-region operators
+{market_data}
+
+**Strategic Positioning:**
+1. Double down on ASRS specialization as differentiator
+2. Build technology partnerships to enhance capabilities
+3. Consider strategic alliances for geographic expansion"""
+
+    else:
+        return f"""Market Analysis: {analysis_type}
+Specifics: {specifics}
+{market_data}
+
+Strategic implications for Alleato based on market conditions."""
+
+@agent.tool
+async def email_communication_draft(ctx: RunContext[AgentDeps],
+                                   purpose: str,
+                                   recipient: str,
+                                   key_points: List[str],
+                                   tone: str = "professional") -> str:
+    """
+    Draft professional email communications for various business scenarios.
+
+    Args:
+        ctx: The context
+        purpose: Purpose of the email (update, proposal, escalation, etc.)
+        recipient: Who the email is for (client, team, executive, vendor)
+        key_points: Main points to cover in the email
+        tone: Tone of communication (professional, urgent, friendly, formal)
+
+    Returns:
+        Professionally drafted email ready for review and sending
+    """
+    print(f"Drafting {tone} email for {purpose}")
+
+    # Email templates based on purpose
+    if purpose == "project_update":
+        subject = "Project Status Update - Action Required"
+        opening = f"Hope this message finds you well. I wanted to provide you with an important update on our project status."
+    elif purpose == "escalation":
+        subject = "Urgent: Escalation Required - Immediate Attention Needed"
+        opening = f"I'm reaching out to escalate a critical issue that requires immediate attention."
+    elif purpose == "proposal":
+        subject = "Proposal: Strategic Opportunity for Consideration"
+        opening = f"I'm pleased to present a strategic proposal that could significantly benefit our operations."
+    else:
+        subject = f"Re: {purpose.replace('_', ' ').title()}"
+        opening = f"I wanted to reach out regarding {purpose.replace('_', ' ')}."
+
+    # Build email body
+    email_body = f"""Subject: {subject}
+
+Dear {recipient},
+
+{opening}
+
+"""
+
+    # Add key points
+    if len(key_points) == 1:
+        email_body += f"{key_points[0]}\n\n"
+    else:
+        email_body += "Key Points:\n"
+        for i, point in enumerate(key_points, 1):
+            email_body += f"{i}. {point}\n"
+        email_body += "\n"
+
+    # Add appropriate closing based on tone
+    if tone == "urgent":
+        email_body += "Given the time-sensitive nature of this matter, I would appreciate your response by EOD today.\n\n"
+    elif tone == "formal":
+        email_body += "I would welcome the opportunity to discuss this matter at your earliest convenience.\n\n"
+    else:
+        email_body += "Please let me know if you need any additional information or would like to discuss this further.\n\n"
+
+    email_body += """Best regards,
+[Your Name]
+[Your Title]
+Alleato Group
+
+---
+This email was drafted by AI and should be reviewed before sending.
+Key elements to verify: recipient, dates, numbers, and specific commitments."""
+
+    return email_body
+
+@agent.tool
+async def strategic_recommendations(ctx: RunContext[AgentDeps],
+                                   situation: str,
+                                   constraints: List[str] = None,
+                                   goals: List[str] = None) -> str:
+    """
+    Generate strategic recommendations for any business situation.
+    This tool provides creative, actionable strategies based on the situation, constraints, and goals.
+
+    Args:
+        ctx: The context
+        situation: Current business situation or challenge
+        constraints: List of constraints (budget, timeline, resources, etc.)
+        goals: List of desired outcomes or objectives
+
+    Returns:
+        Prioritized strategic recommendations with implementation roadmap
+    """
+    print(f"Generating strategic recommendations for: {situation}")
+
+    # Build comprehensive recommendations
+    recommendations = f"""## Strategic Recommendations
+
+**Situation Analysis:**
+{situation}
+
+**Constraints Considered:**
+"""
+    if constraints:
+        for c in constraints:
+            recommendations += f"- {c}\n"
+    else:
+        recommendations += "- No specific constraints provided\n"
+
+    recommendations += "\n**Target Outcomes:**\n"
+    if goals:
+        for g in goals:
+            recommendations += f"- {g}\n"
+    else:
+        recommendations += "- Optimize for best overall outcome\n"
+
+    recommendations += """
+
+## Recommended Strategy (Priority Order):
+
+### 1. IMMEDIATE ACTIONS (0-2 weeks)
+**Quick Wins:**
+- Conduct rapid assessment of current state
+- Identify and eliminate obvious inefficiencies
+- Communicate plan to all stakeholders
+- Establish success metrics and tracking
+
+**Risk Mitigation:**
+- Document current issues and dependencies
+- Create contingency plans for critical paths
+- Assign clear ownership and accountability
+
+### 2. SHORT-TERM INITIATIVES (2-8 weeks)
+**Process Optimization:**
+- Implement lean workflows to reduce waste
+- Automate repetitive tasks where possible
+- Establish regular checkpoint reviews
+
+**Resource Optimization:**
+- Reallocate resources to highest-impact areas
+- Consider temporary augmentation for critical gaps
+- Build buffer into timeline for unknowns
+
+### 3. MEDIUM-TERM TRANSFORMATIONS (2-6 months)
+**Capability Building:**
+- Invest in team training and development
+- Implement new tools/systems as needed
+- Build partnerships to extend capabilities
+
+**Strategic Positioning:**
+- Strengthen competitive differentiators
+- Expand into adjacent opportunities
+- Build pipeline for future growth
+
+### 4. LONG-TERM VISION (6+ months)
+**Sustainable Growth:**
+- Develop scalable operating model
+- Build innovation pipeline
+- Create strategic moats
+
+## Implementation Roadmap:
+
+**Week 1-2:** Assessment and planning
+**Week 3-4:** Quick wins implementation
+**Week 5-8:** Process optimization rollout
+**Month 3-4:** Systems and training deployment
+**Month 5-6:** Measure, refine, and scale
+
+## Success Metrics:
+1. Leading indicators (weekly): Activity completion, issue resolution rate
+2. Lagging indicators (monthly): Performance improvement, ROI achieved
+3. Strategic indicators (quarterly): Market position, capability maturity
+
+## Key Risk Factors:
+- Execution complexity with limited resources
+- Stakeholder alignment and change resistance
+- External market/competitive dynamics
+
+## Critical Success Factors:
+- Executive sponsorship and clear communication
+- Dedicated resources with appropriate skills
+- Regular monitoring and course correction
+- Celebrate wins to maintain momentum
+
+*Note: These recommendations should be adapted based on specific Alleato data and context.*"""
+
+    return recommendations

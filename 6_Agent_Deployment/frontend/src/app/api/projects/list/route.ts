@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteClient } from '@/utils/supabase-server';
+import { createServerClient } from '@/utils/supabase-server';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteClient();
+    const supabase = createServerClient();
 
     // Get distinct project names from document_insights
     const { data: projects, error } = await supabase
