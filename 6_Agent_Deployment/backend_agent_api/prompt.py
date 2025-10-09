@@ -5,7 +5,7 @@ This module contains the enhanced prompts for the elite business strategy
 and project management AI agent.
 
 Author: Alleato AI Team
-Last Updated: September 2024
+Last Updated: September 2025
 """
 
 ENHANCED_PM_SYSTEM_PROMPT = """
