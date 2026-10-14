@@ -1,25 +1,13 @@
 "use server"
 
-import { createClient } from "@/utils/supabase/client"
+import { createClient } from "@/lib/supabase/server"
+import type { Database } from "@/types/database.types"
 
-export interface Company {
-  id: string
-  name: string | null
-  industry: string | null
-  size: string | null
-  location: string | null
-  website: string | null
-  description: string | null
-  contact_email: string | null
-  phone: string | null
-  status: string | null
-  created_at: string | null
-  updated_at: string | null
-}
+export type Company = Database["public"]["Tables"]["companies"]["Row"]
 
 export async function getCompanies(): Promise<{ companies: Company[]; error?: string }> {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     
     const { data, error } = await supabase
       .from('companies')
@@ -46,7 +34,7 @@ export async function getCompanies(): Promise<{ companies: Company[]; error?: st
 
 export async function createCompany(companyData: Partial<Company>): Promise<{ company?: Company; error?: string }> {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     
     const { data, error } = await supabase
       .from('companies')
@@ -68,7 +56,7 @@ export async function createCompany(companyData: Partial<Company>): Promise<{ co
 
 export async function updateCompany(id: string, updates: Partial<Company>): Promise<{ company?: Company; error?: string }> {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     
     const { data, error } = await supabase
       .from('companies')
@@ -91,7 +79,7 @@ export async function updateCompany(id: string, updates: Partial<Company>): Prom
 
 export async function deleteCompany(id: string): Promise<{ success?: boolean; error?: string }> {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     
     const { error } = await supabase
       .from('companies')

@@ -1,11 +1,44 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { StandardizedTable, TableColumn } from "@/components/tables/standardized-table"
-import { getCompanies, Company } from "@/app/actions/companies-actions"
+import { StandardizedTable, type TableColumn } from "@/components/tables/standardized-table"
+import { getCompanies, type Company } from "@/app/actions/companies-actions"
 import { createClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
+
+const editableCompanyFields = [
+  "name",
+  "title",
+  "type",
+  "address",
+  "city",
+  "state",
+  "website",
+  "status",
+  "contact_name",
+  "contact_email",
+  "contact_phone",
+  "notes",
+] as const satisfies readonly (keyof Company)[]
+
+function pickEditableCompanyFields(data: Partial<Company>): Partial<Company> {
+  return Object.fromEntries(
+    editableCompanyFields
+      .filter((field) => data[field] !== undefined)
+      .map((field) => [field, data[field]])
+  ) as Partial<Company>
+}
+
+function websiteHref(value: string): string | null {
+  try {
+    const normalized = new URL(value.includes("://") ? value : `https://${value}`)
+    return normalized.protocol === "http:" || normalized.protocol === "https:"
+      ? normalized.href
+      : null
+  } catch {
+    return null
+  }
+}
 
 const columns: TableColumn<Company>[] = [
   {
@@ -16,9 +49,16 @@ const columns: TableColumn<Company>[] = [
     sortable: true,
   },
   {
-    id: "industry",
-    label: "Industry",
-    accessor: (item) => item.industry,
+    id: "title",
+    label: "Title",
+    accessor: (item) => item.title,
+    defaultVisible: true,
+    sortable: true,
+  },
+  {
+    id: "type",
+    label: "Type",
+    accessor: (item) => item.type,
     defaultVisible: true,
     sortable: true,
     filterable: true,
@@ -27,22 +67,30 @@ const columns: TableColumn<Company>[] = [
     ) : <span className="text-muted-foreground">-</span>
   },
   {
-    id: "size",
-    label: "Size",
-    accessor: (item) => item.size,
+    id: "city",
+    label: "City",
+    accessor: (item) => item.city,
     defaultVisible: true,
     sortable: true,
-    filterable: true,
-    renderCell: (value) => value ? (
-      <Badge variant="outline">{value}</Badge>
-    ) : <span className="text-muted-foreground">-</span>
   },
   {
-    id: "location",
-    label: "Location",
-    accessor: (item) => item.location,
+    id: "state",
+    label: "State",
+    accessor: (item) => item.state,
     defaultVisible: true,
     sortable: true,
+  },
+  {
+    id: "address",
+    label: "Address",
+    accessor: (item) => item.address,
+    defaultVisible: false,
+  },
+  {
+    id: "contact_name",
+    label: "Contact",
+    accessor: (item) => item.contact_name,
+    defaultVisible: false,
   },
   {
     id: "contact_email",
@@ -56,9 +104,9 @@ const columns: TableColumn<Company>[] = [
     ) : <span className="text-muted-foreground">-</span>
   },
   {
-    id: "phone",
+    id: "contact_phone",
     label: "Phone",
-    accessor: (item) => item.phone,
+    accessor: (item) => item.contact_phone,
     defaultVisible: false,
     renderCell: (value) => value ? (
       <a href={`tel:${value}`} className="text-blue-600 hover:underline">
@@ -71,11 +119,15 @@ const columns: TableColumn<Company>[] = [
     label: "Website",
     accessor: (item) => item.website,
     defaultVisible: true,
-    renderCell: (value) => value ? (
-      <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-        {new URL(value).hostname}
-      </a>
-    ) : <span className="text-muted-foreground">-</span>
+    renderCell: (value) => {
+      if (!value) return <span className="text-muted-foreground">-</span>
+      const href = websiteHref(value)
+      return href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+          {new URL(href).hostname}
+        </a>
+      ) : <span>{value}</span>
+    }
   },
   {
     id: "status",
@@ -94,27 +146,20 @@ const columns: TableColumn<Company>[] = [
     }
   },
   {
-    id: "description",
-    label: "Description",
-    accessor: (item) => item.description,
+    id: "notes",
+    label: "Notes",
+    accessor: (item) => item.notes,
     defaultVisible: false,
     renderCell: (value) => value ? (
       <span className="line-clamp-2 max-w-xs">{value}</span>
     ) : <span className="text-muted-foreground">-</span>
   },
-  {
-    id: "created_at",
-    label: "Created",
-    accessor: (item) => item.created_at,
-    defaultVisible: true,
-    sortable: true,
-    renderCell: (value) => value ? format(new Date(value), "PP") : "-"
-  }
 ]
 
 export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     loadCompanies()
@@ -122,22 +167,37 @@ export default function CompaniesPage() {
 
   const loadCompanies = async () => {
     setLoading(true)
-    const { companies: data } = await getCompanies()
-    setCompanies(data)
-    setLoading(false)
+    try {
+      const { companies: data, error } = await getCompanies()
+      if (error) {
+        setLoadError(error)
+        setCompanies([])
+        return
+      }
+      setLoadError(null)
+      setCompanies(data)
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Unable to load companies.")
+      setCompanies([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Get unique values for filter options
-  const industries = Array.from(new Set(companies.map(c => c.industry).filter(Boolean)))
-  const sizes = Array.from(new Set(companies.map(c => c.size).filter(Boolean)))
+  const types = Array.from(new Set(companies.map(c => c.type).filter(Boolean)))
   const statuses = Array.from(new Set(companies.map(c => c.status).filter(Boolean)))
 
   const handleAdd = async (data: Partial<Company>) => {
+    const companyData = pickEditableCompanyFields(data)
+    if (!companyData.name?.trim()) {
+      throw new Error("Company name is required.")
+    }
     const supabase = createClient()
 
     const { error } = await supabase
       .from("companies")
-      .insert([data])
+      .insert([{ ...companyData, name: companyData.name.trim() }])
 
     if (error) {
       throw new Error(error.message)
@@ -147,11 +207,12 @@ export default function CompaniesPage() {
   }
 
   const handleUpdate = async (id: string | number, data: Partial<Company>) => {
+    const companyData = pickEditableCompanyFields(data)
     const supabase = createClient()
 
     const { error } = await supabase
       .from("companies")
-      .update(data)
+      .update(companyData)
       .eq("id", id)
 
     if (error) {
@@ -186,6 +247,10 @@ export default function CompaniesPage() {
     )
   }
 
+  if (loadError) {
+    return <div role="alert" className="p-4 text-destructive">{loadError}</div>
+  }
+
   return (
     <div>
       <StandardizedTable
@@ -197,17 +262,12 @@ export default function CompaniesPage() {
         onUpdate={handleUpdate}
         onDelete={handleDelete}
         onRefresh={loadCompanies}
-        searchableFields={["name", "industry", "location", "description"]}
+        searchableFields={["name", "title", "type", "city", "state", "address", "contact_name", "contact_email", "contact_phone", "notes"]}
         filterOptions={[
           {
-            field: "industry",
-            label: "Industry",
-            options: industries.map(i => ({ value: i!, label: i! }))
-          },
-          {
-            field: "size",
-            label: "Size",
-            options: sizes.map(s => ({ value: s!, label: s! }))
+            field: "type",
+            label: "Type",
+            options: types.map(t => ({ value: t!, label: t! }))
           },
           {
             field: "status",

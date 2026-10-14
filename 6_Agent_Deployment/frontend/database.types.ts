@@ -1016,42 +1016,147 @@ export type Database = {
       }
       companies: {
         Row: {
+          acumatica_sync_at: string | null
+          acumatica_vendor_id: string | null
           address: string | null
+          ap_account: string | null
+          cash_account: string | null
           city: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          country: string | null
           created_at: string | null
+          currency_code: string | null
+          currency_symbol: string | null
+          customer_id: string | null
           id: string
+          invoice_contact_id: string | null
+          is_1099_vendor: boolean | null
+          is_foreign_entity: boolean | null
+          is_labor_union: boolean | null
+          is_tax_agency: boolean | null
+          is_vendor: boolean
+          legal_name: string | null
+          license_number: string | null
+          logo_url: string | null
+          metadata: Json | null
           name: string
           notes: string | null
+          payment_method: string | null
+          primary_contact_id: string | null
+          qbo_vendor_id: string | null
           state: string | null
+          status: string | null
+          tax_id: string | null
+          terms: string | null
           title: string | null
+          type: string | null
           updated_at: string | null
-          website: string
+          vendor_class: string | null
+          website: string | null
+          zip_code: string | null
         }
         Insert: {
+          acumatica_sync_at?: string | null
+          acumatica_vendor_id?: string | null
           address?: string | null
+          ap_account?: string | null
+          cash_account?: string | null
           city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          country?: string | null
           created_at?: string | null
+          currency_code?: string | null
+          currency_symbol?: string | null
+          customer_id?: string | null
           id?: string
+          invoice_contact_id?: string | null
+          is_1099_vendor?: boolean | null
+          is_foreign_entity?: boolean | null
+          is_labor_union?: boolean | null
+          is_tax_agency?: boolean | null
+          is_vendor?: boolean
+          legal_name?: string | null
+          license_number?: string | null
+          logo_url?: string | null
+          metadata?: Json | null
           name: string
           notes?: string | null
+          payment_method?: string | null
+          primary_contact_id?: string | null
+          qbo_vendor_id?: string | null
           state?: string | null
+          status?: string | null
+          tax_id?: string | null
+          terms?: string | null
           title?: string | null
+          type?: string | null
           updated_at?: string | null
-          website: string
+          vendor_class?: string | null
+          website?: string | null
+          zip_code?: string | null
         }
         Update: {
+          acumatica_sync_at?: string | null
+          acumatica_vendor_id?: string | null
           address?: string | null
+          ap_account?: string | null
+          cash_account?: string | null
           city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          country?: string | null
           created_at?: string | null
+          currency_code?: string | null
+          currency_symbol?: string | null
+          customer_id?: string | null
           id?: string
+          invoice_contact_id?: string | null
+          is_1099_vendor?: boolean | null
+          is_foreign_entity?: boolean | null
+          is_labor_union?: boolean | null
+          is_tax_agency?: boolean | null
+          is_vendor?: boolean
+          legal_name?: string | null
+          license_number?: string | null
+          logo_url?: string | null
+          metadata?: Json | null
           name?: string
           notes?: string | null
+          payment_method?: string | null
+          primary_contact_id?: string | null
+          qbo_vendor_id?: string | null
           state?: string | null
+          status?: string | null
+          tax_id?: string | null
+          terms?: string | null
           title?: string | null
+          type?: string | null
           updated_at?: string | null
-          website?: string
+          vendor_class?: string | null
+          website?: string | null
+          zip_code?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_invoice_contact_id_fkey"
+            columns: ["invoice_contact_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companies_primary_contact_id_fkey"
+            columns: ["primary_contact_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_context: {
         Row: {
