@@ -30,8 +30,16 @@ const data = {
           url: "/",
         },
         {
+          title: "Projects Dashboard",
+          url: "/projects/dashboard",
+        },
+        {
           title: "Projects",
           url: "/projects",
+        },
+        {
+          title: "Project Insights",
+          url: "/insights",
         },
         {
           title: "Meetings",
@@ -48,6 +56,10 @@ const data = {
       url: "#",
       items: [
         {
+          title: "Projects",
+          url: "/projects",
+        },
+        {
           title: "Clients",
           url: "/clients",
         },
@@ -62,11 +74,11 @@ const data = {
         },
         {
           title: "Companies",
-          url: "/company",
+          url: "/companies",
         },
         {
           title: "Team",
-          url: "#",
+          url: "/team",
         },
         {
           title: "Documents",
@@ -79,10 +91,6 @@ const data = {
         {
           title: "Subcontractors",
           url: "/subcontractors",
-        },
-        {
-          title: "AI Insights",
-          url: "/ai-insights",
         },
       ],
     },

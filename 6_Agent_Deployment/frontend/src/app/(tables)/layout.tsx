@@ -7,12 +7,16 @@ import { ActionButtonContext } from "@/hooks/use-action-button"
 
 // Route-to-title mapping configuration
 const ROUTE_CONFIG = {
+  "/projects": {
+    title: "Projects",
+    description: "Manage project information, budgets, and progress tracking"
+  },
   "/companies": {
     title: "Companies",
     description: "Manage company profiles, contacts, and business relationships"
   },
   "/contacts": {
-    title: "Contacts", 
+    title: "Contacts",
     description: "Manage individual contacts and their associated information"
   },
   "/documents": {
@@ -117,9 +121,9 @@ export default function TablesLayout({
 
   return (
     <ActionButtonContext.Provider value={{ setActionButton }}>
-      <div className="space-y-4 p-2 sm:p-4 md:p-6 w-[95%] sm:w-full mx-auto">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <TablesLayoutHeader actionButton={actionButton} />
-        <div className="space-y-6">
+        <div className="w-full">
           {children}
         </div>
       </div>

@@ -10,6 +10,7 @@ import { Database } from "@/types/database.types"
 type Contact = Database['public']['Tables']['contacts']['Row']
 
 interface ContactWithCompany extends Contact {
+  company_id?: string | null
   company?: {
     id: string
     name: string | null
@@ -90,6 +91,7 @@ const columns: TableColumn<ContactWithCompany>[] = [
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<ContactWithCompany[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     loadContacts()
@@ -97,9 +99,15 @@ export default function ContactsPage() {
 
   const loadContacts = async () => {
     setLoading(true)
-    const data = await getContacts()
-    setContacts(data)
-    setLoading(false)
+    setLoadError(null)
+    try {
+      const data = await getContacts()
+      setContacts(data)
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load contacts.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleAdd = async (data: Partial<ContactWithCompany>) => {
@@ -154,10 +162,19 @@ export default function ContactsPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Loading contacts...</div>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading contacts...</div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div role="alert" className="container mx-auto py-6 text-destructive">
+        <p>Could not load contacts: {loadError}</p>
+        <button type="button" onClick={loadContacts} className="mt-2 underline">
+          Try again
+        </button>
       </div>
     )
   }
