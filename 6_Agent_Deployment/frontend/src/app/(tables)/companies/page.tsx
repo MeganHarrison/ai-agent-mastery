@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { StandardizedTable, type TableColumn } from "@/components/tables/standardized-table"
-import { getCompanies, type Company } from "@/app/actions/companies-actions"
-import { createClient } from "@/lib/supabase/client"
+import {
+  createCompany,
+  deleteCompany,
+  getCompanies,
+  type Company,
+  updateCompany,
+} from "@/app/actions/companies-actions"
 import { Badge } from "@/components/ui/badge"
 
 const editableCompanyFields = [
@@ -26,7 +31,7 @@ function pickEditableCompanyFields(data: Partial<Company>): Partial<Company> {
     editableCompanyFields
       .filter((field) => data[field] !== undefined)
       .map((field) => [field, data[field]])
-  ) as Partial<Company>
+  )
 }
 
 function websiteHref(value: string): string | null {
@@ -120,7 +125,7 @@ const columns: TableColumn<Company>[] = [
     accessor: (item) => item.website,
     defaultVisible: true,
     renderCell: (value) => {
-      if (!value) return <span className="text-muted-foreground">-</span>
+      if (typeof value !== "string" || !value) return <span className="text-muted-foreground">-</span>
       const href = websiteHref(value)
       return href ? (
         <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
@@ -162,7 +167,7 @@ export default function CompaniesPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadCompanies()
+    void loadCompanies()
   }, [])
 
   const loadCompanies = async () => {
@@ -193,46 +198,25 @@ export default function CompaniesPage() {
     if (!companyData.name?.trim()) {
       throw new Error("Company name is required.")
     }
-    const supabase = createClient()
-
-    const { error } = await supabase
-      .from("companies")
-      .insert([{ ...companyData, name: companyData.name.trim() }])
-
-    if (error) {
-      throw new Error(error.message)
-    }
+    const { error } = await createCompany({ ...companyData, name: companyData.name.trim() })
+    if (error) throw new Error(error)
 
     await loadCompanies()
   }
 
   const handleUpdate = async (id: string | number, data: Partial<Company>) => {
     const companyData = pickEditableCompanyFields(data)
-    const supabase = createClient()
-
-    const { error } = await supabase
-      .from("companies")
-      .update(companyData)
-      .eq("id", id)
-
-    if (error) {
-      throw new Error(error.message)
-    }
+    if (typeof id !== "string") throw new Error("Invalid company ID.")
+    const { error } = await updateCompany(id, companyData)
+    if (error) throw new Error(error)
 
     await loadCompanies()
   }
 
   const handleDelete = async (id: string | number) => {
-    const supabase = createClient()
-
-    const { error } = await supabase
-      .from("companies")
-      .delete()
-      .eq("id", id)
-
-    if (error) {
-      throw new Error(error.message)
-    }
+    if (typeof id !== "string") throw new Error("Invalid company ID.")
+    const { error } = await deleteCompany(id)
+    if (error) throw new Error(error)
 
     await loadCompanies()
   }

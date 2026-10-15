@@ -1,0 +1,2 @@
+# Generated from the database schema; linting it can overwhelm type-aware rules.
+src/types/database.types.ts
