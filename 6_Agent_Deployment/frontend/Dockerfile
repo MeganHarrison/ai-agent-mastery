@@ -1,5 +1,5 @@
-# Use the official Node.js 18 image as the base image
-FROM node:18-alpine AS base
+# OpenAI SDK v7 and the Vercel deployment use Node.js 22.
+FROM node:22-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -10,7 +10,7 @@ WORKDIR /app
 # Install dependencies based on the preferred package manager
 COPY package.json pnpm-lock.yaml* ./
 RUN \
-  if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
+  if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && corepack prepare pnpm@10.13.1 --activate && pnpm i --frozen-lockfile; \
   else echo "Lockfile not found." && exit 1; \
   fi
 
@@ -35,7 +35,7 @@ ENV SUPABASE_SERVICE_ROLE_KEY=dummy_service_key
 ENV NEXT_TELEMETRY_DISABLED 1
 
 RUN \
-  if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm build; \
+  if [ -f pnpm-lock.yaml ]; then corepack enable pnpm && corepack prepare pnpm@10.13.1 --activate && pnpm build; \
   else echo "Lockfile not found." && exit 1; \
   fi
 
